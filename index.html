@@ -1,0 +1,1917 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Kalkulator Matm0">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="theme-color" content="#0f172a">
+    <meta name="description" content="Szwajcarski scyzoryk do obliczeń codziennych i technicznych">
+    <link rel="manifest" href="manifest.json">
+    <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%232563eb'/><text x='50' y='62' text-anchor='middle' font-size='48' font-family='sans-serif' font-weight='bold' fill='white'>🧮</text></svg>">
+    <title>Kalkulator by Matm0</title>
+    <style>
+        /* ============================================================
+           [EN] CSS Custom Properties — global design tokens
+           ============================================================ */
+        :root {
+            --primary: #2563eb;
+            --primary-hover: #1d4ed8;
+            --primary-light: #dbeafe;
+            --bg: #f1f5f9;
+            --card-bg: #ffffff;
+            --text: #0f172a;
+            --text-secondary: #475569;
+            --text-muted: #94a3b8;
+            --border: #e2e8f0;
+            --border-focus: #93c5fd;
+            --danger: #ef4444;
+            --danger-hover: #dc2626;
+            --success: #10b981;
+            --success-light: #d1fae5;
+            --warning: #f59e0b;
+            --radius-sm: 8px;
+            --radius: 14px;
+            --radius-lg: 20px;
+            --radius-xl: 24px;
+            --shadow-sm: 0 1px 2px rgba(0,0,0,0.05);
+            --shadow: 0 4px 16px rgba(0,0,0,0.06), 0 1px 3px rgba(0,0,0,0.04);
+            --shadow-lg: 0 12px 40px rgba(0,0,0,0.1), 0 4px 12px rgba(0,0,0,0.05);
+            --font: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            --font-mono: 'SF Mono', 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+            --transition: 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            --safe-bottom: env(safe-area-inset-bottom, 0px);
+        }
+
+        /* ============================================================
+           [EN] CSS Reset & Base
+           ============================================================ */
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        html {
+            font-size: 16px;
+            -webkit-text-size-adjust: 100%;
+            text-size-adjust: 100%;
+            -webkit-tap-highlight-color: transparent;
+            height: 100%;
+        }
+
+        body {
+            font-family: var(--font);
+            background: var(--bg);
+            color: var(--text);
+            line-height: 1.5;
+            min-height: 100%;
+            min-height: 100dvh;
+            display: flex;
+            flex-direction: column;
+            padding-bottom: calc(16px + var(--safe-bottom));
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+            /* [EN] Prevent pull-to-refresh on PWA */
+            overscroll-behavior-y: contain;
+        }
+
+        /* ============================================================
+           [EN] Header
+           ============================================================ */
+        .app-header {
+            background: var(--card-bg);
+            padding: 14px 20px;
+            text-align: center;
+            border-bottom: 1px solid var(--border);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            background: rgba(255, 255, 255, 0.92);
+        }
+        .app-header h1 {
+            font-size: 1.25rem;
+            font-weight: 700;
+            letter-spacing: -0.02em;
+            color: var(--text);
+        }
+        .app-header .subtitle {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            font-weight: 400;
+            margin-top: 1px;
+        }
+
+        /* ============================================================
+           [EN] Tab Navigation
+           ============================================================ */
+        .tab-nav {
+            display: flex;
+            gap: 4px;
+            padding: 8px 12px;
+            background: var(--bg);
+            position: sticky;
+            top: 58px;
+            z-index: 99;
+        }
+        .tab-btn {
+            flex: 1;
+            padding: 10px 8px;
+            border: none;
+            border-radius: var(--radius);
+            background: transparent;
+            color: var(--text-secondary);
+            font-family: var(--font);
+            font-size: 0.8125rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all var(--transition);
+            white-space: nowrap;
+            min-height: 44px; /* [EN] Touch target minimum */
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 4px;
+            -webkit-tap-highlight-color: transparent;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+        .tab-btn.active {
+            background: var(--card-bg);
+            color: var(--primary);
+            box-shadow: var(--shadow-sm);
+        }
+        .tab-btn:active { transform: scale(0.97); }
+        .tab-icon { font-size: 1.1rem; }
+
+        /* ============================================================
+           [EN] Main Content Panels
+           ============================================================ */
+        .panels {
+            flex: 1;
+            padding: 12px;
+            max-width: 600px;
+            width: 100%;
+            margin: 0 auto;
+        }
+        .panel {
+            display: none;
+            animation: fadeSlideIn 0.25s ease;
+        }
+        .panel.active { display: block; }
+        @keyframes fadeSlideIn {
+            from { opacity: 0; transform: translateY(8px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+
+        /* ============================================================
+           [EN] Card Component
+           ============================================================ */
+        .card {
+            background: var(--card-bg);
+            border-radius: var(--radius-lg);
+            padding: 20px;
+            box-shadow: var(--shadow);
+            margin-bottom: 12px;
+        }
+        .card-header {
+            font-size: 0.9375rem;
+            font-weight: 700;
+            color: var(--text);
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .card-header .icon { font-size: 1.2rem; }
+
+        /* ============================================================
+           [EN] Standard Calculator
+           ============================================================ */
+        .calc-display {
+            background: #f8fafc;
+            border-radius: var(--radius);
+            padding: 16px 20px;
+            margin-bottom: 16px;
+            min-height: 80px;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-end;
+            align-items: flex-end;
+            border: 1px solid var(--border);
+            overflow: hidden;
+        }
+        .calc-expression {
+            font-size: 0.875rem;
+            color: var(--text-muted);
+            font-family: var(--font-mono);
+            min-height: 20px;
+            word-break: break-all;
+            text-align: right;
+            width: 100%;
+            transition: opacity 0.15s;
+        }
+        .calc-result {
+            font-size: 2.5rem;
+            font-weight: 700;
+            color: var(--text);
+            font-family: var(--font-mono);
+            letter-spacing: -0.03em;
+            line-height: 1.1;
+            word-break: break-all;
+            text-align: right;
+            width: 100%;
+            transition: font-size 0.15s;
+        }
+        .calc-result.small { font-size: 1.75rem; }
+        .calc-result.xsmall { font-size: 1.25rem; }
+
+        .calc-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 8px;
+        }
+        .calc-btn {
+            aspect-ratio: 1;
+            border: none;
+            border-radius: var(--radius);
+            font-family: var(--font);
+            font-size: 1.25rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all var(--transition);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 56px;
+            -webkit-tap-highlight-color: transparent;
+            user-select: none;
+            -webkit-user-select: none;
+            position: relative;
+            overflow: hidden;
+        }
+        /* [EN] Ripple effect handled in JS — static styles only */
+        .calc-btn:active { transform: scale(0.94); }
+        .calc-btn--number {
+            background: #f1f5f9;
+            color: var(--text);
+        }
+        .calc-btn--number:active { background: #e2e8f0; }
+        .calc-btn--operator {
+            background: var(--primary-light);
+            color: var(--primary);
+            font-size: 1.35rem;
+        }
+        .calc-btn--operator:active { background: #bfdbfe; }
+        .calc-btn--equals {
+            background: var(--primary);
+            color: #fff;
+            font-size: 1.5rem;
+        }
+        .calc-btn--equals:active { background: var(--primary-hover); }
+        .calc-btn--fn {
+            background: #e2e8f0;
+            color: var(--text-secondary);
+            font-size: 1rem;
+            font-weight: 500;
+        }
+        .calc-btn--fn:active { background: #cbd5e1; }
+        .calc-btn--clear {
+            background: #fee2e2;
+            color: var(--danger);
+            font-weight: 700;
+        }
+        .calc-btn--clear:active { background: #fecaca; }
+
+        /* ============================================================
+           [EN] History Section
+           ============================================================ */
+        .history-section {
+            margin-top: 12px;
+        }
+        .history-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+        .history-header h3 {
+            font-size: 0.8125rem;
+            font-weight: 600;
+            color: var(--text-secondary);
+        }
+        .history-clear-btn {
+            background: none;
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            padding: 4px 12px;
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            cursor: pointer;
+            font-family: var(--font);
+            transition: all var(--transition);
+        }
+        .history-clear-btn:active { background: #fee2e2; color: var(--danger); border-color: var(--danger); }
+        .history-list {
+            list-style: none;
+            max-height: 200px;
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+        .history-item {
+            padding: 10px 12px;
+            border-bottom: 1px solid var(--border);
+            font-family: var(--font-mono);
+            font-size: 0.8125rem;
+            color: var(--text-secondary);
+            cursor: pointer;
+            transition: background var(--transition);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-radius: var(--radius-sm);
+        }
+        .history-item:active { background: var(--primary-light); }
+        .history-item .expr { flex: 1; }
+        .history-item .result { font-weight: 700; color: var(--primary); margin-left: 12px; }
+
+        /* ============================================================
+           [EN] Engineering Module — Inputs
+           ============================================================ */
+        .input-group {
+            margin-bottom: 14px;
+        }
+        .input-group label {
+            display: block;
+            font-size: 0.8125rem;
+            font-weight: 600;
+            color: var(--text-secondary);
+            margin-bottom: 4px;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+        }
+        .input-group input,
+        .input-group select {
+            width: 100%;
+            padding: 12px 14px;
+            border: 1.5px solid var(--border);
+            border-radius: var(--radius);
+            font-family: var(--font);
+            font-size: 1rem;
+            color: var(--text);
+            background: #f8fafc;
+            transition: all var(--transition);
+            -webkit-appearance: none;
+            appearance: none;
+            min-height: 48px;
+        }
+        .input-group input:focus,
+        .input-group select:focus {
+            outline: none;
+            border-color: var(--border-focus);
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+            background: #fff;
+        }
+        .input-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+        .input-triple {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 8px;
+        }
+
+        /* [EN] Unit Toggle */
+        .unit-toggle {
+            display: flex;
+            gap: 4px;
+            background: #f1f5f9;
+            border-radius: var(--radius);
+            padding: 3px;
+        }
+        .unit-btn {
+            flex: 1;
+            padding: 10px;
+            border: none;
+            border-radius: calc(var(--radius) - 3px);
+            background: transparent;
+            font-family: var(--font);
+            font-size: 0.8125rem;
+            font-weight: 600;
+            cursor: pointer;
+            color: var(--text-secondary);
+            transition: all var(--transition);
+            min-height: 40px;
+        }
+        .unit-btn.active {
+            background: #fff;
+            color: var(--primary);
+            box-shadow: var(--shadow-sm);
+        }
+        .unit-btn:active { transform: scale(0.97); }
+
+        /* [EN] Axis Toggle */
+        .axis-toggle {
+            display: flex;
+            gap: 8px;
+        }
+        .axis-btn {
+            flex: 1;
+            padding: 12px;
+            border: 2px solid var(--border);
+            border-radius: var(--radius);
+            background: #fff;
+            font-family: var(--font);
+            font-size: 0.875rem;
+            font-weight: 600;
+            cursor: pointer;
+            color: var(--text-secondary);
+            transition: all var(--transition);
+            min-height: 48px;
+        }
+        .axis-btn.active {
+            border-color: var(--primary);
+            color: var(--primary);
+            background: var(--primary-light);
+        }
+        .axis-btn:active { transform: scale(0.97); }
+
+        /* ============================================================
+           [EN] Canvas Visualization
+           ============================================================ */
+        .canvas-container {
+            background: #fefefe;
+            border-radius: var(--radius);
+            border: 1px solid var(--border);
+            overflow: hidden;
+            margin-top: 12px;
+        }
+        canvas {
+            display: block;
+            width: 100%;
+            height: auto;
+            cursor: default;
+        }
+
+        /* [EN] Results output */
+        .eng-result {
+            background: var(--success-light);
+            border-radius: var(--radius);
+            padding: 14px 16px;
+            margin-top: 12px;
+            font-family: var(--font-mono);
+            font-size: 0.8125rem;
+            color: #065f46;
+            white-space: pre-line;
+            line-height: 1.6;
+            max-height: 180px;
+            overflow-y: auto;
+        }
+
+        /* ============================================================
+           [EN] Constants Module
+           ============================================================ */
+        .const-form {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin-bottom: 16px;
+        }
+        .const-form-row {
+            display: grid;
+            grid-template-columns: 2fr 1fr 1fr;
+            gap: 8px;
+        }
+        .const-form input {
+            padding: 12px;
+            border: 1.5px solid var(--border);
+            border-radius: var(--radius);
+            font-family: var(--font);
+            font-size: 0.9375rem;
+            min-height: 48px;
+            background: #f8fafc;
+        }
+        .const-form input:focus {
+            outline: none;
+            border-color: var(--border-focus);
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+            background: #fff;
+        }
+        .btn {
+            padding: 12px 20px;
+            border: none;
+            border-radius: var(--radius);
+            font-family: var(--font);
+            font-size: 0.9375rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all var(--transition);
+            min-height: 48px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+        }
+        .btn-primary {
+            background: var(--primary);
+            color: #fff;
+        }
+        .btn-primary:active { background: var(--primary-hover); transform: scale(0.97); }
+        .btn-danger {
+            background: transparent;
+            color: var(--danger);
+            border: 1px solid var(--danger);
+        }
+        .btn-danger:active { background: #fee2e2; }
+        .btn-sm {
+            padding: 6px 12px;
+            font-size: 0.75rem;
+            min-height: 32px;
+            border-radius: var(--radius-sm);
+        }
+        .const-list {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        .const-item {
+            background: #f8fafc;
+            border-radius: var(--radius);
+            padding: 14px 16px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border: 1px solid var(--border);
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+        .const-item .info { flex: 1; min-width: 120px; }
+        .const-item .name {
+            font-weight: 700;
+            font-size: 0.9375rem;
+            color: var(--text);
+        }
+        .const-item .detail {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            font-family: var(--font-mono);
+        }
+        .const-item .actions {
+            display: flex;
+            gap: 6px;
+        }
+        .quick-calc {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            margin-top: 8px;
+            flex-wrap: wrap;
+        }
+        .quick-calc input {
+            width: 100px;
+            padding: 10px;
+            border: 1.5px solid var(--border);
+            border-radius: var(--radius);
+            font-family: var(--font);
+            font-size: 0.9375rem;
+            min-height: 44px;
+            background: #f8fafc;
+        }
+        .quick-calc .quick-result {
+            font-family: var(--font-mono);
+            font-weight: 700;
+            color: var(--success);
+            font-size: 1rem;
+        }
+
+        /* ============================================================
+           [EN] Toast / Notifications
+           ============================================================ */
+        .toast {
+            position: fixed;
+            bottom: 24px;
+            left: 50%;
+            transform: translateX(-50%) translateY(100px);
+            background: var(--text);
+            color: #fff;
+            padding: 12px 24px;
+            border-radius: 999px;
+            font-size: 0.875rem;
+            font-weight: 600;
+            z-index: 1000;
+            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            pointer-events: none;
+            white-space: nowrap;
+            box-shadow: var(--shadow-lg);
+        }
+        .toast.show { transform: translateX(-50%) translateY(0); }
+        .toast.success { background: var(--success); }
+        .toast.error { background: var(--danger); }
+
+        /* ============================================================
+           [EN] Empty State
+           ============================================================ */
+        .empty-state {
+            text-align: center;
+            padding: 32px 16px;
+            color: var(--text-muted);
+        }
+        .empty-state .icon { font-size: 2.5rem; margin-bottom: 8px; }
+        .empty-state p { font-size: 0.875rem; }
+
+        /* ============================================================
+           [EN] Responsive — Tablet & Laptop
+           ============================================================ */
+        @media (min-width: 640px) {
+            .panels { padding: 16px 20px; }
+            .calc-btn { font-size: 1.35rem; min-height: 62px; }
+            .calc-result { font-size: 3rem; }
+            .calc-result.small { font-size: 2rem; }
+            .calc-result.xsmall { font-size: 1.5rem; }
+            .calc-grid { gap: 10px; }
+            .input-row { gap: 12px; }
+            .input-triple { gap: 10px; }
+            .tab-btn { font-size: 0.875rem; padding: 12px 16px; }
+        }
+
+        @media (min-width: 1024px) {
+            .panels { max-width: 700px; padding: 20px 24px; }
+            .calc-btn { font-size: 1.5rem; min-height: 68px; }
+            .calc-result { font-size: 3.5rem; }
+            .card { padding: 24px; }
+            .app-header h1 { font-size: 1.5rem; }
+        }
+
+        /* ============================================================
+           [EN] Scrollbar styling
+           ============================================================ */
+        .history-list::-webkit-scrollbar { width: 4px; }
+        .history-list::-webkit-scrollbar-track { background: transparent; }
+        .history-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
+        /* [EN] Print styles — hide UI chrome, show only essential data */
+        @media print {
+            body { background: #fff; }
+            .tab-nav, .app-header, .calc-grid, .btn, .history-clear-btn,
+            .const-form, .actions, .toast { display: none !important; }
+            .panel { display: block !important; }
+            .card { box-shadow: none; border: 1px solid #ccc; break-inside: avoid; }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- ============================================================
+    [EN] App Header
+    ============================================================ -->
+    <header class="app-header">
+        <h1>Kalkulator by Matm0</h1>
+        <p class="subtitle">Szwajcarski scyzoryk do obliczeń</p>
+    </header>
+
+    <!-- ============================================================
+    [EN] Tab Navigation
+    ============================================================ -->
+    <nav class="tab-nav" role="tablist">
+        <button class="tab-btn active" data-tab="calculator" role="tab" aria-selected="true">
+            <span class="tab-icon">🧮</span> Standard
+        </button>
+        <button class="tab-btn" data-tab="engineering" role="tab" aria-selected="false">
+            <span class="tab-icon">📐</span> Inżynieria
+        </button>
+        <button class="tab-btn" data-tab="constants" role="tab" aria-selected="false">
+            <span class="tab-icon">📊</span> Moje Stałe
+        </button>
+    </nav>
+
+    <!-- ============================================================
+    [EN] Main Content
+    ============================================================ -->
+    <main class="panels">
+
+        <!-- ==================== PANEL: Standard Calculator ==================== -->
+        <section id="panel-calculator" class="panel active" role="tabpanel">
+            <div class="card">
+                <div class="calc-display">
+                    <div class="calc-expression" id="calcExpr" aria-live="polite"></div>
+                    <div class="calc-result" id="calcResult" aria-live="polite">0</div>
+                </div>
+                <div class="calc-grid" id="calcGrid">
+                    <!-- [EN] Buttons generated by JS for clean structure -->
+                </div>
+            </div>
+            <div class="card history-section">
+                <div class="history-header">
+                    <h3>📋 Historia</h3>
+                    <button class="history-clear-btn" id="clearHistory">Wyczyść</button>
+                </div>
+                <ul class="history-list" id="historyList">
+                    <li class="empty-state">
+                        <div class="icon">📝</div>
+                        <p>Brak historii — zacznij liczyć!</p>
+                    </li>
+                </ul>
+            </div>
+        </section>
+
+        <!-- ==================== PANEL: Engineering ==================== -->
+        <section id="panel-engineering" class="panel" role="tabpanel">
+            <div class="card">
+                <div class="card-header"><span class="icon">📐</span> Parametry podziału</div>
+
+                <div class="input-group">
+                    <label>Jednostka</label>
+                    <div class="unit-toggle" id="unitToggle">
+                        <button class="unit-btn active" data-unit="cm">cm</button>
+                        <button class="unit-btn" data-unit="mm">mm</button>
+                        <button class="unit-btn" data-unit="m">m</button>
+                    </div>
+                </div>
+
+                <div class="input-group">
+                    <label>Długość całkowita</label>
+                    <input type="number" id="engLength" value="100" min="0" step="any" inputmode="decimal" placeholder="np. 100">
+                </div>
+
+                <div class="input-row">
+                    <div class="input-group">
+                        <label>Liczba kołków</label>
+                        <input type="number" id="engCount" value="3" min="1" max="100" step="1" inputmode="numeric" placeholder="np. 3">
+                    </div>
+                    <div class="input-group">
+                        <label>Orientacja</label>
+                        <div class="axis-toggle" id="axisToggle">
+                            <button class="axis-btn active" data-axis="X">⬌ Poziomo</button>
+                            <button class="axis-btn" data-axis="Y">⬍ Pionowo</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="input-row">
+                    <div class="input-group">
+                        <label>Margines początkowy</label>
+                        <input type="number" id="engMarginStart" value="0" min="0" step="any" inputmode="decimal" placeholder="np. 5">
+                    </div>
+                    <div class="input-group">
+                        <label>Margines końcowy</label>
+                        <input type="number" id="engMarginEnd" value="0" min="0" step="any" inputmode="decimal" placeholder="np. 5">
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header"><span class="icon">🎨</span> Wizualizacja</div>
+                <div class="canvas-container">
+                    <canvas id="engCanvas" width="900" height="450" aria-label="Wizualizacja rozmieszczenia kołków" role="img"></canvas>
+                </div>
+                <div class="eng-result" id="engResult" aria-live="polite"></div>
+            </div>
+        </section>
+
+        <!-- ==================== PANEL: My Constants ==================== -->
+        <section id="panel-constants" class="panel" role="tabpanel">
+            <div class="card">
+                <div class="card-header"><span class="icon">➕</span> Dodaj stałą</div>
+                <div class="const-form" id="constForm">
+                    <div class="const-form-row">
+                        <input type="text" id="constName" placeholder="Nazwa (np. Cena stali)" maxlength="40" aria-label="Nazwa stałej">
+                        <input type="number" id="constValue" placeholder="Wartość" step="any" inputmode="decimal" aria-label="Wartość stałej">
+                        <input type="text" id="constUnit" placeholder="j.m." maxlength="10" aria-label="Jednostka stałej">
+                    </div>
+                    <button class="btn btn-primary" id="addConstBtn">💾 Zapisz stałą</button>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header"><span class="icon">📊</span> Moje Stałe</div>
+                <ul class="const-list" id="constList">
+                    <li class="empty-state">
+                        <div class="icon">📭</div>
+                        <p>Brak zdefiniowanych stałych</p>
+                    </li>
+                </ul>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- ============================================================
+    [EN] Toast Notification
+    ============================================================ -->
+    <div class="toast" id="toast" aria-live="assertive"></div>
+
+    <script>
+    (function() {
+        'use strict';
+
+        /* ============================================================
+           [EN] App State
+           ============================================================ */
+        const STATE = {
+            activeTab: 'calculator',
+            // Calculator
+            calc: {
+                currentInput: '0',
+                previousInput: '',
+                operator: null,
+                shouldResetDisplay: false,
+                expression: '',
+                lastResult: null,
+            },
+            // Engineering
+            eng: {
+                unit: 'cm',
+                axis: 'X',
+                length: 100,
+                count: 3,
+                marginStart: 0,
+                marginEnd: 0,
+            },
+            // Constants
+            constants: [],
+            // History
+            history: [],
+        };
+
+        /* ============================================================
+           [EN] DOM References
+           ============================================================ */
+        const $ = (sel) => document.querySelector(sel);
+        const $$ = (sel) => document.querySelectorAll(sel);
+
+        // Tabs
+        const tabBtns = $$('.tab-btn');
+        const panels = {
+            calculator: $('#panel-calculator'),
+            engineering: $('#panel-engineering'),
+            constants: $('#panel-constants'),
+        };
+
+        // Calculator
+        const calcExpr = $('#calcExpr');
+        const calcResult = $('#calcResult');
+        const calcGrid = $('#calcGrid');
+        const historyList = $('#historyList');
+        const clearHistoryBtn = $('#clearHistory');
+
+        // Engineering
+        const engLength = $('#engLength');
+        const engCount = $('#engCount');
+        const engMarginStart = $('#engMarginStart');
+        const engMarginEnd = $('#engMarginEnd');
+        const engCanvas = $('#engCanvas');
+        const engCtx = engCanvas.getContext('2d');
+        const engResult = $('#engResult');
+        const unitToggle = $('#unitToggle');
+        const axisToggle = $('#axisToggle');
+
+        // Constants
+        const constName = $('#constName');
+        const constValue = $('#constValue');
+        const constUnit = $('#constUnit');
+        const constList = $('#constList');
+        const addConstBtn = $('#addConstBtn');
+
+        // Toast
+        const toast = $('#toast');
+
+        /* ============================================================
+           [EN] Persistence — LocalStorage
+           ============================================================ */
+        const STORAGE_KEYS = {
+            history: 'matm0_calc_history',
+            constants: 'matm0_calc_constants',
+        };
+
+        function loadFromStorage() {
+            try {
+                const h = localStorage.getItem(STORAGE_KEYS.history);
+                if (h) STATE.history = JSON.parse(h);
+                const c = localStorage.getItem(STORAGE_KEYS.constants);
+                if (c) STATE.constants = JSON.parse(c);
+            } catch (e) {
+                // [EN] Corrupted data — reset silently
+                STATE.history = [];
+                STATE.constants = [];
+            }
+        }
+
+        function saveHistory() {
+            try {
+                localStorage.setItem(STORAGE_KEYS.history, JSON.stringify(STATE.history));
+            } catch (e) {
+                showToast('⚠️ Brak miejsca — wyczyść historię', 'error');
+            }
+        }
+
+        function saveConstants() {
+            try {
+                localStorage.setItem(STORAGE_KEYS.constants, JSON.stringify(STATE.constants));
+            } catch (e) {
+                showToast('⚠️ Brak miejsca na stałe', 'error');
+            }
+        }
+
+        /* ============================================================
+           [EN] Toast Notification
+           ============================================================ */
+        let toastTimer = null;
+        function showToast(message, type) {
+            if (toastTimer) clearTimeout(toastTimer);
+            toast.textContent = message;
+            toast.className = 'toast ' + (type || '');
+            // [EN] Force reflow to restart animation
+            void toast.offsetWidth;
+            toast.classList.add('show');
+            toastTimer = setTimeout(function() {
+                toast.classList.remove('show');
+                toastTimer = null;
+            }, 2000);
+        }
+
+        /* ============================================================
+           [EN] Tab Navigation
+           ============================================================ */
+        function switchTab(tabName) {
+            STATE.activeTab = tabName;
+            tabBtns.forEach(function(btn) {
+                var isActive = btn.getAttribute('data-tab') === tabName;
+                btn.classList.toggle('active', isActive);
+                btn.setAttribute('aria-selected', isActive ? 'true' : 'false');
+            });
+            Object.keys(panels).forEach(function(key) {
+                panels[key].classList.toggle('active', key === tabName);
+            });
+            if (tabName === 'engineering') {
+                // [EN] Redraw canvas on tab switch (handles any layout shifts)
+                setTimeout(function() { updateEngineering(); }, 50);
+            }
+            if (tabName === 'constants') {
+                renderConstants();
+            }
+        }
+
+        tabBtns.forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                switchTab(btn.getAttribute('data-tab'));
+            });
+        });
+
+        /* ============================================================
+           [EN] STANDARD CALCULATOR — Button Layout
+           ============================================================ */
+        const calcButtons = [
+            ['AC', 'fn clear', '±', 'fn', '%', 'fn', '÷', 'operator'],
+            ['7', 'number', '8', 'number', '9', 'number', '×', 'operator'],
+            ['4', 'number', '5', 'number', '6', 'number', '−', 'operator'],
+            ['1', 'number', '2', 'number', '3', 'number', '+', 'operator'],
+            ['0', 'number', '.', 'number', '⌫', 'fn', '=', 'equals'],
+        ];
+
+        function buildCalcButtons() {
+            calcGrid.innerHTML = '';
+            calcButtons.forEach(function(row) {
+                for (var i = 0; i < row.length; i += 2) {
+                    var label = row[i];
+                    var type = row[i + 1];
+                    var btn = document.createElement('button');
+                    btn.className = 'calc-btn calc-btn--' + type;
+                    if (type === 'clear') btn.className += ' calc-btn--clear';
+                    btn.textContent = label;
+                    btn.setAttribute('data-action', label);
+                    btn.addEventListener('click', function(e) {
+                        handleCalcAction(e.currentTarget.getAttribute('data-action'));
+                    });
+                    calcGrid.appendChild(btn);
+                }
+            });
+        }
+
+        /* ============================================================
+           [EN] Calculator Logic
+           ============================================================ */
+        function handleCalcAction(action) {
+            var c = STATE.calc;
+
+            if (action >= '0' && action <= '9') {
+                if (c.shouldResetDisplay) {
+                    c.currentInput = '';
+                    c.shouldResetDisplay = false;
+                }
+                if (c.currentInput === '0') {
+                    c.currentInput = action;
+                } else {
+                    c.currentInput += action;
+                }
+                updateCalcDisplay();
+                return;
+            }
+
+            if (action === '.') {
+                if (c.shouldResetDisplay) {
+                    c.currentInput = '0';
+                    c.shouldResetDisplay = false;
+                }
+                if (c.currentInput.indexOf('.') === -1) {
+                    c.currentInput += '.';
+                }
+                updateCalcDisplay();
+                return;
+            }
+
+            if (action === '±') {
+                if (c.currentInput !== '0' && c.currentInput !== '') {
+                    if (c.currentInput.charAt(0) === '-') {
+                        c.currentInput = c.currentInput.slice(1);
+                    } else {
+                        c.currentInput = '-' + c.currentInput;
+                    }
+                }
+                updateCalcDisplay();
+                return;
+            }
+
+            if (action === '%') {
+                var val = parseFloat(c.currentInput) || 0;
+                c.currentInput = String(val / 100);
+                updateCalcDisplay();
+                return;
+            }
+
+            if (action === '⌫') {
+                if (c.currentInput.length > 1) {
+                    c.currentInput = c.currentInput.slice(0, -1);
+                } else {
+                    c.currentInput = '0';
+                }
+                if (c.currentInput === '-') c.currentInput = '0';
+                updateCalcDisplay();
+                return;
+            }
+
+            if (action === 'AC') {
+                c.currentInput = '0';
+                c.previousInput = '';
+                c.operator = null;
+                c.shouldResetDisplay = false;
+                c.expression = '';
+                c.lastResult = null;
+                updateCalcDisplay();
+                return;
+            }
+
+            // Operators: + − × ÷
+            if (action === '+' || action === '−' || action === '×' || action === '÷') {
+                if (c.operator && !c.shouldResetDisplay && c.previousInput !== '') {
+                    // [EN] Chain operations — compute previous first
+                    var result = computeResult();
+                    c.previousInput = result;
+                    c.expression = formatNumber(result) + ' ' + action + ' ';
+                } else {
+                    c.previousInput = c.currentInput;
+                    c.expression = formatNumber(c.currentInput) + ' ' + action + ' ';
+                }
+                c.operator = action;
+                c.shouldResetDisplay = true;
+                updateCalcDisplay();
+                return;
+            }
+
+            // Equals
+            if (action === '=') {
+                if (c.operator && c.previousInput !== '') {
+                    var exprText = c.expression + formatNumber(c.currentInput);
+                    var result = computeResult();
+                    addHistory(exprText + ' = ' + formatNumber(result));
+                    c.expression = '';
+                    c.currentInput = result;
+                    c.previousInput = '';
+                    c.operator = null;
+                    c.shouldResetDisplay = true;
+                    c.lastResult = result;
+                    updateCalcDisplay();
+                }
+                return;
+            }
+        }
+
+        function computeResult() {
+            var c = STATE.calc;
+            var a = parseFloat(c.previousInput) || 0;
+            var b = parseFloat(c.currentInput) || 0;
+            var result;
+            switch (c.operator) {
+                case '+': result = a + b; break;
+                case '−': result = a - b; break;
+                case '×': result = a * b; break;
+                case '÷':
+                    if (b === 0) {
+                        showToast('⚠️ Nie dziel przez zero!', 'error');
+                        return '0';
+                    }
+                    result = a / b;
+                    break;
+                default: result = b;
+            }
+            // [EN] Avoid floating-point artifacts: round to 12 significant digits
+            if (Math.abs(result) < 1e308) {
+                result = parseFloat(result.toPrecision(12));
+            }
+            return String(result);
+        }
+
+        function formatNumber(str) {
+            var num = parseFloat(str);
+            if (isNaN(num)) return str;
+            // [EN] If integer, don't show decimal point
+            if (Number.isInteger(num) && Math.abs(num) < 1e15) return String(num);
+            // [EN] Use up to 10 decimal places, strip trailing zeros
+            var formatted = num.toPrecision(12);
+            return String(parseFloat(formatted));
+        }
+
+        function updateCalcDisplay() {
+            var c = STATE.calc;
+            calcExpr.textContent = c.expression;
+            var display = c.shouldResetDisplay && c.operator ? formatNumber(c.previousInput) : formatNumber(c.currentInput);
+
+            // [EN] Auto-size: reduce font for long numbers
+            calcResult.textContent = display;
+            calcResult.classList.remove('small', 'xsmall');
+            if (display.length > 10) {
+                calcResult.classList.add('small');
+            }
+            if (display.length > 14) {
+                calcResult.classList.add('xsmall');
+            }
+        }
+
+        /* ============================================================
+           [EN] Calculator History
+           ============================================================ */
+        function addHistory(entry) {
+            STATE.history.unshift(entry);
+            if (STATE.history.length > 50) {
+                STATE.history = STATE.history.slice(0, 50);
+            }
+            saveHistory();
+            renderHistory();
+        }
+
+        function renderHistory() {
+            if (STATE.history.length === 0) {
+                historyList.innerHTML = '<li class="empty-state"><div class="icon">📝</div><p>Brak historii — zacznij liczyć!</p></li>';
+                return;
+            }
+            historyList.innerHTML = '';
+            STATE.history.forEach(function(item, idx) {
+                var li = document.createElement('li');
+                li.className = 'history-item';
+                var parts = item.split(' = ');
+                var exprPart = parts[0] || item;
+                var resultPart = parts[1] || '';
+                li.innerHTML = '<span class="expr">' + escapeHTML(exprPart) + '</span><span class="result">' + escapeHTML(resultPart) + '</span>';
+                li.addEventListener('click', function() {
+                    // [EN] Reuse history result as current input
+                    if (resultPart) {
+                        STATE.calc.currentInput = resultPart;
+                        STATE.calc.shouldResetDisplay = true;
+                        STATE.calc.operator = null;
+                        STATE.calc.previousInput = '';
+                        STATE.calc.expression = '';
+                        updateCalcDisplay();
+                        switchTab('calculator');
+                        showToast('📋 Przywrócono wynik', 'success');
+                    }
+                });
+                historyList.appendChild(li);
+            });
+        }
+
+        clearHistoryBtn.addEventListener('click', function() {
+            STATE.history = [];
+            saveHistory();
+            renderHistory();
+            showToast('🗑️ Historia wyczyszczona', '');
+        });
+
+        function escapeHTML(str) {
+            var div = document.createElement('div');
+            div.textContent = str;
+            return div.innerHTML;
+        }
+
+        /* ============================================================
+           [EN] ENGINEERING MODULE — Logic
+           ============================================================ */
+        function getUnitMultiplier() {
+            switch (STATE.eng.unit) {
+                case 'mm': return 1;
+                case 'cm': return 10;
+                case 'm': return 1000;
+                default: return 10;
+            }
+        }
+
+        function getUnitLabel() {
+            return STATE.eng.unit;
+        }
+
+        function updateEngineering() {
+            var L = parseFloat(engLength.value) || 0;
+            var n = parseInt(engCount.value, 10) || 0;
+            var ms = parseFloat(engMarginStart.value) || 0;
+            var me = parseFloat(engMarginEnd.value) || 0;
+
+            STATE.eng.length = L;
+            STATE.eng.count = n;
+            STATE.eng.marginStart = ms;
+            STATE.eng.marginEnd = me;
+
+            if (L <= 0 || n <= 0) {
+                engResult.textContent = '⚠️ Wprowadź prawidłową długość i liczbę kołków.';
+                drawEmptyCanvas();
+                return;
+            }
+
+            var usableLength = L - ms - me;
+            if (usableLength <= 0) {
+                engResult.textContent = '⚠️ Marginesy przekraczają długość całkowitą. Zmniejsz marginesy.';
+                drawEmptyCanvas();
+                return;
+            }
+
+            var step = usableLength / (n + 1);
+            var positions = [];
+            for (var i = 1; i <= n; i++) {
+                positions.push(ms + step * i);
+            }
+
+            // [EN] Build result text
+            var unit = getUnitLabel();
+            var resultText = '📏 Długość: ' + formatNum(L) + ' ' + unit + '\n';
+            resultText += '📌 Liczba kołków: ' + n + '\n';
+            resultText += '📐 Odstęp między środkami: ' + formatNum(step) + ' ' + unit + '\n';
+            if (ms > 0 || me > 0) {
+                resultText += '↔️ Marginesy: ' + formatNum(ms) + ' / ' + formatNum(me) + ' ' + unit + '\n';
+            }
+            resultText += '\n📍 Pozycje kołków:\n';
+            positions.forEach(function(pos, idx) {
+                resultText += '  Kołek ' + (idx + 1) + ': ' + formatNum(pos) + ' ' + unit + '\n';
+            });
+
+            engResult.textContent = resultText;
+            drawEngineeringCanvas(L, ms, me, positions, n, step);
+        }
+
+        function formatNum(val) {
+            if (val === 0) return '0';
+            // [EN] Smart formatting: remove trailing zeros but keep reasonable precision
+            var formatted = parseFloat(val.toFixed(6));
+            return String(formatted);
+        }
+
+        function drawEmptyCanvas() {
+            var ctx = engCtx;
+            var w = engCanvas.width;
+            var h = engCanvas.height;
+            ctx.clearRect(0, 0, w, h);
+            ctx.fillStyle = '#94a3b8';
+            ctx.font = '600 16px ' + getComputedStyle(document.body).fontFamily;
+            ctx.textAlign = 'center';
+            ctx.fillText('⚠️ Nieprawidłowe dane — popraw wartości powyżej', w / 2, h / 2);
+        }
+
+        function drawEngineeringCanvas(totalLength, marginStart, marginEnd, positions, count, step) {
+            var ctx = engCtx;
+            var w = engCanvas.width;
+            var h = engCanvas.height;
+            ctx.clearRect(0, 0, w, h);
+
+            var isHorizontal = STATE.eng.axis === 'X';
+            var unit = getUnitLabel();
+
+            // [EN] Layout constants
+            var boardColor = '#e8d5b7';
+            var boardStroke = '#b8956a';
+            var holeColor = '#dc2626';
+            var holeStroke = '#991b1b';
+            var dimColor = '#475569';
+            var labelColor = '#0f172a';
+            var marginColor = 'rgba(100, 116, 139, 0.3)';
+
+            if (isHorizontal) {
+                // ================================================================
+                // [EN] HORIZONTAL LAYOUT
+                // ================================================================
+                var boardLeft = 110;
+                var boardRight = w - 50;
+                var boardWidth = boardRight - boardLeft;
+                var boardThickness = 70;
+                var boardTop = h / 2 - boardThickness / 2;
+                var boardBottom = boardTop + boardThickness;
+                var boardMidY = h / 2;
+
+                // [EN] Board shadow
+                ctx.fillStyle = 'rgba(0,0,0,0.06)';
+                ctx.beginPath();
+                ctx.roundRect(boardLeft + 3, boardTop + 3, boardWidth, boardThickness, 6);
+                ctx.fill();
+
+                // [EN] Board body
+                ctx.fillStyle = boardColor;
+                ctx.strokeStyle = boardStroke;
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.roundRect(boardLeft, boardTop, boardWidth, boardThickness, 6);
+                ctx.fill();
+                ctx.stroke();
+
+                // [EN] Wood grain lines (subtle)
+                ctx.strokeStyle = 'rgba(184, 149, 106, 0.25)';
+                ctx.lineWidth = 0.5;
+                for (var gy = boardTop + 8; gy < boardBottom; gy += 7) {
+                    ctx.beginPath();
+                    ctx.moveTo(boardLeft + 4, gy);
+                    ctx.lineTo(boardRight - 4, gy + ((Math.sin(gy * 0.3) * 2)));
+                    ctx.stroke();
+                }
+
+                // [EN] Margin shading
+                if (marginStart > 0) {
+                    var msX = boardLeft + (marginStart / totalLength) * boardWidth;
+                    ctx.fillStyle = marginColor;
+                    ctx.fillRect(boardLeft, boardTop, msX - boardLeft, boardThickness);
+                    // [EN] Margin label
+                    ctx.fillStyle = dimColor;
+                    ctx.font = '600 11px ' + getComputedStyle(document.body).fontFamily;
+                    ctx.textAlign = 'center';
+                    ctx.fillText(formatNum(marginStart) + ' ' + unit, boardLeft + (msX - boardLeft) / 2, boardTop - 10);
+                    // [EN] Dashed line at margin end
+                    ctx.setLineDash([4, 3]);
+                    ctx.strokeStyle = '#94a3b8';
+                    ctx.lineWidth = 1;
+                    ctx.beginPath();
+                    ctx.moveTo(msX, boardTop - 15);
+                    ctx.lineTo(msX, boardBottom + 15);
+                    ctx.stroke();
+                    ctx.setLineDash([]);
+                }
+                if (marginEnd > 0) {
+                    var meX = boardRight - (marginEnd / totalLength) * boardWidth;
+                    ctx.fillStyle = marginColor;
+                    ctx.fillRect(meX, boardTop, boardRight - meX, boardThickness);
+                    ctx.fillStyle = dimColor;
+                    ctx.font = '600 11px ' + getComputedStyle(document.body).fontFamily;
+                    ctx.textAlign = 'center';
+                    ctx.fillText(formatNum(marginEnd) + ' ' + unit, meX + (boardRight - meX) / 2, boardTop - 10);
+                    ctx.setLineDash([4, 3]);
+                    ctx.strokeStyle = '#94a3b8';
+                    ctx.lineWidth = 1;
+                    ctx.beginPath();
+                    ctx.moveTo(meX, boardTop - 15);
+                    ctx.lineTo(meX, boardBottom + 15);
+                    ctx.stroke();
+                    ctx.setLineDash([]);
+                }
+
+                // [EN] Dimension line above board
+                ctx.strokeStyle = dimColor;
+                ctx.lineWidth = 1;
+                ctx.setLineDash([]);
+                var dimY = boardTop - 30;
+                ctx.beginPath();
+                ctx.moveTo(boardLeft, dimY);
+                ctx.lineTo(boardRight, dimY);
+                ctx.stroke();
+                // [EN] Arrows
+                drawArrow(ctx, boardLeft, dimY, 'left');
+                drawArrow(ctx, boardRight, dimY, 'right');
+                // [EN] Total length label above dimension line
+                ctx.fillStyle = labelColor;
+                ctx.font = '700 12px ' + getComputedStyle(document.body).fontFamily;
+                ctx.textAlign = 'center';
+                ctx.fillText(formatNum(totalLength) + ' ' + unit, (boardLeft + boardRight) / 2, dimY - 10);
+
+                // [EN] Draw holes with smart labels
+                var labelRows = [
+                    boardTop - 50, // Row 1 (further above)
+                    boardTop - 68, // Row 2 (even further)
+                ];
+                var prevLabelEnd = [boardLeft - 999, boardLeft - 999]; // [EN] Track where last label in each row ends
+
+                positions.forEach(function(pos, idx) {
+                    var x = boardLeft + (pos / totalLength) * boardWidth;
+
+                    // [EN] Dashed alignment line from hole to top
+                    ctx.setLineDash([2, 4]);
+                    ctx.strokeStyle = 'rgba(148, 163, 184, 0.4)';
+                    ctx.lineWidth = 0.8;
+                    ctx.beginPath();
+                    ctx.moveTo(x, boardMidY);
+                    ctx.lineTo(x, boardTop - 20);
+                    ctx.stroke();
+                    ctx.setLineDash([]);
+
+                    // [EN] Hole
+                    var holeRadius = 7;
+                    ctx.fillStyle = holeColor;
+                    ctx.strokeStyle = holeStroke;
+                    ctx.lineWidth = 1.5;
+                    ctx.beginPath();
+                    ctx.arc(x, boardMidY, holeRadius, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.stroke();
+                    // [EN] Hole center dot
+                    ctx.fillStyle = '#fff';
+                    ctx.beginPath();
+                    ctx.arc(x, boardMidY, 1.5, 0, Math.PI * 2);
+                    ctx.fill();
+
+                    // [EN] Label text
+                    var labelText = formatNum(pos);
+                    ctx.font = '600 11px ' + getComputedStyle(document.body).fontFamily;
+                    var textWidth = ctx.measureText(labelText + ' ' + unit).width + 8;
+
+                    // [EN] Pick best row to avoid overlap
+                    var rowIdx = 0;
+                    if (x - textWidth / 2 < prevLabelEnd[0] + 4) {
+                        rowIdx = 1;
+                        if (x - textWidth / 2 < prevLabelEnd[1] + 4) {
+                            rowIdx = 0; // [EN] Fallback — slight overlap is acceptable
+                        }
+                    }
+
+                    var labelY = labelRows[rowIdx];
+                    prevLabelEnd[rowIdx] = x + textWidth / 2;
+
+                    // [EN] Label background (semi-transparent for readability)
+                    ctx.fillStyle = 'rgba(255, 255, 255, 0.85)';
+                    ctx.fillRect(x - textWidth / 2 - 2, labelY - 10, textWidth + 4, 16);
+                    ctx.fillStyle = labelColor;
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillText(labelText + ' ' + unit, x, labelY - 2);
+
+                    // [EN] Small tick on dimension line
+                    ctx.strokeStyle = dimColor;
+                    ctx.lineWidth = 1;
+                    ctx.beginPath();
+                    ctx.moveTo(x, dimY - 4);
+                    ctx.lineTo(x, dimY + 4);
+                    ctx.stroke();
+                });
+
+            } else {
+                // ================================================================
+                // [EN] VERTICAL LAYOUT
+                // ================================================================
+                var boardTopV = 55;
+                var boardBottomV = h - 30;
+                var boardHeightV = boardBottomV - boardTopV;
+                var boardThicknessV = 70;
+                var boardLeftV = w / 2 - boardThicknessV / 2;
+                var boardRightV = boardLeftV + boardThicknessV;
+                var boardMidX = w / 2;
+
+                // [EN] Board shadow
+                ctx.fillStyle = 'rgba(0,0,0,0.06)';
+                ctx.beginPath();
+                ctx.roundRect(boardLeftV + 3, boardTopV + 3, boardThicknessV, boardHeightV, 6);
+                ctx.fill();
+
+                // [EN] Board body
+                ctx.fillStyle = boardColor;
+                ctx.strokeStyle = boardStroke;
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.roundRect(boardLeftV, boardTopV, boardThicknessV, boardHeightV, 6);
+                ctx.fill();
+                ctx.stroke();
+
+                // [EN] Wood grain (vertical)
+                ctx.strokeStyle = 'rgba(184, 149, 106, 0.25)';
+                ctx.lineWidth = 0.5;
+                for (var gx = boardLeftV + 8; gx < boardRightV; gx += 7) {
+                    ctx.beginPath();
+                    ctx.moveTo(gx, boardTopV + 4);
+                    ctx.lineTo(gx + ((Math.sin(gx * 0.3) * 2)), boardBottomV - 4);
+                    ctx.stroke();
+                }
+
+                // [EN] Margin shading
+                if (marginStart > 0) {
+                    var msY = boardTopV + (marginStart / totalLength) * boardHeightV;
+                    ctx.fillStyle = marginColor;
+                    ctx.fillRect(boardLeftV, boardTopV, boardThicknessV, msY - boardTopV);
+                    ctx.fillStyle = dimColor;
+                    ctx.font = '600 11px ' + getComputedStyle(document.body).fontFamily;
+                    ctx.textAlign = 'right';
+                    ctx.fillText(formatNum(marginStart) + ' ' + unit, boardLeftV - 12, boardTopV + (msY - boardTopV) / 2 + 4);
+                    ctx.setLineDash([4, 3]);
+                    ctx.strokeStyle = '#94a3b8';
+                    ctx.lineWidth = 1;
+                    ctx.beginPath();
+                    ctx.moveTo(boardLeftV - 18, msY);
+                    ctx.lineTo(boardRightV + 18, msY);
+                    ctx.stroke();
+                    ctx.setLineDash([]);
+                }
+                if (marginEnd > 0) {
+                    var meY = boardBottomV - (marginEnd / totalLength) * boardHeightV;
+                    ctx.fillStyle = marginColor;
+                    ctx.fillRect(boardLeftV, meY, boardThicknessV, boardBottomV - meY);
+                    ctx.fillStyle = dimColor;
+                    ctx.font = '600 11px ' + getComputedStyle(document.body).fontFamily;
+                    ctx.textAlign = 'right';
+                    ctx.fillText(formatNum(marginEnd) + ' ' + unit, boardLeftV - 12, meY + (boardBottomV - meY) / 2 + 4);
+                    ctx.setLineDash([4, 3]);
+                    ctx.strokeStyle = '#94a3b8';
+                    ctx.lineWidth = 1;
+                    ctx.beginPath();
+                    ctx.moveTo(boardLeftV - 18, meY);
+                    ctx.lineTo(boardRightV + 18, meY);
+                    ctx.stroke();
+                    ctx.setLineDash([]);
+                }
+
+                // [EN] Dimension line to the right
+                var dimX = boardRightV + 35;
+                ctx.strokeStyle = dimColor;
+                ctx.lineWidth = 1;
+                ctx.setLineDash([]);
+                ctx.beginPath();
+                ctx.moveTo(dimX, boardTopV);
+                ctx.lineTo(dimX, boardBottomV);
+                ctx.stroke();
+                drawArrow(ctx, dimX, boardTopV, 'up');
+                drawArrow(ctx, dimX, boardBottomV, 'down');
+                // [EN] Total length label
+                ctx.save();
+                ctx.fillStyle = labelColor;
+                ctx.font = '700 12px ' + getComputedStyle(document.body).fontFamily;
+                ctx.textAlign = 'left';
+                ctx.translate(dimX + 12, (boardTopV + boardBottomV) / 2);
+                ctx.rotate(0);
+                ctx.fillText(formatNum(totalLength) + ' ' + unit, 0, 4);
+                ctx.restore();
+
+                // [EN] Draw holes with smart labels
+                var labelColsX = [
+                    boardRightV + 55, // Col 1
+                    boardRightV + 78, // Col 2
+                ];
+                var prevLabelBottom = [-999, -999];
+
+                positions.forEach(function(pos, idx) {
+                    var y = boardTopV + (pos / totalLength) * boardHeightV;
+
+                    // [EN] Dashed alignment line
+                    ctx.setLineDash([2, 4]);
+                    ctx.strokeStyle = 'rgba(148, 163, 184, 0.4)';
+                    ctx.lineWidth = 0.8;
+                    ctx.beginPath();
+                    ctx.moveTo(boardMidX, y);
+                    ctx.lineTo(boardRightV + 20, y);
+                    ctx.stroke();
+                    ctx.setLineDash([]);
+
+                    // [EN] Hole
+                    var holeRadius = 7;
+                    ctx.fillStyle = holeColor;
+                    ctx.strokeStyle = holeStroke;
+                    ctx.lineWidth = 1.5;
+                    ctx.beginPath();
+                    ctx.arc(boardMidX, y, holeRadius, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.stroke();
+                    ctx.fillStyle = '#fff';
+                    ctx.beginPath();
+                    ctx.arc(boardMidX, y, 1.5, 0, Math.PI * 2);
+                    ctx.fill();
+
+                    // [EN] Label
+                    var labelText = formatNum(pos);
+                    ctx.font = '600 11px ' + getComputedStyle(document.body).fontFamily;
+                    var textHeight = 14;
+                    var labelYCenter = y;
+
+                    var colIdx = 0;
+                    if (labelYCenter - textHeight / 2 < prevLabelBottom[0] + 4) {
+                        colIdx = 1;
+                        if (labelYCenter - textHeight / 2 < prevLabelBottom[1] + 4) {
+                            colIdx = 0;
+                        }
+                    }
+
+                    var labelX = labelColsX[colIdx];
+                    prevLabelBottom[colIdx] = labelYCenter + textHeight / 2;
+
+                    // [EN] Connector line from hole to label
+                    ctx.strokeStyle = 'rgba(148, 163, 184, 0.5)';
+                    ctx.lineWidth = 0.5;
+                    ctx.beginPath();
+                    ctx.moveTo(boardRightV + 20, y);
+                    ctx.lineTo(labelX - 4, y);
+                    ctx.stroke();
+
+                    ctx.fillStyle = 'rgba(255, 255, 255, 0.85)';
+                    ctx.fillRect(labelX - 4, labelYCenter - 8, ctx.measureText(labelText + ' ' + unit).width + 10, 16);
+                    ctx.fillStyle = labelColor;
+                    ctx.textAlign = 'left';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillText(labelText + ' ' + unit, labelX + 1, labelYCenter);
+                });
+            }
+        }
+
+        /* [EN] Helper: draw small arrowheads */
+        function drawArrow(ctx, x, y, direction) {
+            ctx.fillStyle = '#475569';
+            ctx.beginPath();
+            var s = 5;
+            switch (direction) {
+                case 'left':
+                    ctx.moveTo(x, y);
+                    ctx.lineTo(x + s, y - s / 2);
+                    ctx.lineTo(x + s, y + s / 2);
+                    break;
+                case 'right':
+                    ctx.moveTo(x, y);
+                    ctx.lineTo(x - s, y - s / 2);
+                    ctx.lineTo(x - s, y + s / 2);
+                    break;
+                case 'up':
+                    ctx.moveTo(x, y);
+                    ctx.lineTo(x - s / 2, y + s);
+                    ctx.lineTo(x + s / 2, y + s);
+                    break;
+                case 'down':
+                    ctx.moveTo(x, y);
+                    ctx.lineTo(x - s / 2, y - s);
+                    ctx.lineTo(x + s / 2, y - s);
+                    break;
+            }
+            ctx.closePath();
+            ctx.fill();
+        }
+
+        /* [EN] Polyfill roundRect if not supported */
+        if (!CanvasRenderingContext2D.prototype.roundRect) {
+            CanvasRenderingContext2D.prototype.roundRect = function(x, y, w, h, r) {
+                if (typeof r === 'number') r = { tl: r, tr: r, br: r, bl: r };
+                this.beginPath();
+                this.moveTo(x + r.tl, y);
+                this.lineTo(x + w - r.tr, y);
+                this.quadraticCurveTo(x + w, y, x + w, y + r.tr);
+                this.lineTo(x + w, y + h - r.br);
+                this.quadraticCurveTo(x + w, y + h, x + w - r.br, y + h);
+                this.lineTo(x + r.bl, y + h);
+                this.quadraticCurveTo(x, y + h, x, y + h - r.bl);
+                this.lineTo(x, y + r.tl);
+                this.quadraticCurveTo(x, y, x + r.tl, y);
+                this.closePath();
+            };
+        }
+
+        /* ============================================================
+           [EN] Engineering — Event Binding
+           ============================================================ */
+        engLength.addEventListener('input', updateEngineering);
+        engCount.addEventListener('input', updateEngineering);
+        engMarginStart.addEventListener('input', updateEngineering);
+        engMarginEnd.addEventListener('input', updateEngineering);
+
+        unitToggle.addEventListener('click', function(e) {
+            var btn = e.target.closest('.unit-btn');
+            if (!btn) return;
+            unitToggle.querySelectorAll('.unit-btn').forEach(function(b) { b.classList.remove('active'); });
+            btn.classList.add('active');
+            STATE.eng.unit = btn.getAttribute('data-unit');
+            updateEngineering();
+        });
+
+        axisToggle.addEventListener('click', function(e) {
+            var btn = e.target.closest('.axis-btn');
+            if (!btn) return;
+            axisToggle.querySelectorAll('.axis-btn').forEach(function(b) { b.classList.remove('active'); });
+            btn.classList.add('active');
+            STATE.eng.axis = btn.getAttribute('data-axis');
+            updateEngineering();
+            showToast('Widok: ' + (STATE.eng.axis === 'X' ? 'Poziomy ⬌' : 'Pionowy ⬍'), '');
+        });
+
+        /* ============================================================
+           [EN] CONSTANTS MODULE
+           ============================================================ */
+        function renderConstants() {
+            if (STATE.constants.length === 0) {
+                constList.innerHTML = '<li class="empty-state"><div class="icon">📭</div><p>Brak zdefiniowanych stałych</p></li>';
+                return;
+            }
+
+            constList.innerHTML = '';
+            STATE.constants.forEach(function(c, idx) {
+                var li = document.createElement('li');
+                li.className = 'const-item';
+                li.innerHTML =
+                    '<div class="info">' +
+                        '<div class="name">' + escapeHTML(c.name) + '</div>' +
+                        '<div class="detail">' + formatNum(c.value) + ' ' + escapeHTML(c.unit || '') + '</div>' +
+                    '</div>' +
+                    '<div class="actions">' +
+                        '<button class="btn btn-sm btn-primary use-const" data-idx="' + idx + '">🔢 Użyj</button>' +
+                        '<button class="btn btn-sm btn-danger del-const" data-idx="' + idx + '">🗑️</button>' +
+                    '</div>';
+
+                // [EN] Quick-calc row
+                var quickDiv = document.createElement('div');
+                quickDiv.className = 'quick-calc';
+                quickDiv.innerHTML =
+                    '<span style="font-size:0.75rem;color:var(--text-muted);">Pomnóż przez:</span>' +
+                    '<input type="number" class="quick-mult" value="1" step="any" inputmode="decimal" aria-label="Mnożnik">' +
+                    '<span class="quick-result" id="quickResult' + idx + '">= ' + formatNum(c.value) + '</span>';
+                li.appendChild(quickDiv);
+
+                constList.appendChild(li);
+            });
+
+            // [EN] Quick-calc events — use event delegation
+            constList.addEventListener('input', function(e) {
+                var input = e.target.closest('.quick-mult');
+                if (!input) return;
+                var li = input.closest('.const-item');
+                var useBtn = li.querySelector('.use-const');
+                var idx = parseInt(useBtn.getAttribute('data-idx'), 10);
+                var mult = parseFloat(input.value) || 1;
+                var resultSpan = li.querySelector('.quick-result');
+                if (resultSpan && STATE.constants[idx]) {
+                    var result = STATE.constants[idx].value * mult;
+                    resultSpan.textContent = '= ' + formatNum(result) + ' ' + (STATE.constants[idx].unit || '');
+                }
+            });
+
+            constList.addEventListener('click', function(e) {
+                var delBtn = e.target.closest('.del-const');
+                if (delBtn) {
+                    var idx = parseInt(delBtn.getAttribute('data-idx'), 10);
+                    var name = STATE.constants[idx] ? STATE.constants[idx].name : '';
+                    STATE.constants.splice(idx, 1);
+                    saveConstants();
+                    renderConstants();
+                    showToast('🗑️ Usunięto: ' + (name || 'stałą'), '');
+                    return;
+                }
+
+                var useBtn = e.target.closest('.use-const');
+                if (useBtn) {
+                    var idx2 = parseInt(useBtn.getAttribute('data-idx'), 10);
+                    var c = STATE.constants[idx2];
+                    if (c) {
+                        var li = useBtn.closest('.const-item');
+                        var multInput = li.querySelector('.quick-mult');
+                        var mult = parseFloat(multInput.value) || 1;
+                        var finalVal = c.value * mult;
+                        STATE.calc.currentInput = String(finalVal);
+                        STATE.calc.shouldResetDisplay = true;
+                        STATE.calc.operator = null;
+                        STATE.calc.previousInput = '';
+                        STATE.calc.expression = '';
+                        updateCalcDisplay();
+                        switchTab('calculator');
+                        showToast('📊 ' + escapeHTML(c.name) + ' × ' + mult + ' = ' + formatNum(finalVal), 'success');
+                    }
+                }
+            });
+        }
+
+        addConstBtn.addEventListener('click', function() {
+            var name = constName.value.trim();
+            var valueStr = constValue.value.trim();
+            var unit = constUnit.value.trim();
+
+            if (!name) { showToast('⚠️ Podaj nazwę stałej', 'error'); return; }
+            if (!valueStr) { showToast('⚠️ Podaj wartość stałej', 'error'); return; }
+
+            var value = parseFloat(valueStr);
+            if (isNaN(value)) { showToast('⚠️ Nieprawidłowa wartość', 'error'); return; }
+
+            STATE.constants.push({ name: name, value: value, unit: unit });
+            saveConstants();
+            renderConstants();
+            constName.value = '';
+            constValue.value = '';
+            constUnit.value = '';
+            showToast('✅ Dodano: ' + name, 'success');
+        });
+
+        /* ============================================================
+           [EN] Keyboard Support for Calculator
+           ============================================================ */
+        document.addEventListener('keydown', function(e) {
+            if (STATE.activeTab !== 'calculator') return;
+            // [EN] Ignore if user is typing in an input
+            if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT') return;
+
+            var key = e.key;
+            if (key >= '0' && key <= '9') { handleCalcAction(key); return; }
+            if (key === '.') { handleCalcAction('.'); return; }
+            if (key === '+') { handleCalcAction('+'); e.preventDefault(); return; }
+            if (key === '-') { handleCalcAction('−'); e.preventDefault(); return; }
+            if (key === '*') { handleCalcAction('×'); e.preventDefault(); return; }
+            if (key === '/') { handleCalcAction('÷'); e.preventDefault(); return; }
+            if (key === 'Enter' || key === '=') { handleCalcAction('='); e.preventDefault(); return; }
+            if (key === 'Escape' || key === 'c' || key === 'C') { handleCalcAction('AC'); return; }
+            if (key === 'Backspace') { handleCalcAction('⌫'); e.preventDefault(); return; }
+            if (key === '%') { handleCalcAction('%'); return; }
+        });
+
+        /* ============================================================
+           [EN] PWA — Service Worker Registration
+           ============================================================ */
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', function() {
+                navigator.serviceWorker.register('sw.js', { scope: './' })
+                    .then(function(reg) {
+                        console.log('[EN] Service Worker registered:', reg.scope);
+                    })
+                    .catch(function(err) {
+                        console.warn('[EN] Service Worker registration failed:', err);
+                    });
+            });
+        }
+
+        /* ============================================================
+           [EN] PWA — Install Prompt (deferred)
+           ============================================================ */
+        var deferredPrompt = null;
+        window.addEventListener('beforeinstallprompt', function(e) {
+            e.preventDefault();
+            deferredPrompt = e;
+            // [EN] Show a subtle hint after 3 seconds
+            setTimeout(function() {
+                if (deferredPrompt) {
+                    showToast('📲 Dodaj do ekranu głównego!', 'success');
+                }
+            }, 3000);
+        });
+
+        /* ============================================================
+           [EN] Handle canvas resize for HiDPI
+           ============================================================ */
+        function handleCanvasResize() {
+            var container = engCanvas.parentElement;
+            var displayWidth = container.clientWidth;
+            if (displayWidth < 300) displayWidth = 300;
+            // [EN] Keep internal resolution fixed; CSS handles scaling
+            // [EN] Redraw to match new display size
+            if (STATE.activeTab === 'engineering') {
+                updateEngineering();
+            }
+        }
+
+        window.addEventListener('resize', function() {
+            clearTimeout(window._resizeTimer);
+            window._resizeTimer = setTimeout(handleCanvasResize, 200);
+        });
+
+        /* ============================================================
+           [EN] Initialization
+           ============================================================ */
+        function init() {
+            loadFromStorage();
+            buildCalcButtons();
+            updateCalcDisplay();
+            renderHistory();
+            updateEngineering();
+            renderConstants();
+
+            // [EN] Load saved engineering values
+            engLength.value = STATE.eng.length;
+            engCount.value = STATE.eng.count;
+            engMarginStart.value = STATE.eng.marginStart;
+            engMarginEnd.value = STATE.eng.marginEnd;
+        }
+
+        init();
+
+        /* ============================================================
+           [EN] Expose minimal API for debugging
+           ============================================================ */
+        if (typeof window !== 'undefined') {
+            window.__matm0 = {
+                state: STATE,
+                switchTab: switchTab,
+                updateEngineering: updateEngineering,
+                renderConstants: renderConstants,
+                renderHistory: renderHistory,
+            };
+        }
+
+    })();
+    </script>
+</body>
+</html>
