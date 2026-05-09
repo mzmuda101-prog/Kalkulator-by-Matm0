@@ -2,12 +2,14 @@
    [EN] Service Worker — offline cache for Kalkulator by Matm0
    Caching strategy: Cache First (shell), Network First fallback
    ============================================================ */
-const CACHE_NAME = 'matm0-calc-v1';
+const CACHE_NAME = 'matm0-calc-v2' + '__' + Date.now(); // [EN] Unique per deployment — nukes old cache
 const ASSETS_TO_CACHE = [
     './',
     './index.html',
     './manifest.json',
-    './sw.js'
+    './sw.js',
+    './app.js',
+    './styles.css'
 ];
 
 /* [EN] Install event — pre-cache essential assets */
@@ -40,6 +42,13 @@ self.addEventListener('activate', function(event) {
         }).then(function() {
             /* [EN] Take control of all clients immediately */
             return self.clients.claim();
+        }).then(function() {
+            /* [EN] Notify all clients that a new SW is active so they can refresh */
+            return self.clients.matchAll().then(function(clients) {
+                clients.forEach(function(client) {
+                    client.postMessage({ action: 'sw-updated' });
+                });
+            });
         })
     );
 });
@@ -104,4 +113,23 @@ self.addEventListener('fetch', function(event) {
 
     /* [EN] For cross-origin requests, try network only (no external APIs anyway) */
     event.respondWith(fetch(event.request));
+});
+
+/* [EN] Message listener — allows page to trigger skipWaiting + cache purge */
+self.addEventListener('message', function(event) {
+    if (event.data && event.data.action === 'skip-waiting') {
+        console.log('[SW] Received skip-waiting — activating now');
+        self.skipWaiting();
+    }
+    if (event.data && event.data.action === 'purge-caches') {
+        console.log('[SW] Purging all caches');
+        event.waitUntil(
+            caches.keys().then(function(names) {
+                return Promise.all(names.map(function(name) {
+                    console.log('[SW] Deleting cache:', name);
+                    return caches.delete(name);
+                }));
+            })
+        );
+    }
 });
