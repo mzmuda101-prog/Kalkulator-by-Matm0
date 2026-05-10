@@ -1358,6 +1358,31 @@
         }
 
         /* ============================================================
+           [EN] Lock body scroll on touch devices (PWA)
+               Allow scroll only inside scrollable containers
+           ============================================================ */
+        document.addEventListener('touchmove', function(e) {
+            /* [EN] Find the closest scrollable ancestor, if any */
+            var el = e.target;
+            while (el && el !== document.body) {
+                var style = window.getComputedStyle(el);
+                var overflowY = style.overflowY;
+                var isScrollable = (
+                    overflowY === 'auto' ||
+                    overflowY === 'scroll' ||
+                    overflowY === 'overlay'
+                );
+                if (isScrollable && el.scrollHeight > el.clientHeight) {
+                    /* [EN] Container is scrollable — let the event through */
+                    return;
+                }
+                el = el.parentElement;
+            }
+            /* [EN] No scrollable container found — block the scroll */
+            e.preventDefault();
+        }, { passive: false });
+
+        /* ============================================================
            [EN] Handle canvas resize for HiDPI
            ============================================================ */
         function handleCanvasResize() {
