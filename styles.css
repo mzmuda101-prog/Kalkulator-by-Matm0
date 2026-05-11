@@ -97,7 +97,8 @@
             flex-shrink: 0;
         }
         .cache-refresh-btn,
-        .install-btn {
+        .install-btn,
+        .orientation-btn {
             flex-shrink: 0;
             width: 40px;
             height: 40px;
@@ -126,8 +127,14 @@
             color: #fff;
             border-color: var(--primary);
         }
+        .orientation-btn.active {
+            background: var(--primary-light);
+            color: var(--primary);
+            border-color: var(--border-focus);
+        }
         .cache-refresh-btn:active,
-        .install-btn:active {
+        .install-btn:active,
+        .orientation-btn:active {
             background: var(--primary-light);
             color: var(--primary);
             border-color: var(--primary);

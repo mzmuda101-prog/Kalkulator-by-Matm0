@@ -68,6 +68,7 @@
         const historyCount = $('#historyCount');
         const cacheRefreshBtn = $('#cacheRefreshBtn');
         const installAppBtn = $('#installAppBtn');
+        const orientationBtn = $('#orientationBtn');
 
         // Engineering
         const engLength = $('#engLength');
@@ -1776,6 +1777,64 @@
                         forceReload();
                     }
                 }
+            });
+        }
+
+        /* ============================================================
+           [EN] Manual Orientation Mode
+           Browser support varies; lock works best in installed PWA.
+           ============================================================ */
+        var orientationModes = ['auto', 'landscape', 'portrait'];
+        var orientationModeIndex = 0;
+
+        function setOrientationButton(mode) {
+            if (!orientationBtn) return;
+            var label;
+            var icon;
+            if (mode === 'landscape') {
+                label = 'Tryb orientacji: poziomy';
+                icon = '▭';
+            } else if (mode === 'portrait') {
+                label = 'Tryb orientacji: pionowy';
+                icon = '▯';
+            } else {
+                label = 'Tryb orientacji: automatyczny';
+                icon = '↻';
+            }
+            orientationBtn.textContent = icon;
+            orientationBtn.setAttribute('aria-label', label);
+            orientationBtn.setAttribute('title', label.replace('Tryb orientacji: ', 'Orientacja: '));
+            orientationBtn.classList.toggle('active', mode !== 'auto');
+        }
+
+        function lockOrientation(mode) {
+            if (!screen.orientation || typeof screen.orientation.lock !== 'function') {
+                return Promise.reject(new Error('Ta przeglądarka nie pozwala blokować orientacji.'));
+            }
+            if (mode === 'auto') {
+                if (typeof screen.orientation.unlock === 'function') {
+                    screen.orientation.unlock();
+                }
+                return Promise.resolve();
+            }
+            return screen.orientation.lock(mode === 'landscape' ? 'landscape' : 'portrait-primary');
+        }
+
+        if (orientationBtn) {
+            setOrientationButton('auto');
+            orientationBtn.addEventListener('click', function() {
+                orientationModeIndex = (orientationModeIndex + 1) % orientationModes.length;
+                var mode = orientationModes[orientationModeIndex];
+                setOrientationButton(mode);
+                lockOrientation(mode).then(function() {
+                    if (mode === 'auto') {
+                        showToast('Orientacja: automatyczna', 'success');
+                    } else {
+                        showToast('Orientacja: ' + (mode === 'landscape' ? 'pozioma' : 'pionowa'), 'success');
+                    }
+                }).catch(function() {
+                    showToast('Ta przeglądarka blokuje zmianę orientacji poza PWA/fullscreen', 'error');
+                });
             });
         }
 
