@@ -1,8 +1,8 @@
 /* ============================================================
    [EN] Service Worker — offline cache for Kalkulator by Matm0
-   Caching strategy: Cache First (shell), Network First fallback
+   Caching strategy: Network First with cache fallback
    ============================================================ */
-const CACHE_NAME = 'matm0-calc-v4';
+const CACHE_NAME = 'matm0-calc-v5';
 const ASSETS_TO_CACHE = [
     './',
     './index.html',
@@ -57,7 +57,18 @@ self.addEventListener('activate', function(event) {
     );
 });
 
-/* [EN] Fetch event — cache-first strategy for shell, network-first for data */
+function cacheResponse(request, response) {
+    if (!response || response.status !== 200 || response.type !== 'basic') {
+        return response;
+    }
+    const responseClone = response.clone();
+    caches.open(CACHE_NAME).then(function(cache) {
+        cache.put(request, responseClone);
+    });
+    return response;
+}
+
+/* [EN] Fetch event — network-first to avoid stale debug builds */
 self.addEventListener('fetch', function(event) {
     /* [EN] Only handle GET requests */
     if (event.request.method !== 'GET') return;
@@ -66,49 +77,26 @@ self.addEventListener('fetch', function(event) {
     const url = new URL(event.request.url);
     if (url.protocol !== 'http:' && url.protocol !== 'https:') return;
 
-    /* [EN] For navigation requests (HTML shell), use cache-first */
+    /* [EN] For navigation requests (HTML shell), prefer the newest file */
     if (event.request.mode === 'navigate') {
         event.respondWith(
-            caches.match('./index.html').then(function(cached) {
-                if (cached) {
-                    console.log('[SW] Serving from cache:', event.request.url);
-                    return cached;
-                }
-                /* [EN] Not in cache — fetch from network and cache dynamically */
-                return fetch(event.request).then(function(response) {
-                    if (!response || response.status !== 200 || response.type !== 'basic') {
-                        return response;
-                    }
-                    const responseClone = response.clone();
-                    caches.open(CACHE_NAME).then(function(cache) {
-                        cache.put(event.request, responseClone);
-                    });
-                    return response;
-                });
+            fetch(event.request, { cache: 'no-store' }).then(function(response) {
+                return cacheResponse('./index.html', response);
+            }).catch(function() {
+                return caches.match('./index.html');
             })
         );
         return;
     }
 
-    /* [EN] For same-origin assets, use cache-first with network fallback */
+    /* [EN] For same-origin assets, prefer network so temporary servers do not look stale */
     if (url.origin === self.location.origin) {
         event.respondWith(
-            caches.match(event.request).then(function(cached) {
-                if (cached) {
-                    return cached;
-                }
-                return fetch(event.request).then(function(response) {
-                    if (!response || response.status !== 200 || response.type !== 'basic') {
-                        return response;
-                    }
-                    const responseClone = response.clone();
-                    caches.open(CACHE_NAME).then(function(cache) {
-                        cache.put(event.request, responseClone);
-                    });
-                    return response;
-                }).catch(function() {
-                    /* [EN] If offline and it's an image/font, return a fallback? Not needed here */
-                    return new Response('Offline — resource not cached', { status: 503 });
+            fetch(event.request, { cache: 'no-store' }).then(function(response) {
+                return cacheResponse(event.request, response);
+            }).catch(function() {
+                return caches.match(event.request).then(function(cached) {
+                    return cached || new Response('Offline — resource not cached', { status: 503 });
                 });
             })
         );

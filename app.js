@@ -493,7 +493,7 @@
             STATE.eng.marginEnd = me;
 
             if (L <= 0 || (mode !== 'fixed' && n <= 0)) {
-                engResult.textContent = '⚠️ Wprowadź prawidłową długość i liczbę kołków.';
+                engResult.textContent = '⚠️ Wprowadź prawidłową długość i liczbę podziału.';
                 drawEmptyCanvas();
                 return;
             }
@@ -518,14 +518,14 @@
             var unit = getUnitLabel();
             var resultText = '📏 Długość: ' + formatNum(L) + ' ' + unit + '\n';
             resultText += '⚙️ Tryb: ' + getPlacementModeLabel(mode) + '\n';
-            resultText += '📌 Liczba kołków: ' + positions.length + (mode === 'fixed' ? ' (wyliczona z odstępu)' : '') + '\n';
+            resultText += '📌 Liczba podziałów: ' + positions.length + (mode === 'fixed' ? ' (wyliczona z odstępu)' : '') + '\n';
             resultText += '📐 Odstęp między środkami: ' + formatNum(step) + ' ' + unit + '\n';
             if (ms > 0 || me > 0) {
                 resultText += '↔️ Marginesy: ' + formatNum(ms) + ' / ' + formatNum(me) + ' ' + unit + '\n';
             }
-            resultText += '\n📍 Pozycje kołków:\n';
+            resultText += '\n📍 Pozycje podziałów:\n';
             positions.forEach(function(pos, idx) {
-                resultText += '  Kołek ' + (idx + 1) + ': ' + formatNum(pos) + ' ' + unit + '\n';
+                resultText += '  Podział ' + (idx + 1) + ': ' + formatNum(pos) + ' ' + unit + '\n';
             });
 
             engResult.textContent = resultText;
@@ -539,7 +539,7 @@
 
             if (mode === 'fixed') {
                 if (fixedSpacing <= 0) {
-                    return { error: '⚠️ Podaj dodatni stały odstęp między kołkami.' };
+                    return { error: '⚠️ Podaj dodatni stały odstęp między podziałami.' };
                 }
                 var start = marginStart;
                 var end = totalLength - marginEnd;
@@ -549,7 +549,7 @@
                     safety++;
                 }
                 if (positions.length === 0) {
-                    return { error: '⚠️ Stały odstęp nie mieści żadnego kołka w zadanym polu.' };
+                    return { error: '⚠️ Stały odstęp nie mieści żadnego podziału w zadanym polu.' };
                 }
                 return { positions: positions, step: fixedSpacing };
             }
@@ -1232,8 +1232,61 @@
         /* ============================================================
            [EN] PWA — Service Worker Registration
            ============================================================ */
+        function isDebugOrigin() {
+            var host = window.location.hostname;
+            return (
+                window.location.protocol !== 'https:' ||
+                host === 'localhost' ||
+                host === '127.0.0.1' ||
+                host === '0.0.0.0' ||
+                host === '::1'
+            );
+        }
+
+        function clearLocalServiceWorker() {
+            var cleanupKey = 'matm0_dev_sw_cleanup_done';
+            var tasks = [];
+
+            if ('serviceWorker' in navigator) {
+                tasks.push(
+                    navigator.serviceWorker.getRegistrations().then(function(registrations) {
+                        return Promise.all(registrations.map(function(reg) {
+                            return reg.unregister();
+                        }));
+                    })
+                );
+            }
+
+            if ('caches' in window) {
+                tasks.push(
+                    caches.keys().then(function(names) {
+                        return Promise.all(names.map(function(name) {
+                            if (name.indexOf('matm0-calc') === 0) {
+                                return caches.delete(name);
+                            }
+                            return Promise.resolve(false);
+                        }));
+                    })
+                );
+            }
+
+            return Promise.all(tasks).then(function() {
+                if (navigator.serviceWorker && navigator.serviceWorker.controller && !sessionStorage.getItem(cleanupKey)) {
+                    sessionStorage.setItem(cleanupKey, 'true');
+                    window.location.replace(window.location.pathname + '?dev-cache-clear=' + Date.now());
+                }
+            });
+        }
+
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', function() {
+                if (isDebugOrigin()) {
+                    clearLocalServiceWorker().catch(function(err) {
+                        console.warn('[EN] Local Service Worker cleanup failed:', err);
+                    });
+                    return;
+                }
+
                 navigator.serviceWorker.register('sw.js', { scope: './' })
                     .then(function(reg) {
                         console.log('[EN] Service Worker registered:', reg.scope);
