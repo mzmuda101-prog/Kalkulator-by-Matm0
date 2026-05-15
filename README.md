@@ -21,4 +21,4 @@ https://kalkulator-by-matm0.vercel.app
 
 ---
 
-Built with passion for mathematical elegance. 🚀
+Built with passion.
