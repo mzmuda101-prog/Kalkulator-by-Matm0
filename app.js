@@ -746,7 +746,24 @@
             });
 
             engResult.textContent = resultText;
-            drawEngineeringCanvas(L, ms, me, positions, positions.length, step, origin);
+            if (STATE.eng.multiSeries && STATE.eng.multiSeries.length > 1) {
+                // Wieloseria — zbierz punkty ze wszystkich serii i narysuj razem
+                var allSeries = [];
+                var resultExtra = '\n🔀 Wieloseria (' + STATE.eng.multiSeries.length + ' serie):\n';
+                STATE.eng.multiSeries.forEach(function(cfg, idx) {
+                    try {
+                        var pts = pointsFromPipeCommand(cfg);
+                        var seriesLabel = cfg.label || ('Seria ' + (idx + 1));
+                        allSeries.push({ points: pts, label: seriesLabel, r: cfg.r });
+                        resultExtra += '  • ' + seriesLabel + ': ' + pts.length + ' pkt\n';
+                    } catch(e) {}
+                });
+                engResult.textContent = resultText + resultExtra;
+                drawEngineeringCanvasMulti(L, ms, me, allSeries, origin);
+            } else {
+                engResult.textContent = resultText;
+                drawEngineeringCanvas(L, ms, me, positions, positions.length, step, origin);
+            }
         }
 
         function calculatePegPositions(totalLength, count, marginStart, marginEnd, fixedSpacing, mode) {
@@ -819,6 +836,101 @@
             ctx.font = '600 16px ' + getComputedStyle(document.body).fontFamily;
             ctx.textAlign = 'center';
             ctx.fillText('⚠️ Nieprawidłowe dane — popraw wartości powyżej', w / 2, h / 2);
+        }
+
+        function drawEngineeringCanvasMulti(L, ms, me, allSeries, origin) {
+            // Kolory dla kolejnych serii
+            var seriesColors = ['#2563eb', '#dc2626', '#16a34a', '#d97706', '#7c3aed', '#0891b2'];
+            // Zbierz wszystkie punkty żeby znać zakres
+            var allPoints = [];
+            allSeries.forEach(function(s) { allPoints = allPoints.concat(s.points); });
+
+            var ctx = engCtx;
+            var W = engCanvas.width;
+            var H = engCanvas.height;
+            ctx.clearRect(0, 0, W, H);
+
+            var PAD_L = 60, PAD_R = 40, PAD_T = 60, PAD_B = 60;
+            var drawW = W - PAD_L - PAD_R;
+            var drawH = H - PAD_T - PAD_B;
+
+            var unit = getUnitLabel();
+            var displayL = L + (origin || 0);
+            var scale = drawW / Math.max(displayL, 1);
+
+            function toX(pos) { return PAD_L + (pos - (origin || 0)) * scale; }
+            var midY = PAD_T + drawH / 2;
+
+            // Tło
+            ctx.fillStyle = '#f8fafc';
+            ctx.fillRect(0, 0, W, H);
+
+            // Belka
+            var beamY = midY - 12;
+            var beamH = 24;
+            ctx.fillStyle = '#e2e8f0';
+            ctx.strokeStyle = '#94a3b8';
+            ctx.lineWidth = 1.5;
+            ctx.beginPath();
+            ctx.rect(PAD_L, beamY, drawW, beamH);
+            ctx.fill(); ctx.stroke();
+
+            // Etykiety osi
+            ctx.fillStyle = '#64748b';
+            ctx.font = '11px ' + getComputedStyle(document.body).fontFamily;
+            ctx.textAlign = 'center';
+            ctx.fillText('0', PAD_L, midY + 34);
+            ctx.fillText(formatNum(L) + ' ' + unit, PAD_L + drawW, midY + 34);
+
+            // Marginesy
+            if (ms > 0) {
+                ctx.strokeStyle = '#fbbf24'; ctx.lineWidth = 1.5; ctx.setLineDash([4, 3]);
+                ctx.beginPath(); ctx.moveTo(PAD_L + ms * scale, PAD_T); ctx.lineTo(PAD_L + ms * scale, PAD_T + drawH); ctx.stroke();
+                ctx.setLineDash([]);
+            }
+            if (me > 0) {
+                ctx.strokeStyle = '#fbbf24'; ctx.lineWidth = 1.5; ctx.setLineDash([4, 3]);
+                ctx.beginPath(); ctx.moveTo(PAD_L + (L - me) * scale, PAD_T); ctx.lineTo(PAD_L + (L - me) * scale, PAD_T + drawH); ctx.stroke();
+                ctx.setLineDash([]);
+            }
+
+            // Każda seria — punkty innym kolorem, etykiety nad/pod na przemian
+            allSeries.forEach(function(series, si) {
+                var color = seriesColors[si % seriesColors.length];
+                var above = si % 2 === 0; // naprzemiennie góra/dół żeby się nie nakładały
+                series.points.forEach(function(pt, pi) {
+                    var px = toX(pt.x !== undefined ? pt.x : pt);
+                    var py = midY;
+                    // Pionowa kreska
+                    ctx.strokeStyle = color; ctx.lineWidth = 1.5; ctx.setLineDash([]);
+                    ctx.beginPath();
+                    ctx.moveTo(px, beamY - 6);
+                    ctx.lineTo(px, beamY + beamH + 6);
+                    ctx.stroke();
+                    // Kółko
+                    ctx.beginPath();
+                    ctx.arc(px, py, pt.r || 6, 0, Math.PI * 2);
+                    ctx.fillStyle = color;
+                    ctx.fill();
+                    ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5;
+                    ctx.stroke();
+                    // Numer punktu
+                    ctx.fillStyle = color;
+                    ctx.font = 'bold 11px ' + getComputedStyle(document.body).fontFamily;
+                    ctx.textAlign = 'center';
+                    var labelY = above ? beamY - 14 : beamY + beamH + 20;
+                    ctx.fillText((pi + 1), px, labelY);
+                });
+                // Legenda
+                var legendX = PAD_L + 8 + si * 90;
+                var legendY = PAD_T - 10;
+                ctx.fillStyle = color;
+                ctx.beginPath(); ctx.arc(legendX, legendY, 5, 0, Math.PI * 2); ctx.fill();
+                ctx.fillStyle = '#1e293b';
+                ctx.font = '11px ' + getComputedStyle(document.body).fontFamily;
+                ctx.textAlign = 'left';
+                ctx.fillText(series.label || ('Seria ' + (si + 1)), legendX + 9, legendY + 4);
+            });
         }
 
         function drawEngineeringCanvas(totalLength, marginStart, marginEnd, positions, count, step, origin) {
@@ -1270,22 +1382,23 @@
 
         function applyEngineeringCommand(raw) {
             try {
-                var config = parsePipeCommand(raw);
-                if (!config) {
-                    showToast('❌ Nieprawidłowa komenda. Przykład: x(d)=120/4 | <-10 | ->10', 'error');
-                    /* Podświetl pole na czerwono przez chwilę */
+                var configs = parseMultiSeriesCommand(raw);
+                if (!configs) {
+                    showToast('❌ Nieprawidłowa komenda. Przykład: x=120/4 | m=10', 'error');
                     engCommand.style.borderColor = '#ef4444';
                     setTimeout(function() { engCommand.style.borderColor = ''; }, 1500);
                     return;
                 }
-                engLength.value = formatRawNum(config.length);
-                engOrigin.value = formatRawNum(config.origin || 0);
-                engCount.value = String(config.count);
-                engSpacing.value = formatRawNum(config.spacing || (config.length / Math.max(1, config.count)));
+                var config = configs[0];
+                engLength.value      = formatRawNum(config.length);
+                engOrigin.value      = formatRawNum(config.origin || 0);
+                engCount.value       = String(config.count);
+                engSpacing.value     = formatRawNum(config.spacing || (config.length / Math.max(1, config.count)));
                 engMarginStart.value = formatRawNum(config.marginStart);
-                engMarginEnd.value = formatRawNum(config.marginEnd);
-                STATE.eng.axis = config.axis;
-                STATE.eng.mode = config.mode;
+                engMarginEnd.value   = formatRawNum(config.marginEnd);
+                STATE.eng.axis       = config.axis;
+                STATE.eng.mode       = config.mode;
+                STATE.eng.multiSeries = configs.length > 1 ? configs : null;
                 if (config.unit) {
                     STATE.eng.unit = config.unit;
                     setToggleActive(unitToggle, '.unit-btn', 'data-unit', config.unit);
@@ -1294,7 +1407,12 @@
                 setToggleActive(spacingModeToggle, '.mode-btn', 'data-mode', config.mode);
                 updateSpacingModeUI();
                 updateEngineering();
-                showToast('Komenda ustawiona', 'success');
+                if (configs.length > 1) {
+                    var totalPoints = configs.reduce(function(sum, cfg) { return sum + cfg.count; }, 0);
+                    showToast('✅ ' + configs.length + ' serie, ~' + totalPoints + ' punktów', 'success');
+                } else {
+                    showToast('Komenda ustawiona', 'success');
+                }
             } catch (err) {
                 showToast(err.message || 'Nieprawidłowa komenda', 'error');
             }
@@ -1335,7 +1453,7 @@
         function updateCmdBadge(raw) {
             var isCmd = false;
             if (raw.length > 0) {
-                try { isCmd = !!parsePipeCommand(raw); } catch(e) { isCmd = false; }
+                try { isCmd = !!parseMultiSeriesCommand(raw); } catch(e) { isCmd = false; }
             }
             engCommand.classList.toggle('cmd-active', isCmd);
             if (cmdModeBadge) cmdModeBadge.classList.toggle('cmd-active', isCmd);
@@ -1727,6 +1845,18 @@
                 ctx.fillText((pt.label || labelPrefix || 'P') + (idx + 1), p.x, p.y - radius - 5);
                 ctx.fillStyle = '#dc2626';
             });
+        }
+
+        function parseMultiSeriesCommand(raw) {
+            var series = String(raw || '').split(';;').map(function(s) { return s.trim(); }).filter(Boolean);
+            if (series.length === 0) return null;
+            var configs = [];
+            for (var i = 0; i < series.length; i++) {
+                var cfg = parsePipeCommand(series[i]);
+                if (!cfg) return null;
+                configs.push(cfg);
+            }
+            return configs;
         }
 
         function parsePipeCommand(command) {
