@@ -91,6 +91,8 @@
         const commandHelpClose = $('#commandHelpClose');
         const commandHelpBackdrop = $('#commandHelpBackdrop');
         const commandHelpDrawer = $('#commandHelpDrawer');
+        const helpSearch = $('#helpSearch');
+        let activeCommandTarget = 'engineering';
         // Zoom / Pan
         const canvasContainer = $('#canvasContainer');
         const zoomInBtn = $('#zoomInBtn');
@@ -1432,20 +1434,179 @@
         }
 
         function openCommandHelp() {
+
             document.body.classList.add('help-open');
-            if (commandHelpDrawer) commandHelpDrawer.setAttribute('aria-hidden', 'false');
+
+            if (commandHelpDrawer) {
+                commandHelpDrawer.setAttribute('aria-hidden', 'false');
+            }
+
+            document.querySelectorAll('.help-section').forEach(function(section) {
+
+                var type = section.getAttribute('data-help');
+
+                section.style.display =
+                    type === activeCommandTarget
+                        ? 'block'
+                        : 'none';
+
+            });
+
         }
 
         function closeCommandHelp() {
             document.body.classList.remove('help-open');
             if (commandHelpDrawer) commandHelpDrawer.setAttribute('aria-hidden', 'true');
+            if (helpSearch) {
+                helpSearch.value = '';
+
+                document.querySelectorAll('.help-section p').forEach(function(item) {
+                    item.style.display = '';
+                });
+            }
         }
 
-        if (commandHelpOpen) commandHelpOpen.addEventListener('click', openCommandHelp);
-        var graphCommandHelpOpen = $('#graphCommandHelpOpen');
-        if (graphCommandHelpOpen) graphCommandHelpOpen.addEventListener('click', openCommandHelp);
-        if (commandHelpClose) commandHelpClose.addEventListener('click', closeCommandHelp);
-        if (commandHelpBackdrop) commandHelpBackdrop.addEventListener('click', closeCommandHelp);
+        /* ============================================================
+           [EN] Help System
+        ============================================================ */
+
+        function initHelpSystem() {
+
+            /* ---- Cache original help HTML for safe highlighting ---- */
+            document.querySelectorAll('.help-section p').forEach(function(item) {
+
+                item.dataset.originalHtml = item.innerHTML;
+
+            });
+
+            /* ============================================================
+               [EN] Help Search
+            ============================================================ */
+
+            if (helpSearch) {
+
+                helpSearch.addEventListener('input', function() {
+
+                    var query = helpSearch.value
+                        .trim()
+                        .toLowerCase();
+
+                    document.querySelectorAll('.help-section p').forEach(function(item) {
+
+                        var originalHtml = item.dataset.originalHtml || item.innerHTML;
+
+                        var originalText = item.textContent;
+
+                        var text = originalText.toLowerCase();
+
+                        var match = text.includes(query);
+
+                        item.style.display =
+                            match
+                                ? ''
+                                : 'none';
+
+                        if (!query) {
+
+                            item.innerHTML = originalHtml;
+
+                            return;
+
+                        }
+
+                        if (match) {
+
+                            var regex = new RegExp('(' + query + ')', 'gi');
+
+                            item.innerHTML =
+                                originalHtml.replace(
+                                    regex,
+                                    '<span class="help-highlight">$1</span>'
+                                );
+
+                        }
+
+                    });
+
+                });
+
+            }
+
+            /* ============================================================
+               [EN] Help Drawer Open / Close
+            ============================================================ */
+
+            if (commandHelpOpen) {
+                commandHelpOpen.addEventListener('click', function() {
+
+                    activeCommandTarget = 'engineering';
+
+                    openCommandHelp();
+
+                });
+            }
+
+            var graphCommandHelpOpen = $('#graphCommandHelpOpen');
+
+            if (graphCommandHelpOpen) {
+                graphCommandHelpOpen.addEventListener('click', function() {
+
+                    activeCommandTarget = 'graph';
+
+                    openCommandHelp();
+
+                });
+            }
+
+            if (commandHelpClose) {
+                commandHelpClose.addEventListener('click', closeCommandHelp);
+            }
+
+            if (commandHelpBackdrop) {
+                commandHelpBackdrop.addEventListener('click', closeCommandHelp);
+            }
+
+            /* ============================================================
+               [EN] Command Help — Click To Apply
+            ============================================================ */
+
+            document.querySelectorAll('.help-command').forEach(function(item) {
+
+                item.addEventListener('click', function() {
+
+                    var command = item.getAttribute('data-command');
+
+                    if (!command) return;
+
+                    if (activeCommandTarget === 'engineering') {
+
+                        engCommand.value = command;
+
+                        updateCmdBadge(command);
+
+                        applyEngineeringCommand(command);
+
+                    }
+
+                    else if (activeCommandTarget === 'graph') {
+
+                        graphCommand.value = command;
+
+                        updateGraph(graphCommand.value);
+
+                    }
+
+                    closeCommandHelp();
+
+                    showToast('⚡ Komenda wstawiona', 'success');
+
+                });
+
+            });
+
+        }
+
+        initHelpSystem();
          /* ---- Wskaźnik trybu komend ---- */
         var cmdModeBadge  = $('#cmdModeBadge');
         var cmdModeLabel  = cmdModeBadge ? cmdModeBadge.querySelector('.mode-label') : null;

@@ -399,6 +399,16 @@
             <button class="history-close-btn" id="commandHelpClose" type="button" aria-label="Zamknij ściągę">×</button>
         </div>
         <div class="command-help-content">
+            <div class="help-search">
+
+                <input
+                    type="text"
+                    id="helpSearch"
+                    placeholder="Szukaj komendy... np. edges, sin, margin"
+                >
+
+            </div>
+            <div class="help-section" data-help="engineering">
             <section>
                 <h4>Najkrócej</h4>
                 <p><code>x=120/4</code> podziel długość 120 na 4 punkty na osi X.</p>
@@ -425,11 +435,111 @@
             </section>
             <section>
                 <h4>Przykłady</h4>
-                <p><code>x=120/4 | m=10/10 | @edges | u=mm</code></p>
-                <p><code>x=120/4 | co=20 | opis=otwory</code></p>
-                <p><code>y=200/5 | @edges | x=30</code></p>
-                <p><code>x=120/4 | origin=-60 | @edges</code></p>
+                <p class="help-command"
+                data-command="x=120/4 | m=10/10 | @edges | u=mm">
+
+                    <code>x=120/4 | m=10/10 | @edges | u=mm</code>
+                </p>
+                <p class="help-command"
+                data-command="x=120/4 | co=20 | opis=otwory">
+
+                    <code>x=120/4 | co=20 | opis=otwory</code>
+                </p>
+                <p class="help-command"
+                data-command="y=200/5 | @edges | x=30">
+
+                    <code>y=200/5 | @edges | x=30</code>
+                </p>
+                <p class="help-command"
+                data-command="x=120/4 | origin=-60 | @edges">
+
+                    <code>x=120/4 | origin=-60 | @edges</code>
+                </p>
+                <h4>Zaawansowane</h4>
+                <p class="help-command"
+                data-command="x=120/4 | @centered">
+                    <code>@centered</code>
+                    wyśrodkuj oś względem 0
+                </p>
+
+                <p class="help-command"
+                data-command="x=120 | co=20">
+                    <code>co=20</code>
+                    stały odstęp między punktami
+                </p>
+
+                <p class="help-command"
+                data-command="x=120/4 | m=10/20">
+                    <code>m=10/20</code>
+                    margines start / koniec
+                </p>
+
+                <p class="help-command"
+                data-command="x=120/4 | @edges">
+                    <code>@edges</code>
+                    pierwszy i ostatni punkt na krawędzi
+                </p>
+
+                <p class="help-command"
+                data-command="x=120/4 | origin=-60">
+                    <code>origin=-60</code>
+                    przesunięcie początku osi
+                </p>
+
+                <p class="help-command"
+                data-command="x=120/4 | fi=10">
+                    <code>fi=10</code>
+                    średnica punktów
+                </p>
+
+                <p class="help-command"
+                data-command="x=120/4 | opis=otwory">
+                    <code>opis=otwory</code>
+                    nazwa serii
+                </p>
+
+                <p class="help-command"
+                data-command="x=120/4 | u=mm">
+                    <code>u=mm</code>
+                    ustaw jednostkę
+                </p>
+
+                <p class="help-command"
+                data-command="x=120/4 ;; x=120/6 | y=30">
+                    <code>;;</code>
+                    wiele serii punktów
+                </p>
             </section>
+            </div>
+            <div class="help-section" data-help="graph">
+
+                <h4>Funkcje wykresów</h4>
+
+                <p class="help-command"
+                data-command="f(x)=sin(x)">
+                    <code>sin(x)</code>
+                    funkcja sinus
+                </p>
+
+                <p class="help-command"
+                data-command="f(x)=x^2">
+                    <code>x^2</code>
+                    parabola
+                </p>
+
+                <p class="help-command"
+                data-command="f(x)=sqrt(x)">
+                    <code>sqrt(x)</code>
+                    pierwiastek
+                </p>
+
+                <p class="help-command"
+                data-command="f(x)=abs(x)">
+                    <code>abs(x)</code>
+                    wartość bezwzględna
+                </p>
+
+            </div>
         </div>
     </aside>
 
