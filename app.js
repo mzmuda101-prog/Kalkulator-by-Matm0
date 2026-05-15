@@ -2169,6 +2169,174 @@
                 '\nPunkty: ' + points.length;
         }
 
+        /* ============================================================
+        [EN] GRAPH 2D — Geometry command parser
+        Rozpoznaje: punkt=, rect=, siatka=
+        ============================================================ */
+        function parseGeometryCommand(raw) {
+            var str = String(raw || '').trim();
+            var lower = str.toLowerCase();
+
+            // --- punkt=x,y | label=... | r=... ---
+            if (/^punkt\s*=/.test(lower) || /^p\s*=\s*-?\d/.test(lower)) {
+                var body = str.replace(/^[^=]+=/, '').trim();
+                var parts = body.split('|').map(function(s) { return s.trim(); });
+                var coords = parts[0].split(',');
+                var x = parseGraphNumber(coords[0], 0);
+                var y = parseGraphNumber(coords[1] || '0', 0);
+                var label = 'P'; var r = 7;
+                parts.slice(1).forEach(function(p) {
+                    var pl = p.toLowerCase();
+                    if (/^(label|opis|nazwa)=/.test(pl)) label = p.split('=').slice(1).join('=').trim();
+                    if (/^r=/.test(pl)) r = Math.max(2, parseGraphNumber(p.split('=')[1], 7));
+                });
+                return { type: 'punkt', x: x, y: y, label: label, r: r };
+            }
+
+            // --- rect=szerokoscxwysokosc | label=... ---
+            if (/^rect\s*=/.test(lower) || /^prostokat\s*=/.test(lower)) {
+                var body = str.replace(/^[^=]+=/, '').trim();
+                var parts = body.split('|').map(function(s) { return s.trim(); });
+                var dims = parts[0].toLowerCase().split('x');
+                var w = parseGraphNumber(dims[0], 100);
+                var h = parseGraphNumber(dims[1] || dims[0], 100);
+                var ox = 0; var oy = 0; var label = '';
+                parts.slice(1).forEach(function(p) {
+                    var pl = p.toLowerCase();
+                    if (/^(label|opis|nazwa)=/.test(pl)) label = p.split('=').slice(1).join('=').trim();
+                    if (/^(ox|x0|od_x)=/.test(pl)) ox = parseGraphNumber(p.split('=')[1], 0);
+                    if (/^(oy|y0|od_y)=/.test(pl)) oy = parseGraphNumber(p.split('=')[1], 0);
+                });
+                return { type: 'rect', w: w, h: h, ox: ox, oy: oy, label: label };
+            }
+
+            // --- siatka=szerokoscxwysokosc | co=dxdy | label=... ---
+            if (/^(siatka|grid)\s*=/.test(lower)) {
+                var body = str.replace(/^[^=]+=/, '').trim();
+                var parts = body.split('|').map(function(s) { return s.trim(); });
+                var dims = parts[0].toLowerCase().split('x');
+                var w = parseGraphNumber(dims[0], 100);
+                var h = parseGraphNumber(dims[1] || dims[0], 100);
+                var dx = w; var dy = h; var ox = 0; var oy = 0;
+                var label = 'P'; var r = 7;
+                parts.slice(1).forEach(function(p) {
+                    var pl = p.toLowerCase();
+                    if (/^(co|step|krok|co_x)=/.test(pl)) {
+                        var coVal = p.split('=')[1].toLowerCase().split('x');
+                        dx = parseGraphNumber(coVal[0], w);
+                        dy = parseGraphNumber(coVal[1] || coVal[0], h);
+                    }
+                    if (/^(label|opis|nazwa)=/.test(pl)) label = p.split('=').slice(1).join('=').trim();
+                    if (/^(ox|x0)=/.test(pl)) ox = parseGraphNumber(p.split('=')[1], 0);
+                    if (/^(oy|y0)=/.test(pl)) oy = parseGraphNumber(p.split('=')[1], 0);
+                    if (/^r=/.test(pl)) r = Math.max(2, parseGraphNumber(p.split('=')[1], 7));
+                });
+                return { type: 'siatka', w: w, h: h, dx: dx, dy: dy, ox: ox, oy: oy, label: label, r: r };
+            }
+
+            return null;
+        }
+
+        function buildGeometryPoints(geo) {
+            if (geo.type === 'punkt') {
+                return [{ x: geo.x, y: geo.y, r: geo.r, label: geo.label }];
+            }
+            if (geo.type === 'rect') {
+                // Cztery rogi prostokąta
+                return [
+                    { x: geo.ox,          y: geo.oy,          r: 5, label: geo.label || 'A' },
+                    { x: geo.ox + geo.w,  y: geo.oy,          r: 5, label: geo.label || 'B' },
+                    { x: geo.ox + geo.w,  y: geo.oy + geo.h,  r: 5, label: geo.label || 'C' },
+                    { x: geo.ox,          y: geo.oy + geo.h,  r: 5, label: geo.label || 'D' },
+                ];
+            }
+            if (geo.type === 'siatka') {
+                var pts = [];
+                var ix = 0;
+                for (var x = geo.ox; x <= geo.ox + geo.w + 1e-9; x += geo.dx) {
+                    var iy = 0;
+                    for (var y = geo.oy; y <= geo.oy + geo.h + 1e-9; y += geo.dy) {
+                        pts.push({ x: parseFloat(x.toFixed(6)), y: parseFloat(y.toFixed(6)), r: geo.r, label: geo.label || 'P', _ix: ix, _iy: iy });
+                        iy++;
+                    }
+                    ix++;
+                }
+                return pts;
+            }
+            return [];
+        }
+
+        function drawGeometry(geos, bounds) {
+            // geos = tablica obiektów { geo, points, color }
+            var ctx = graphCtx;
+            var w = graphCanvas.width;
+            var h = graphCanvas.height;
+            var pad = drawGraphBase(bounds);
+            var colors = ['#2563eb', '#dc2626', '#16a34a', '#d97706', '#7c3aed', '#0891b2'];
+
+            geos.forEach(function(item, si) {
+                var geo = item.geo;
+                var points = item.points;
+                var color = item.color || colors[si % colors.length];
+
+                // Narysuj prostokąt jako linię
+                if (geo.type === 'rect') {
+                    var corners = points;
+                    ctx.strokeStyle = color;
+                    ctx.lineWidth = 2;
+                    ctx.setLineDash([6, 3]);
+                    ctx.beginPath();
+                    var first = graphToScreen(corners[0].x, corners[0].y, bounds, w, h, pad);
+                    ctx.moveTo(first.x, first.y);
+                    [1, 2, 3, 0].forEach(function(i) {
+                        var p = graphToScreen(corners[i].x, corners[i].y, bounds, w, h, pad);
+                        ctx.lineTo(p.x, p.y);
+                    });
+                    ctx.closePath();
+                    ctx.stroke();
+                    ctx.setLineDash([]);
+                    // Wymiary
+                    ctx.fillStyle = color;
+                    ctx.font = '11px ' + getComputedStyle(document.body).fontFamily;
+                    ctx.textAlign = 'center';
+                    var mid = graphToScreen(geo.ox + geo.w / 2, geo.oy, bounds, w, h, pad);
+                    ctx.fillText(formatNum(geo.w), mid.x, mid.y - 10);
+                    var midL = graphToScreen(geo.ox, geo.oy + geo.h / 2, bounds, w, h, pad);
+                    ctx.textAlign = 'right';
+                    ctx.fillText(formatNum(geo.h), midL.x - 8, midL.y + 4);
+                }
+
+                // Narysuj punkty
+                ctx.fillStyle = color;
+                ctx.strokeStyle = color === '#2563eb' ? '#1d4ed8' : color;
+                ctx.lineWidth = 1.5;
+                ctx.font = '700 11px ' + getComputedStyle(document.body).fontFamily;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'bottom';
+
+                points.forEach(function(pt, idx) {
+                    var p = graphToScreen(pt.x, pt.y, bounds, w, h, pad);
+                    if (p.x < pad - 10 || p.x > w - pad + 10 || p.y < pad - 10 || p.y > h - pad + 10) return;
+                    var radius = pt.r || 6;
+                    ctx.beginPath();
+                    ctx.arc(p.x, p.y, radius, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5;
+                    ctx.stroke();
+                    ctx.fillStyle = color;
+                    // Dla siatki — pokaż indeks, dla reszty label+numer
+                    var txt = geo.type === 'siatka'
+                        ? (pt.label || 'P') + '(' + pt._ix + ',' + pt._iy + ')'
+                        : (pt.label || 'P') + (points.length > 1 ? (idx + 1) : '');
+                    ctx.fillStyle = '#0f172a';
+                    ctx.font = '700 10px ' + getComputedStyle(document.body).fontFamily;
+                    ctx.fillText(txt, p.x, p.y - radius - 3);
+                    ctx.fillStyle = color;
+                });
+            });
+        }
+
+
         function parseDivisionCommand(command) {
             var pipe = parsePipeCommand(command);
             if (pipe) return pipe;
@@ -2241,39 +2409,159 @@
             STATE.graph.yMin = bounds.yMin;
             STATE.graph.yMax = bounds.yMax;
 
+            if (!command) {
+                drawGraphBase(bounds);
+                graphResult.textContent = '';
+                return;
+            }
+
             try {
-                var division = parseDivisionCommand(command);
-                if (division) {
-                    var points = buildDivisionPoints(division);
-                    if (points.length) {
-                        var px = points.map(function(p) { return p.x; });
-                        var py = points.map(function(p) { return p.y; });
-                        var minX = Math.min.apply(Math, px);
-                        var maxX = Math.max.apply(Math, px);
-                        var minY = Math.min.apply(Math, py);
-                        var maxY = Math.max.apply(Math, py);
-                        if (minX < bounds.xMin || maxX > bounds.xMax) {
-                            graphXMin.value = formatRawNum(Math.min(0, minX));
-                            graphXMax.value = formatRawNum(maxX + Math.max(1, (maxX - minX) * 0.08));
-                        }
-                        if (minY <= bounds.yMin || maxY >= bounds.yMax) {
-                            graphYMin.value = formatRawNum(minY - 4);
-                            graphYMax.value = formatRawNum(maxY + 4);
-                        }
+                // --- Wieloseria: rozdziel po ;; ---
+                var rawSeries = command.split(';;').map(function(s) { return s.trim(); }).filter(Boolean);
+
+                // Zbierz wszystkie punkty i geometrie ze wszystkich serii
+                var allGeos = [];
+                var resultLines = [];
+                var colors = ['#2563eb', '#dc2626', '#16a34a', '#d97706', '#7c3aed', '#0891b2'];
+                var hasDivision = false;
+                var hasFunction = false;
+                var fnCommands = [];
+
+                rawSeries.forEach(function(s, si) {
+                    var color = colors[si % colors.length];
+
+                    // 1. Geometria 2D?
+                    var geo = parseGeometryCommand(s);
+                    if (geo) {
+                        var pts = buildGeometryPoints(geo);
+                        allGeos.push({ geo: geo, points: pts, color: color });
+                        var summary = geo.type === 'rect'
+                            ? 'Prostokąt ' + formatNum(geo.w) + '×' + formatNum(geo.h)
+                            : geo.type === 'siatka'
+                                ? 'Siatka ' + formatNum(geo.w) + '×' + formatNum(geo.h) + ', co ' + formatNum(geo.dx) + '×' + formatNum(geo.dy) + ' (' + pts.length + ' pkt)'
+                                : 'Punkt (' + formatNum(geo.x) + ', ' + formatNum(geo.y) + ')';
+                        resultLines.push(summary);
+                        // Dopasuj bounds
+                        pts.forEach(function(pt) {
+                            if (pt.x < bounds.xMin) { graphXMin.value = formatRawNum(pt.x - Math.abs(pt.x * 0.1) - 1); }
+                            if (pt.x > bounds.xMax) { graphXMax.value = formatRawNum(pt.x + Math.abs(pt.x * 0.1) + 1); }
+                            if (pt.y < bounds.yMin) { graphYMin.value = formatRawNum(pt.y - Math.abs(pt.y * 0.1) - 1); }
+                            if (pt.y > bounds.yMax) { graphYMax.value = formatRawNum(pt.y + Math.abs(pt.y * 0.1) + 1); }
+                        });
                         bounds = getGraphBounds();
+                        return;
                     }
-                    drawPoints(points, bounds, division.label || 'P');
-                    graphResult.textContent = (division.axis ? commandSummary(division, points) + '\n\n' : 'Punkty:\n') + points.map(function(p, idx) {
-                        return (p.label || 'P') + (idx + 1) + '=(' + formatNum(p.x) + ', ' + formatNum(p.y) + ')';
-                    }).join('\n');
-                    return;
+
+                    // 2. Komenda podziału 1D?
+                    var division = parseDivisionCommand(s);
+                    if (division) {
+                        hasDivision = true;
+                        var pts = buildDivisionPoints(division);
+                        allGeos.push({ geo: { type: 'division', division: division }, points: pts, color: color });
+                        resultLines.push(commandSummary(division, pts));
+                        if (pts.length) {
+                            var pxArr = pts.map(function(p) { return p.x; });
+                            var pyArr = pts.map(function(p) { return p.y; });
+                            var minX = Math.min.apply(Math, pxArr); var maxX = Math.max.apply(Math, pxArr);
+                            var minY = Math.min.apply(Math, pyArr); var maxY = Math.max.apply(Math, pyArr);
+                            if (minX < bounds.xMin || maxX > bounds.xMax) {
+                                graphXMin.value = formatRawNum(Math.min(0, minX));
+                                graphXMax.value = formatRawNum(maxX + Math.max(1, (maxX - minX) * 0.08));
+                            }
+                            if (minY <= bounds.yMin || maxY >= bounds.yMax) {
+                                graphYMin.value = formatRawNum(minY - 4);
+                                graphYMax.value = formatRawNum(maxY + 4);
+                            }
+                            bounds = getGraphBounds();
+                        }
+                        return;
+                    }
+
+                    // 3. Funkcja matematyczna
+                    hasFunction = true;
+                    fnCommands.push({ cmd: s, color: color });
+                });
+
+                // Rysuj bazę i geometrię
+                drawGraphBase(bounds);
+
+                // Rysuj geometrie (rect, siatka, punkt, division)
+                var geosToRender = allGeos.filter(function(item) { return item.geo.type !== 'division'; });
+                var divisionsToRender = allGeos.filter(function(item) { return item.geo.type === 'division'; });
+
+                if (geosToRender.length > 0) {
+                    drawGeometry(geosToRender, bounds);
                 }
 
-                var validCount = drawFunction(command, bounds);
-                graphResult.textContent = 'Rysuję: ' + stripFunctionPrefix(command) + '\nZakres X: ' + formatNum(bounds.xMin) + ' do ' + formatNum(bounds.xMax) + '\nPróbki poprawne: ' + validCount;
+                divisionsToRender.forEach(function(item) {
+                    var pts = item.points;
+                    var color = item.color;
+                    var labelPrefix = item.geo.division.label || 'P';
+                    // Rysuj punkty ręcznie z danym kolorem
+                    var ctx = graphCtx;
+                    var w = graphCanvas.width; var h = graphCanvas.height;
+                    var pad = 46;
+                    ctx.font = '700 12px ' + getComputedStyle(document.body).fontFamily;
+                    ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
+                    pts.forEach(function(pt, idx) {
+                        var p = graphToScreen(pt.x, pt.y, bounds, w, h, pad);
+                        if (p.x < pad || p.x > w - pad || p.y < pad || p.y > h - pad) return;
+                        var radius = pt.r || 7;
+                        ctx.beginPath();
+                        ctx.arc(p.x, p.y, radius, 0, Math.PI * 2);
+                        ctx.fillStyle = color; ctx.fill();
+                        ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5; ctx.stroke();
+                        ctx.fillStyle = '#0f172a';
+                        ctx.fillText((pt.label || labelPrefix) + (idx + 1), p.x, p.y - radius - 5);
+                    });
+                });
+
+                // Rysuj funkcje (każda innym kolorem)
+                fnCommands.forEach(function(item) {
+                    var fn = compileGraphExpression(item.cmd);
+                    var ctx = graphCtx;
+                    var w = graphCanvas.width; var h = graphCanvas.height;
+                    var pad = 46;
+                    var samples = Math.max(300, w - pad * 2);
+                    var started = false;
+                    ctx.strokeStyle = item.color;
+                    ctx.lineWidth = 3;
+                    ctx.beginPath();
+                    for (var i = 0; i <= samples; i++) {
+                        var x = bounds.xMin + (i / samples) * (bounds.xMax - bounds.xMin);
+                        var y = fn(x);
+                        if (!isFinite(y) || Math.abs(y) > 1e8) { started = false; continue; }
+                        var p = graphToScreen(x, y, bounds, w, h, pad);
+                        if (!started) { ctx.moveTo(p.x, p.y); started = true; } else { ctx.lineTo(p.x, p.y); }
+                    }
+                    ctx.stroke();
+                    resultLines.push('f(x) = ' + stripFunctionPrefix(item.cmd));
+                });
+
+                // Legenda jeśli wieloseria
+                if (rawSeries.length > 1) {
+                    var ctx = graphCtx;
+                    var pad = 46;
+                    rawSeries.forEach(function(s, si) {
+                        var color = colors[si % colors.length];
+                        var legendX = pad + 8 + si * 100;
+                        var legendY = 18;
+                        ctx.fillStyle = color;
+                        ctx.beginPath(); ctx.arc(legendX, legendY, 5, 0, Math.PI * 2); ctx.fill();
+                        ctx.fillStyle = '#1e293b';
+                        ctx.font = '11px ' + getComputedStyle(document.body).fontFamily;
+                        ctx.textAlign = 'left';
+                        ctx.fillText(s.length > 14 ? s.slice(0, 14) + '…' : s, legendX + 9, legendY + 4);
+                    });
+                }
+
+                graphResult.textContent = resultLines.join('\n\n') ||
+                    'Rysuję: ' + stripFunctionPrefix(command);
+
             } catch (err) {
                 drawGraphBase(bounds);
-                graphResult.textContent = '⚠️ ' + err.message + '\nPrzykłady: f(x)=sin(x), f(x)=x^2-4, x(d)=120/4 | <-10 | ->10 | @edges | y=-1';
+                graphResult.textContent = '⚠️ ' + err.message +
+                    '\n\nPrzykłady:\n  f(x)=sin(x)\n  rect=400x300\n  siatka=400x300 | co=100x100\n  punkt=150,200 | label=A\n  x(d)=120/4 | m=10 | y=0';
             }
         }
 
