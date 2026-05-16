@@ -694,23 +694,65 @@
                         <code>cos(x)*5</code>
                         cosinus ze skalą
                     </p>
+</section>
 
-                    <p><strong>📐 Geometria 2D</strong></p>
-                    <p data-command="punkt=150,200 | label=A | r=8" class="help-command">
-                    <code>punkt=150,200 | label=A | r=8</code> — punkt w miejscu X=150, Y=200
+                <section>
+                    <h4>📐 Geometria 2D</h4>
+
+                    <p class="help-command" data-command="punkt=150,200 | label=A | r=8">
+                        <code>punkt=150,200 | label=A | r=8</code>
+                        punkt w miejscu X=150, Y=200, rozmiar r=8
                     </p>
-                    <p data-command="rect=400x300" class="help-command">
-                    <code>rect=400x300</code> — prostokąt 400×300 (np. rzut altanki)
+
+                    <p class="help-command" data-command="punkt=0,0 | label=środek">
+                        <code>punkt=0,0 | label=środek</code>
+                        punkt w centrum układu
                     </p>
-                    <p data-command="siatka=400x300 | co=200x150 | label=słup" class="help-command">
-                    <code>siatka=400x300 | co=200x150 | label=słup</code> — siatka punktów co 200×150
+
+                    <p class="help-command" data-command="rect=400x300">
+                        <code>rect=400x300</code>
+                        prostokąt 400×300 (np. rzut altanki z góry)
                     </p>
-                    <p><strong>🔀 Wieloseria (;;)</strong></p>
-                    <p data-command="rect=400x300 ;; siatka=400x300 | co=200x150 | label=słup ;; punkt=200,150 | label=środek" class="help-command">
-                    <code>rect=400x300 ;; siatka=... ;; punkt=...</code> — kilka rzeczy naraz
+
+                    <p class="help-command" data-command="rect=400x300 | ox=50 | oy=50 | label=płyta">
+                        <code>rect=400x300 | ox=50 | oy=50</code>
+                        prostokąt przesunięty o ox/oy od początku
                     </p>
-                    <p data-command="f(x)=sin(x) ;; f(x)=cos(x)" class="help-command">
-                    <code>f(x)=sin(x) ;; f(x)=cos(x)</code> — dwie funkcje na jednym wykresie
+
+                    <p class="help-command" data-command="siatka=400x300 | co=200x150 | label=słup">
+                        <code>siatka=400x300 | co=200x150 | label=słup</code>
+                        siatka punktów co 200×150 (np. słupy altanki)
+                    </p>
+
+                    <p class="help-command" data-command="siatka=400x300 | co=100x100 | r=5 | label=P">
+                        <code>siatka=400x300 | co=100x100 | r=5</code>
+                        gęstsza siatka, mniejsze punkty
+                    </p>
+                </section>
+
+                <section>
+                    <h4>🔀 Wieloseria (;;)</h4>
+
+                    <p>Wpisz kilka komend oddzielonych <code>;;</code> — każda rysuje się innym kolorem na tym samym wykresie.</p>
+
+                    <p class="help-command" data-command="f(x)=sin(x) ;; f(x)=cos(x)">
+                        <code>f(x)=sin(x) ;; f(x)=cos(x)</code>
+                        dwie funkcje naraz
+                    </p>
+
+                    <p class="help-command" data-command="f(x)=x^2 ;; f(x)=x^3">
+                        <code>f(x)=x^2 ;; f(x)=x^3</code>
+                        porównanie funkcji
+                    </p>
+
+                    <p class="help-command" data-command="rect=400x300 ;; siatka=400x300 | co=200x150 | label=słup ;; punkt=200,150 | label=środek">
+                        <code>rect=400x300 ;; siatka=... ;; punkt=...</code>
+                        rzut altanki: obrys + słupy + środek
+                    </p>
+
+                    <p class="help-command" data-command="x(d)=300/4 | m=10 | y=-2 ;; punkt=150,0 | label=kotwica">
+                        <code>x(d)=300/4 | y=-2 ;; punkt=150,0</code>
+                        punkty na belce + dodatkowy punkt
                     </p>
                 </section>
 

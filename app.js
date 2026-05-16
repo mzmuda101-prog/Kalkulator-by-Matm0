@@ -289,6 +289,13 @@
            ============================================================ */
         function switchTab(tabName) {
             STATE.activeTab = tabName;
+            var titles = {
+                calculator: 'Kalkulator — Matm0',
+                engineering: 'Inżynieria — Matm0',
+                graph: 'Wykresy — Matm0',
+                constants: 'Moje Stałe — Matm0',
+            };
+            document.title = titles[tabName] || 'Kalkulator by Matm0';
             tabBtns.forEach(function(btn) {
                 var isActive = btn.getAttribute('data-tab') === tabName;
                 btn.classList.toggle('active', isActive);
@@ -1801,7 +1808,7 @@
                 if (token.type === 'name') {
                     consume();
                     if (token.value === 'x') {
-                        return x;
+                        return currentX;
                     }
                     if (token.value === 'pi') {
                         return Math.PI;
@@ -1849,9 +1856,12 @@
                 }
             }
 
+            var currentX = 0;
+
             return function(x) {
-                pos = 0;
-                var result = parseExpression();
+            currentX = x;
+            pos = 0;
+            var result = parseExpression();
                 if (pos < tokens.length) {
                     throw new Error('Nieprawidłowe wyrażenie.');
                 }
@@ -2178,7 +2188,7 @@
             var lower = str.toLowerCase();
 
             // --- punkt=x,y | label=... | r=... ---
-            if (/^punkt\s*=/.test(lower) || /^p\s*=\s*-?\d/.test(lower)) {
+            if (/^punkt\s*=\s*-?[\d.]/.test(lower) || /^p\s*=\s*-?[\d.]/.test(lower)) {
                 var body = str.replace(/^[^=]+=/, '').trim();
                 var parts = body.split('|').map(function(s) { return s.trim(); });
                 var coords = parts[0].split(',');
@@ -2518,20 +2528,22 @@
 
                 // Rysuj funkcje (każda innym kolorem)
                 fnCommands.forEach(function(item) {
+                    // Rysuj funkcję BEZ czyszczenia canvasa (drawGraphBase już wywołane wyżej)
                     var fn = compileGraphExpression(item.cmd);
                     var ctx = graphCtx;
-                    var w = graphCanvas.width; var h = graphCanvas.height;
+                    var w = graphCanvas.width;
+                    var h = graphCanvas.height;
                     var pad = 46;
                     var samples = Math.max(300, w - pad * 2);
                     var started = false;
                     ctx.strokeStyle = item.color;
                     ctx.lineWidth = 3;
                     ctx.beginPath();
-                    for (var i = 0; i <= samples; i++) {
-                        var x = bounds.xMin + (i / samples) * (bounds.xMax - bounds.xMin);
-                        var y = fn(x);
-                        if (!isFinite(y) || Math.abs(y) > 1e8) { started = false; continue; }
-                        var p = graphToScreen(x, y, bounds, w, h, pad);
+                    for (var ii = 0; ii <= samples; ii++) {
+                        var xi = bounds.xMin + (ii / samples) * (bounds.xMax - bounds.xMin);
+                        var yi = fn(xi);
+                        if (!isFinite(yi) || Math.abs(yi) > 1e8) { started = false; continue; }
+                        var p = graphToScreen(xi, yi, bounds, w, h, pad);
                         if (!started) { ctx.moveTo(p.x, p.y); started = true; } else { ctx.lineTo(p.x, p.y); }
                     }
                     ctx.stroke();
