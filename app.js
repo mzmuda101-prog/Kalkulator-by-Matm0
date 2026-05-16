@@ -108,6 +108,8 @@
         const graphXMax = $('#graphXMax');
         const graphYMin = $('#graphYMin');
         const graphYMax = $('#graphYMax');
+        const graphXStep = $('#graphXStep');
+        const graphYStep = $('#graphYStep');
         const graphDrawBtn = $('#graphDrawBtn');
         const graphCanvas = $('#graphCanvas');
         const graphCtx = graphCanvas.getContext('2d');
@@ -1905,8 +1907,10 @@
             ctx.fillStyle = '#f8fafc';
             ctx.fillRect(0, 0, w, h);
 
-            var xStep = niceGridStep(bounds.xMax - bounds.xMin);
-            var yStep = niceGridStep(bounds.yMax - bounds.yMin);
+            var xStepCustom = graphXStep ? parseFloat(graphXStep.value) : NaN;
+            var yStepCustom = graphYStep ? parseFloat(graphYStep.value) : NaN;
+            var xStep = (isFinite(xStepCustom) && xStepCustom > 0) ? xStepCustom : niceGridStep(bounds.xMax - bounds.xMin);
+            var yStep = (isFinite(yStepCustom) && yStepCustom > 0) ? yStepCustom : niceGridStep(bounds.yMax - bounds.yMin);
 
             ctx.lineWidth = 1;
             ctx.strokeStyle = '#e2e8f0';
@@ -2413,6 +2417,21 @@
         function updateGraph() {
             var command = graphCommand.value.trim();
             var bounds = getGraphBounds();
+            // Dostosuj zakres do kroku siatki jeśli użytkownik go ustawił
+            var xStepVal = graphXStep ? parseFloat(graphXStep.value) : NaN;
+            var yStepVal = graphYStep ? parseFloat(graphYStep.value) : NaN;
+            if (isFinite(xStepVal) && xStepVal > 0) {
+                var xRange = xStepVal * 10; // zawsze pokaż ~10 podziałek
+                graphXMin.value = formatRawNum(-xRange / 2);
+                graphXMax.value = formatRawNum(xRange / 2);
+                bounds = getGraphBounds();
+            }
+            if (isFinite(yStepVal) && yStepVal > 0) {
+                var yRange = yStepVal * 10;
+                graphYMin.value = formatRawNum(-yRange / 2);
+                graphYMax.value = formatRawNum(yRange / 2);
+                bounds = getGraphBounds();
+            }
             STATE.graph.command = command;
             STATE.graph.xMin = bounds.xMin;
             STATE.graph.xMax = bounds.xMax;
@@ -2567,8 +2586,21 @@
                     });
                 }
 
-                graphResult.textContent = resultLines.join('\n\n') ||
-                    'Rysuję: ' + stripFunctionPrefix(command);
+                var bounds2 = getGraphBounds();
+                var xStepInfo = (isFinite(parseFloat(graphXStep && graphXStep.value)) && parseFloat(graphXStep.value) > 0)
+                    ? parseFloat(graphXStep.value)
+                    : niceGridStep(bounds2.xMax - bounds2.xMin);
+                var yStepInfo = (isFinite(parseFloat(graphYStep && graphYStep.value)) && parseFloat(graphYStep.value) > 0)
+                    ? parseFloat(graphYStep.value)
+                    : niceGridStep(bounds2.yMax - bounds2.yMin);
+
+                var infoHeader = '📊 Zakres X: ' + formatNum(bounds2.xMin) + ' → ' + formatNum(bounds2.xMax) +
+                    '   |   krok: ' + formatNum(xStepInfo) + '\n' +
+                    '📊 Zakres Y: ' + formatNum(bounds2.yMin) + ' → ' + formatNum(bounds2.yMax) +
+                    '   |   krok: ' + formatNum(yStepInfo) + '\n';
+
+                graphResult.textContent = infoHeader + '\n' + (resultLines.join('\n\n') ||
+                    'Rysuję: ' + stripFunctionPrefix(command));
 
             } catch (err) {
                 drawGraphBase(bounds);
@@ -2626,8 +2658,8 @@
                 updateGraph();
             }
         });
-        [graphXMin, graphXMax, graphYMin, graphYMax].forEach(function(input) {
-            input.addEventListener('input', updateGraph);
+        [graphXMin, graphXMax, graphYMin, graphYMax, graphXStep, graphYStep].forEach(function(input) {
+            if (input) input.addEventListener('input', updateGraph);
         });
         document.addEventListener('click', function(e) {
             var chip = e.target.closest('.example-chip');
