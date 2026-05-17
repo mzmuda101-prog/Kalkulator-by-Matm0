@@ -37,7 +37,12 @@ W konsoli przegladarki:
 ```js
 window.__matm0.runParserSmokeTests()
 window.__matm0.parseCommandSeries('x=120 | co=20 ;; punkt=60,0')
+window.__matm0.getHelpCoverageReport()
 ```
+
+## Edycja sciagi
+
+Sciaga komend jest w pliku `command-definitions.js`. Ten plik opisuje tylko UI i dokumentacje; parser w `app.js` nadal decyduje, jakie komendy aplikacja realnie obsluguje. Jesli parser umie cos, czego nie ma w sciadze, aplikacja pokazuje to w sekcji `Parser umie wiecej`.
 
 ## Live demo
 

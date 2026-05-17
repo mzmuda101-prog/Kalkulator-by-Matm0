@@ -112,6 +112,7 @@
         const graphCommand = $('#graphCommand');
         const graphCommandError = $('#graphCommandError');
         const graphRecentCommands = $('#graphRecentCommands');
+        const graphCmdModeBadge = $('#graphCmdModeBadge');
         const graphXMin = $('#graphXMin');
         const graphXMax = $('#graphXMax');
         const graphYMin = $('#graphYMin');
@@ -1550,11 +1551,147 @@
             }
         }
 
+        function getParserCapabilities() {
+            return {
+                engineering: [
+                    { syntax: 'x=120/4', command: 'x=120/4', description: 'podstawowy podzial osi X.', terms: ['x=120/4'] },
+                    { syntax: 'y=120/4', command: 'y=120/4', description: 'podstawowy podzial osi Y.', terms: ['y=120/4'] },
+                    { syntax: '120/4', command: '120/4', description: 'skrot bez nazwy osi.', terms: ['120/4'] },
+                    { syntax: 'co=20 / step=20 / every=20 / odstep=20', command: 'x=120 | co=20', description: 'staly odstep.', terms: ['co=20', 'step=20', 'every=20', 'odstep=20'] },
+                    { syntax: '@every:20', command: 'x=120 | @every:20', description: 'staly odstep z prefiksem @.', terms: ['@every:20'] },
+                    { syntax: '@between / @inside / @pole / @center / @srodek', command: 'x=120/4 | @inside', description: 'punkty wewnatrz pola.', terms: ['@between', '@inside', '@pole', '@center', '@srodek'] },
+                    { syntax: '@edges / @krance / @krawedzie', command: 'x=120/4 | @edges', description: 'punkty na krancach.', terms: ['@edges', '@krance', '@krawedzie'] },
+                    { syntax: 'm=10/20 / margin=10/20 / margines=10/20', command: 'x=120/4 | m=10/20', description: 'margines start/koniec.', terms: ['m=10/20', 'margin=10/20', 'margines=10/20'] },
+                    { syntax: '<-10 / ->20', command: 'x=120/4 | <-10 | ->20', description: 'marginesy strzalkami.', terms: ['<-10', '->20'] },
+                    { syntax: 'ms=10 / start=10 / left=10 / dol=10', command: 'x=120/4 | dol=10', description: 'margines poczatkowy.', terms: ['ms=10', 'start=10', 'left=10', 'dol=10'] },
+                    { syntax: 'me=20 / end=20 / right=20 / gora=20', command: 'x=120/4 | gora=20', description: 'margines koncowy.', terms: ['me=20', 'end=20', 'right=20', 'gora=20'] },
+                    { syntax: 'origin=50 / zero=50 / offset=50 / od=50', command: 'x=120/4 | od=50', description: 'przesuniecie poczatku osi.', terms: ['origin=50', 'zero=50', 'offset=50', 'od=50'] },
+                    { syntax: 'axis=x / os=y', command: '120/4 | os=y', description: 'jawny wybor osi.', terms: ['axis=x', 'os=y'] },
+                    { syntax: 'x=30 / y=-2', command: 'y=120/4 | x=30', description: 'przesuniecie serii na drugiej osi.', terms: ['x=30', 'y=-2'] },
+                    { syntax: 'r=5 / dia=5 / fi=5 / ø=5', command: 'x=120/4 | fi=5', description: 'promien punktu.', terms: ['r=5', 'dia=5', 'fi=5', 'ø=5'] },
+                    { syntax: 'u=mm / unit=mm / jednostka=mm', command: 'x=120/4 | jednostka=mm', description: 'jednostka wyniku.', terms: ['u=mm', 'unit=mm', 'jednostka=mm'] },
+                    { syntax: 'label=A / opis=A / nazwa=A', command: 'x=120/4 | nazwa=A', description: 'nazwa serii.', terms: ['label=a', 'opis=a', 'nazwa=a'] },
+                    { syntax: ';;', command: 'x=120/4 ;; x=120/6 | y=30', description: 'wiele serii.', terms: [';;'] },
+                ],
+                graph: [
+                    { syntax: 'f(x)=x / y=x', command: 'f(x)=x', description: 'funkcja matematyczna.', terms: ['f(x)=x', 'y=x'] },
+                    { syntax: 'sin cos tan sqrt abs log ln exp floor ceil round', command: 'f(x)=sqrt(abs(x))', description: 'obslugiwane funkcje w wykresach.', terms: ['sin', 'cos', 'tan', 'sqrt', 'abs', 'log', 'ln', 'exp', 'floor', 'ceil', 'round'] },
+                    { syntax: 'pi / π / e', command: 'f(x)=sin(pi*x)', description: 'stale matematyczne.', terms: ['pi', 'π', 'e'] },
+                    { syntax: 'podziel 120 na 4', command: 'podziel 120 na 4', description: 'naturalny zapis podzialu.', terms: ['podziel 120 na 4'] },
+                    { syntax: 'od 0 do 120 co 20', command: 'od 0 do 120 co 20', description: 'naturalny zapis stalego odstepu.', terms: ['od 0 do 120 co 20'] },
+                    { syntax: 'punkt=150,200 / p=150,200', command: 'p=150,200 | label=A', description: 'punkt 2D.', terms: ['punkt=150,200', 'p=150,200'] },
+                    { syntax: 'rect=400x300 / prostokat=400x300', command: 'prostokat=400x300', description: 'prostokat 2D.', terms: ['rect=400x300', 'prostokat=400x300'] },
+                    { syntax: 'ox=50 / oy=50 / x0=50 / y0=50 / od_x=50 / od_y=50', command: 'rect=400x300 | x0=50 | y0=50', description: 'przesuniecie geometrii.', terms: ['ox=50', 'oy=50', 'x0=50', 'y0=50', 'od_x=50', 'od_y=50'] },
+                    { syntax: 'siatka=400x300 / grid=400x300', command: 'grid=400x300 | co=100x100', description: 'siatka punktow.', terms: ['siatka=400x300', 'grid=400x300'] },
+                    { syntax: 'co=100x100 / krok=100x100 / co_x=100x100', command: 'siatka=400x300 | krok=100x100', description: 'odstep siatki.', terms: ['co=100x100', 'krok=100x100', 'co_x=100x100'] },
+                    { syntax: ';;', command: 'f(x)=sin(x) ;; punkt=0,0', description: 'wiele serii na wykresie.', terms: [';;'] },
+                ],
+            };
+        }
+
+        function normalizeHelpText(text) {
+            return String(text || '')
+                .toLowerCase()
+                .normalize('NFD')
+                .replace(/[\u0300-\u036f]/g, '')
+                .replace(/\s+/g, ' ')
+                .trim();
+        }
+
+        function definitionSearchText(groups) {
+            var chunks = [];
+            (groups || []).forEach(function(group) {
+                (group.items || []).forEach(function(item) {
+                    chunks.push(item.syntax || '', item.command || '', item.description || '');
+                });
+            });
+            return normalizeHelpText(chunks.join(' | '));
+        }
+
+        function getMissingHelpCapabilities(target) {
+            var definitions = window.MATM0_COMMAND_DEFINITIONS || {};
+            var capabilities = getParserCapabilities()[target] || [];
+            var text = definitionSearchText(definitions[target] || []);
+            return capabilities.filter(function(capability) {
+                var terms = capability.terms || [capability.syntax];
+                return terms.some(function(term) {
+                    return text.indexOf(normalizeHelpText(term)) === -1;
+                });
+            });
+        }
+
+        function createHelpCommandRow(item) {
+            var row = document.createElement('p');
+            if (item.command) {
+                row.className = 'help-command';
+                row.setAttribute('data-command', item.command);
+                row.title = 'Kliknij, aby wstawić komendę';
+            }
+
+            var code = document.createElement('code');
+            code.textContent = item.syntax || item.command || '';
+            row.appendChild(code);
+
+            if (item.description) {
+                row.appendChild(document.createTextNode(' ' + item.description));
+            }
+            return row;
+        }
+
+        function renderCommandHelpDefinitions() {
+            var definitions = window.MATM0_COMMAND_DEFINITIONS;
+            if (!definitions) return;
+
+            ['engineering', 'graph'].forEach(function(helpType) {
+                var helpSection = document.querySelector('.help-section[data-help="' + helpType + '"]');
+                var groups = definitions[helpType];
+                if (!helpSection || !Array.isArray(groups)) return;
+
+                helpSection.replaceChildren();
+                groups.forEach(function(group) {
+                    var section = document.createElement('section');
+                    var title = document.createElement('h4');
+                    title.textContent = group.title;
+                    section.appendChild(title);
+
+                    (group.items || []).forEach(function(item) {
+                        section.appendChild(createHelpCommandRow(item));
+                    });
+
+                    helpSection.appendChild(section);
+                });
+
+                var missing = getMissingHelpCapabilities(helpType);
+                if (missing.length) {
+                    var missingSection = document.createElement('section');
+                    missingSection.className = 'parser-gap-section';
+                    var missingTitle = document.createElement('h4');
+                    missingTitle.textContent = 'Parser umie wiecej';
+                    missingSection.appendChild(missingTitle);
+
+                    var intro = document.createElement('p');
+                    intro.className = 'parser-gap-note';
+                    intro.textContent = 'Te wpisy wykryl parser, ale nie sa jeszcze opisane w glownej sciadze. To lista pomocnicza, nie ograniczenie silnika.';
+                    missingSection.appendChild(intro);
+
+                    missing.forEach(function(item) {
+                        missingSection.appendChild(createHelpCommandRow(item));
+                    });
+                    helpSection.appendChild(missingSection);
+                }
+            });
+        }
+
+        function escapeRegExp(text) {
+            return String(text).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        }
+
         /* ============================================================
            [EN] Help System
         ============================================================ */
 
         function initHelpSystem() {
+            renderCommandHelpDefinitions();
 
             /* ---- Cache original help HTML for safe highlighting ---- */
             document.querySelectorAll('.help-section p').forEach(function(item) {
@@ -1600,7 +1737,7 @@
 
                         if (match) {
 
-                            var regex = new RegExp('(' + query + ')', 'gi');
+                            var regex = new RegExp('(' + escapeRegExp(query) + ')', 'gi');
 
                             item.innerHTML =
                                 originalHtml.replace(
@@ -1694,6 +1831,7 @@
          /* ---- Wskaźnik trybu komend ---- */
         var cmdModeBadge  = $('#cmdModeBadge');
         var cmdModeLabel  = cmdModeBadge ? cmdModeBadge.querySelector('.mode-label') : null;
+        var graphCmdModeLabel = graphCmdModeBadge ? graphCmdModeBadge.querySelector('.mode-label') : null;
 
         function updateCmdBadge(raw) {
             var isCmd = false;
@@ -1711,6 +1849,37 @@
 
         engCommand.addEventListener('input', function() { updateCmdBadge(engCommand.value.trim()); });
         engCommand.addEventListener('change', function() { updateCmdBadge(engCommand.value.trim()); });
+
+        function graphModeLabelFromParsed(parsed) {
+            if (!parsed || !parsed.length) return 'Tryb: pusty';
+            if (parsed.length > 1) return 'Tryb: wieloseria ' + parsed.length + '×';
+            switch (parsed[0].type) {
+                case 'geometry': return 'Tryb: geometria 2D';
+                case 'division': return 'Tryb: podział osi';
+                default: return 'Tryb: funkcja';
+            }
+        }
+
+        function updateGraphCmdBadge(raw) {
+            var active = false;
+            var label = 'Tryb: pusty';
+            if (raw.length > 0) {
+                try {
+                    var parsed = parseCommandSeries(raw);
+                    active = parsed.length > 0;
+                    label = graphModeLabelFromParsed(parsed);
+                } catch(e) {
+                    active = false;
+                    label = 'Tryb: komenda niekompletna…';
+                }
+            }
+            graphCommand.classList.toggle('cmd-active', active);
+            if (graphCmdModeBadge) graphCmdModeBadge.classList.toggle('cmd-active', active);
+            if (graphCmdModeLabel) graphCmdModeLabel.textContent = label;
+        }
+
+        graphCommand.addEventListener('input', function() { updateGraphCmdBadge(graphCommand.value.trim()); });
+        graphCommand.addEventListener('change', function() { updateGraphCmdBadge(graphCommand.value.trim()); });
 
         /* [EN] Sign toggle buttons for margin inputs */
         document.addEventListener('click', function(e) {
@@ -2520,6 +2689,7 @@
             var command = graphCommand.value.trim();
             var bounds = getGraphBounds();
             setCommandError('graph', '');
+            if (typeof updateGraphCmdBadge === 'function') updateGraphCmdBadge(command);
             // Dostosuj zakres do kroku siatki jeśli użytkownik go ustawił
             var xStepVal = graphXStep ? parseFloat(graphXStep.value) : NaN;
             var yStepVal = graphYStep ? parseFloat(graphYStep.value) : NaN;
@@ -3187,10 +3357,18 @@
             offsetY: 0,
             minScale: 0.25,
             maxScale: 4,
-            step: 0.25, // [EN] Zoom step per button click
+            step: 0.15, // [EN] Zoom step per button click
         };
 
         function clamp(v, min, max) { return Math.max(min, Math.min(max, v)); }
+        var PAN_DAMPING = 0.46;
+        var PINCH_DAMPING = 0.62;
+        var WHEEL_ZOOM_IN = 1.045;
+        var WHEEL_ZOOM_OUT = 0.957;
+
+        function dampScale(startScale, rawScale, minScale, maxScale) {
+            return clamp(startScale + (rawScale - startScale) * PINCH_DAMPING, minScale, maxScale);
+        }
 
         function applyTransform(animate) {
             if (!canvasWrapper) return;
@@ -3295,7 +3473,7 @@
         ============================================================ */
         var graphZoomState = {
             scale: 1, offsetX: 0, offsetY: 0,
-            minScale: 0.25, maxScale: 4, step: 0.25,
+            minScale: 0.25, maxScale: 4, step: 0.15,
         };
 
         var graphContainer   = $('#graphContainer');
@@ -3391,8 +3569,8 @@
         }
         window.addEventListener('mousemove', function(e) {
             if (!isGraphDragging) return;
-            graphZoomState.offsetX = gDragOffX + (e.clientX - gDragStartX);
-            graphZoomState.offsetY = gDragOffY + (e.clientY - gDragStartY);
+            graphZoomState.offsetX = gDragOffX + (e.clientX - gDragStartX) * PAN_DAMPING;
+            graphZoomState.offsetY = gDragOffY + (e.clientY - gDragStartY) * PAN_DAMPING;
             applyGraphTransform(false);
         });
         window.addEventListener('mouseup', function() {
@@ -3432,8 +3610,8 @@
 
             graphContainer.addEventListener('touchmove', function(e) {
                 if (e.touches.length === 1 && isGraphDragging) {
-                    graphZoomState.offsetX = gDragOffX + (e.touches[0].clientX - gDragStartX);
-                    graphZoomState.offsetY = gDragOffY + (e.touches[0].clientY - gDragStartY);
+                    graphZoomState.offsetX = gDragOffX + (e.touches[0].clientX - gDragStartX) * PAN_DAMPING;
+                    graphZoomState.offsetY = gDragOffY + (e.touches[0].clientY - gDragStartY) * PAN_DAMPING;
                     applyGraphTransform(false);
                     e.preventDefault();
                 } else if (e.touches.length === 2) {
@@ -3441,7 +3619,8 @@
                     var dy   = e.touches[1].clientY - e.touches[0].clientY;
                     var dist = Math.sqrt(dx*dx + dy*dy);
                     if (gTouchStartDist > 0) {
-                        var newScale   = clamp(gTouchStartScale * (dist / gTouchStartDist), graphZoomState.minScale, graphZoomState.maxScale);
+                        var rawScale   = gTouchStartScale * (dist / gTouchStartDist);
+                        var newScale   = dampScale(gTouchStartScale, rawScale, graphZoomState.minScale, graphZoomState.maxScale);
                         var scaleRatio = newScale / gPinchScale;
                         graphZoomState.offsetX = gPinchMidX - scaleRatio * (gPinchMidX - gPinchOffX);
                         graphZoomState.offsetY = gPinchMidY - scaleRatio * (gPinchMidY - gPinchOffY);
@@ -3473,7 +3652,7 @@
                 var mx       = e.clientX - rect.left;
                 var my       = e.clientY - rect.top;
                 var oldScale = graphZoomState.scale;
-                var newScale = clamp(oldScale * (e.deltaY < 0 ? 1.1 : 0.9), graphZoomState.minScale, graphZoomState.maxScale);
+                var newScale = clamp(oldScale * (e.deltaY < 0 ? WHEEL_ZOOM_IN : WHEEL_ZOOM_OUT), graphZoomState.minScale, graphZoomState.maxScale);
                 var ratio    = newScale / oldScale;
                 graphZoomState.offsetX = mx - ratio * (mx - graphZoomState.offsetX);
                 graphZoomState.offsetY = my - ratio * (my - graphZoomState.offsetY);
@@ -3505,8 +3684,8 @@
 
         window.addEventListener('mousemove', function(e) {
             if (!isDragging) return;
-            zoomState.offsetX = dragOffX + (e.clientX - dragStartX);
-            zoomState.offsetY = dragOffY + (e.clientY - dragStartY);
+            zoomState.offsetX = dragOffX + (e.clientX - dragStartX) * PAN_DAMPING;
+            zoomState.offsetY = dragOffY + (e.clientY - dragStartY) * PAN_DAMPING;
             applyTransform(false);
         });
 
@@ -3562,8 +3741,8 @@
 
         canvasContainer.addEventListener('touchmove', function(e) {
             if (e.touches.length === 1 && isDragging) {
-                zoomState.offsetX = dragOffX + (e.touches[0].clientX - dragStartX);
-                zoomState.offsetY = dragOffY + (e.touches[0].clientY - dragStartY);
+                zoomState.offsetX = dragOffX + (e.touches[0].clientX - dragStartX) * PAN_DAMPING;
+                zoomState.offsetY = dragOffY + (e.touches[0].clientY - dragStartY) * PAN_DAMPING;
                 applyTransform(false);
                 e.preventDefault();
             } else if (e.touches.length === 2) {
@@ -3571,7 +3750,8 @@
                 var dy = e.touches[1].clientY - e.touches[0].clientY;
                 var dist = Math.sqrt(dx * dx + dy * dy);
                 if (touchStartDist > 0) {
-                    var newScale = clamp(touchStartScale * (dist / touchStartDist), zoomState.minScale, zoomState.maxScale);
+                    var rawScale = touchStartScale * (dist / touchStartDist);
+                    var newScale = dampScale(touchStartScale, rawScale, zoomState.minScale, zoomState.maxScale);
                     /* [EN] Zoom around the pinch center point */
                     var scaleRatio = newScale / pinchScale;
                     zoomState.offsetX = pinchMidX - scaleRatio * (pinchMidX - pinchOffX);
@@ -3611,7 +3791,7 @@
             /* [EN] Point under cursor in canvas coordinate space */
             var oldScale = zoomState.scale;
             var newScale = clamp(
-                oldScale * (e.deltaY < 0 ? 1.1 : 0.9),
+                oldScale * (e.deltaY < 0 ? WHEEL_ZOOM_IN : WHEEL_ZOOM_OUT),
                 zoomState.minScale,
                 zoomState.maxScale
             );
@@ -3675,6 +3855,7 @@
             engMarginEnd.value = STATE.eng.marginEnd;
             updateSpacingModeUI();
             if (typeof updateCmdBadge === 'function') updateCmdBadge(engCommand.value.trim());
+            if (typeof updateGraphCmdBadge === 'function') updateGraphCmdBadge(graphCommand.value.trim());
         }
 
         init();
@@ -3705,6 +3886,13 @@
             });
         }
 
+        function getHelpCoverageReport() {
+            return {
+                engineering: getMissingHelpCapabilities('engineering'),
+                graph: getMissingHelpCapabilities('graph'),
+            };
+        }
+
         /* ============================================================
            [EN] Expose minimal API for debugging
            ============================================================ */
@@ -3718,6 +3906,8 @@
                 renderHistory: renderHistory,
                 parseCommandSeries: parseCommandSeries,
                 parseEngineeringCommand: parseMultiSeriesCommand,
+                getParserCapabilities: getParserCapabilities,
+                getHelpCoverageReport: getHelpCoverageReport,
                 runParserSmokeTests: runParserSmokeTests,
             };
         }

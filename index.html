@@ -226,6 +226,10 @@
 
                 <div class="input-group">
                     <label>Komenda albo funkcja</label>
+                    <div id="graphCmdModeBadge" class="cmd-mode-badge">
+                        <span class="mode-dot"></span>
+                        <span class="mode-label">Tryb: funkcja</span>
+                    </div>
                     <input type="text" id="graphCommand" value="f(x)=sin(x)" inputmode="text" autocomplete="off"
                         placeholder="np. f(x)=x^2-4 albo podziel 120 na 4 w polu y=-1">
                     <div class="command-error" id="graphCommandError" aria-live="polite"></div>
@@ -781,6 +785,7 @@
     ============================================================ -->
     <div class="toast" id="toast" aria-live="assertive"></div>
 
+    <script src="command-definitions.js"></script>
     <script src="app.js"></script>
 </body>
 
