@@ -1,24 +1,44 @@
-# Kalkulator-by-Matm0
+# Kalkulator by Matm0
 
-Modern JavaScript calculator with engineering functions and data visualization. Standard calculations meet advanced features with built-in charting capabilities. 🧮✨
+PWA do codziennych i technicznych obliczen: standardowy kalkulator, podzialy inzynierskie, wykresy, prosta geometria 2D i wlasne stale.
 
-## Features
+## Funkcje
 
-- 🔢 **Standard Calculator** - Basic arithmetic operations
-- ⚙️ **Engineering Mode** - Advanced functions (trigonometry, logarithms, etc.)
-- 📊 **Charts & Graphs** - Visualize calculations and data
-- ⚡ **Fast & Responsive** - Smooth, intuitive interface
-- 🎨 **Beautiful Design** - Modern and elegant UI
+- Standardowy kalkulator z historia, procentami w stylu kalkulatorow mobilnych i kopiowaniem przez przytrzymanie wyniku.
+- Inzynieria: podzial dlugosci na punkty, marginesy, os X/Y, stale odstepy, wiele serii.
+- Wykresy: funkcje `f(x)`, podzialy na osi, punkty, prostokaty i siatki 2D.
+- PWA: instalacja na ekranie glownym, cache offline na produkcji, czyszczenie lokalnego cache podczas debugowania.
 
-## Live Demo
+## Przyklady komend
+
+Inzynieria i podzialy:
+
+```text
+x=120/4 | m=10/10 | @edges
+x=120 | co=20 | opis=otwory
+y=200/5 | @edges | x=30
+x=120/4 ;; x=120/6 | y=30
+```
+
+Wykresy i geometria:
+
+```text
+f(x)=sin(x)
+f(x)=x^2-4 ;; f(x)=cos(x)
+punkt=150,200 | label=A | r=8
+rect=400x300 | ox=50 | oy=50
+siatka=400x300 | co=100x100 | label=P
+```
+
+## Debug parsera
+
+W konsoli przegladarki:
+
+```js
+window.__matm0.runParserSmokeTests()
+window.__matm0.parseCommandSeries('x=120 | co=20 ;; punkt=60,0')
+```
+
+## Live demo
 
 https://kalkulator-by-matm0.vercel.app
-
-## Technologies
-
-- JavaScript
-- Modern Web Standards
-
----
-
-Built with passion.

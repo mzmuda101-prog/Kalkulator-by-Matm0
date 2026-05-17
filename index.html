@@ -106,6 +106,8 @@
                             <button class="btn btn-primary command-btn" id="engApplyCommandBtn"
                                 type="button">Ustaw</button>
                         </div>
+                        <div class="command-error" id="engCommandError" aria-live="polite"></div>
+                        <div class="recent-commands" id="engRecentCommands" aria-label="Ostatnie komendy inżynierii"></div>
                     </div>
 
                     <div class="graph-examples">
@@ -226,6 +228,8 @@
                     <label>Komenda albo funkcja</label>
                     <input type="text" id="graphCommand" value="f(x)=sin(x)" inputmode="text" autocomplete="off"
                         placeholder="np. f(x)=x^2-4 albo podziel 120 na 4 w polu y=-1">
+                    <div class="command-error" id="graphCommandError" aria-live="polite"></div>
+                    <div class="recent-commands" id="graphRecentCommands" aria-label="Ostatnie komendy wykresów"></div>
                 </div>
 
                 <div class="graph-examples">

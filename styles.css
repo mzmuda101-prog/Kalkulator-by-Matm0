@@ -724,6 +724,45 @@
             background: var(--primary-light);
             transform: scale(0.98);
         }
+        .command-error {
+            min-height: 18px;
+            margin-top: 6px;
+            color: var(--danger);
+            font-size: 0.78rem;
+            font-weight: 700;
+            line-height: 1.35;
+        }
+        .command-error:empty {
+            display: none;
+        }
+        .recent-commands {
+            display: none;
+            flex-wrap: wrap;
+            gap: 6px;
+            margin-top: 8px;
+        }
+        .recent-commands.has-items {
+            display: flex;
+        }
+        .recent-command-btn {
+            border: 1px solid var(--border);
+            border-radius: 999px;
+            background: #f8fafc;
+            color: var(--text-secondary);
+            padding: 6px 10px;
+            font-family: var(--font-mono);
+            font-size: 0.72rem;
+            font-weight: 800;
+            cursor: pointer;
+            max-width: 100%;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .recent-command-btn:active {
+            transform: scale(0.98);
+            background: var(--primary-light);
+        }
         .help-backdrop {
             position: fixed;
             inset: 0;

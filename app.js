@@ -39,6 +39,10 @@
             constants: [],
             // History
             history: [],
+            recentCommands: {
+                engineering: [],
+                graph: [],
+            },
         };
 
         /* ============================================================
@@ -87,6 +91,8 @@
         const fixedSpacingGroup = $('#fixedSpacingGroup');
         const engCommand = $('#engCommand');
         const engApplyCommandBtn = $('#engApplyCommandBtn');
+        const engCommandError = $('#engCommandError');
+        const engRecentCommands = $('#engRecentCommands');
         const commandHelpOpen = $('#commandHelpOpen');
         const commandHelpClose = $('#commandHelpClose');
         const commandHelpBackdrop = $('#commandHelpBackdrop');
@@ -104,6 +110,8 @@
 
         // Graph
         const graphCommand = $('#graphCommand');
+        const graphCommandError = $('#graphCommandError');
+        const graphRecentCommands = $('#graphRecentCommands');
         const graphXMin = $('#graphXMin');
         const graphXMax = $('#graphXMax');
         const graphYMin = $('#graphYMin');
@@ -139,6 +147,7 @@
         const STORAGE_KEYS = {
             history: 'matm0_calc_history',
             constants: 'matm0_calc_constants',
+            recentCommands: 'matm0_recent_commands',
         };
 
         function loadFromStorage() {
@@ -147,10 +156,16 @@
                 if (h) STATE.history = JSON.parse(h);
                 const c = localStorage.getItem(STORAGE_KEYS.constants);
                 if (c) STATE.constants = JSON.parse(c);
+                const r = localStorage.getItem(STORAGE_KEYS.recentCommands);
+                if (r) STATE.recentCommands = JSON.parse(r);
+                if (!STATE.recentCommands || !Array.isArray(STATE.recentCommands.engineering) || !Array.isArray(STATE.recentCommands.graph)) {
+                    STATE.recentCommands = { engineering: [], graph: [] };
+                }
             } catch (e) {
                 // [EN] Corrupted data — reset silently
                 STATE.history = [];
                 STATE.constants = [];
+                STATE.recentCommands = { engineering: [], graph: [] };
             }
         }
 
@@ -168,6 +183,12 @@
             } catch (e) {
                 showToast('⚠️ Brak miejsca na stałe', 'error');
             }
+        }
+
+        function saveRecentCommands() {
+            try {
+                localStorage.setItem(STORAGE_KEYS.recentCommands, JSON.stringify(STATE.recentCommands));
+            } catch (e) {}
         }
 
         /* ============================================================
@@ -335,7 +356,6 @@
             ['0', 'number', '.', 'number', '⌫', 'fn', '=', 'equals'],
         ];
 
-        var _lastCalcActionTime = 0;
         function buildCalcButtons() {
             calcGrid.replaceChildren();
             calcButtons.forEach(function(row) {
@@ -349,9 +369,6 @@
                     btn.setAttribute('data-action', label);
                     btn.addEventListener('pointerdown', function(e) {
                         if (e.button !== undefined && e.button !== 0) return;
-                        var now = Date.now();
-                        if (now - _lastCalcActionTime < 60) return;
-                        _lastCalcActionTime = now;
                         handleCalcAction(e.currentTarget.getAttribute('data-action'));
                     });
                     calcGrid.appendChild(btn);
@@ -685,6 +702,58 @@
             var div = document.createElement('div');
             div.textContent = str;
             return div.innerHTML;
+        }
+
+        function getCommandErrorEl(target) {
+            return target === 'graph' ? graphCommandError : engCommandError;
+        }
+
+        function setCommandError(target, message) {
+            var el = getCommandErrorEl(target);
+            if (!el) return;
+            el.textContent = message || '';
+        }
+
+        function recordRecentCommand(target, command) {
+            var value = String(command || '').trim();
+            if (!value) return;
+            if (!STATE.recentCommands) STATE.recentCommands = { engineering: [], graph: [] };
+            var list = STATE.recentCommands[target] || [];
+            list = [value].concat(list.filter(function(item) { return item !== value; })).slice(0, 6);
+            STATE.recentCommands[target] = list;
+            saveRecentCommands();
+            renderRecentCommands(target);
+        }
+
+        function renderRecentCommands(target) {
+            var box = target === 'graph' ? graphRecentCommands : engRecentCommands;
+            if (!box) return;
+            var list = (STATE.recentCommands && STATE.recentCommands[target]) || [];
+            box.replaceChildren();
+            box.classList.toggle('has-items', list.length > 0);
+            list.forEach(function(command) {
+                var btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = 'recent-command-btn no-haptic';
+                btn.textContent = command;
+                btn.title = command;
+                btn.addEventListener('click', function() {
+                    if (target === 'graph') {
+                        graphCommand.value = command;
+                        updateGraph();
+                    } else {
+                        engCommand.value = command;
+                        updateCmdBadge(command);
+                        applyEngineeringCommand(command);
+                    }
+                });
+                box.appendChild(btn);
+            });
+        }
+
+        function renderAllRecentCommands() {
+            renderRecentCommands('engineering');
+            renderRecentCommands('graph');
         }
 
         /* ============================================================
@@ -1393,9 +1462,12 @@
 
         function applyEngineeringCommand(raw) {
             try {
+                setCommandError('engineering', '');
                 var configs = parseMultiSeriesCommand(raw);
                 if (!configs) {
-                    showToast('❌ Nieprawidłowa komenda. Przykład: x=120/4 | m=10', 'error');
+                    var message = 'Nieprawidłowa komenda. Przykład: x=120/4 | m=10 albo x=120 | co=20.';
+                    showToast('❌ ' + message, 'error');
+                    setCommandError('engineering', message);
                     engCommand.style.borderColor = '#ef4444';
                     setTimeout(function() { engCommand.style.borderColor = ''; }, 1500);
                     return;
@@ -1424,8 +1496,11 @@
                 } else {
                     showToast('Komenda ustawiona', 'success');
                 }
+                recordRecentCommand('engineering', raw);
             } catch (err) {
-                showToast(err.message || 'Nieprawidłowa komenda', 'error');
+                var errorMessage = err.message || 'Nieprawidłowa komenda';
+                setCommandError('engineering', errorMessage);
+                showToast(errorMessage, 'error');
             }
         }
 
@@ -2023,15 +2098,34 @@
         }
 
         function parseMultiSeriesCommand(raw) {
-            var series = String(raw || '').split(';;').map(function(s) { return s.trim(); }).filter(Boolean);
-            if (series.length === 0) return null;
+            var parsed = parseCommandSeries(raw);
+            if (!parsed.length) return null;
             var configs = [];
-            for (var i = 0; i < series.length; i++) {
-                var cfg = parsePipeCommand(series[i]);
-                if (!cfg) return null;
-                configs.push(cfg);
+            for (var i = 0; i < parsed.length; i++) {
+                if (parsed[i].type !== 'division' || !parsed[i].data.axis) return null;
+                configs.push(parsed[i].data);
             }
             return configs;
+        }
+
+        function splitCommandSeries(raw) {
+            return String(raw || '')
+                .split(/\s*;;\s*|\n+/)
+                .map(function(s) { return s.trim(); })
+                .filter(Boolean);
+        }
+
+        function parseCommandSeries(raw) {
+            var series = splitCommandSeries(raw);
+            return series.map(function(item) {
+                var geo = parseGeometryCommand(item);
+                if (geo) return { type: 'geometry', raw: item, data: geo };
+
+                var division = parseDivisionCommand(item);
+                if (division) return { type: 'division', raw: item, data: division };
+
+                return { type: 'function', raw: item, data: item };
+            });
         }
 
         function parsePipeCommand(command) {
@@ -2040,14 +2134,14 @@
 
             var parts = raw.split('|').map(function(part) { return part.trim(); }).filter(Boolean);
             var head = parts.shift() || '';
-            var headMatch = head.match(/^(?:([xy])\s*(?:\(\s*([^)]+)\s*\))?\s*[:=]\s*)?(-?\d+(?:[.,]\d+)?)\s*\/\s*(\d+)/i);
+            var headMatch = head.match(/^(?:([xy])\s*(?:\(\s*([^)]+)\s*\))?\s*[:=]\s*)?(-?\d+(?:[.,]\d+)?)(?:\s*\/\s*(\d+))?/i);
             if (!headMatch) return null;
 
             var config = {
                 axis: (headMatch[1] || 'x').toUpperCase(),
                 name: (headMatch[2] || 'd').trim(),
                 length: parseGraphNumber(headMatch[3], 0),
-                count: parseInt(headMatch[4], 10),
+                count: parseInt(headMatch[4] || '0', 10),
                 marginStart: 0,
                 marginEnd: 0,
                 mode: 'between',
@@ -2144,8 +2238,16 @@
                 }
             });
 
-            if (config.length <= 0 || config.count <= 0) {
-                throw new Error('Komenda wymaga dodatniej długości i liczby punktów, np. x(d)=120/4.');
+            if (config.length <= 0) {
+                throw new Error('Komenda wymaga dodatniej długości, np. x=120/4 albo x=120 | co=20.');
+            }
+            if (config.mode === 'fixed') {
+                if (config.spacing <= 0) {
+                    throw new Error('Dla stałego odstępu dopisz co=20 albo @every:20.');
+                }
+                if (config.count <= 0) config.count = 1;
+            } else if (config.count <= 0) {
+                throw new Error('Dopisz liczbę punktów, np. x=120/4.');
             }
             return config;
         }
@@ -2417,6 +2519,7 @@
         function updateGraph() {
             var command = graphCommand.value.trim();
             var bounds = getGraphBounds();
+            setCommandError('graph', '');
             // Dostosuj zakres do kroku siatki jeśli użytkownik go ustawił
             var xStepVal = graphXStep ? parseFloat(graphXStep.value) : NaN;
             var yStepVal = graphYStep ? parseFloat(graphYStep.value) : NaN;
@@ -2445,8 +2548,9 @@
             }
 
             try {
-                // --- Wieloseria: rozdziel po ;; ---
-                var rawSeries = command.split(';;').map(function(s) { return s.trim(); }).filter(Boolean);
+                // --- Wieloseria: wspólny parser komend ---
+                var parsedSeries = parseCommandSeries(command);
+                var rawSeries = parsedSeries.map(function(item) { return item.raw; });
 
                 // Zbierz wszystkie punkty i geometrie ze wszystkich serii
                 var allGeos = [];
@@ -2456,12 +2560,13 @@
                 var hasFunction = false;
                 var fnCommands = [];
 
-                rawSeries.forEach(function(s, si) {
+                parsedSeries.forEach(function(item, si) {
+                    var s = item.raw;
                     var color = colors[si % colors.length];
 
                     // 1. Geometria 2D?
-                    var geo = parseGeometryCommand(s);
-                    if (geo) {
+                    if (item.type === 'geometry') {
+                        var geo = item.data;
                         var pts = buildGeometryPoints(geo);
                         allGeos.push({ geo: geo, points: pts, color: color });
                         var summary = geo.type === 'rect'
@@ -2482,9 +2587,9 @@
                     }
 
                     // 2. Komenda podziału 1D?
-                    var division = parseDivisionCommand(s);
-                    if (division) {
+                    if (item.type === 'division') {
                         hasDivision = true;
+                        var division = item.data;
                         var pts = buildDivisionPoints(division);
                         allGeos.push({ geo: { type: 'division', division: division }, points: pts, color: color });
                         resultLines.push(commandSummary(division, pts));
@@ -2601,9 +2706,11 @@
 
                 graphResult.textContent = infoHeader + '\n' + (resultLines.join('\n\n') ||
                     'Rysuję: ' + stripFunctionPrefix(command));
+                recordRecentCommand('graph', command);
 
             } catch (err) {
                 drawGraphBase(bounds);
+                setCommandError('graph', err.message || 'Nieprawidłowa komenda.');
                 graphResult.textContent = '⚠️ ' + err.message +
                     '\n\nPrzykłady:\n  f(x)=sin(x)\n  rect=400x300\n  siatka=400x300 | co=100x100\n  punkt=150,200 | label=A\n  x(d)=120/4 | m=10 | y=0';
             }
@@ -3557,6 +3664,7 @@
             updateEngineering();
             updateGraph();
             renderConstants();
+            renderAllRecentCommands();
 
             // [EN] Load saved engineering values
             engLength.value = STATE.eng.length;
@@ -3571,6 +3679,32 @@
 
         init();
 
+        function runParserSmokeTests() {
+            var cases = [
+                { name: 'podzial z liczba punktow', command: 'x=120/4 | m=10/10 | @edges', expect: 'division' },
+                { name: 'podzial staly bez /liczby', command: 'x=120 | co=20 | opis=otwory', expect: 'division' },
+                { name: 'wieloseria', command: 'x=120/4 ;; x=120/6 | y=30', expectCount: 2 },
+                { name: 'geometria punkt', command: 'punkt=150,200 | label=A', expect: 'geometry' },
+                { name: 'geometria siatka', command: 'siatka=400x300 | co=100x100', expect: 'geometry' },
+                { name: 'funkcja sinus', command: 'f(x)=sin(x)', expect: 'function' },
+            ];
+            return cases.map(function(test) {
+                try {
+                    var parsed = parseCommandSeries(test.command);
+                    var pass = !!parsed.length;
+                    if (test.expect) pass = pass && parsed[0].type === test.expect;
+                    if (test.expectCount) pass = pass && parsed.length === test.expectCount;
+                    if (test.command === 'f(x)=sin(x)') {
+                        var y = compileGraphExpression(test.command)(Math.PI / 2);
+                        pass = pass && Math.abs(y - 1) < 1e-9;
+                    }
+                    return { name: test.name, pass: pass, parsed: parsed };
+                } catch (err) {
+                    return { name: test.name, pass: false, error: err.message };
+                }
+            });
+        }
+
         /* ============================================================
            [EN] Expose minimal API for debugging
            ============================================================ */
@@ -3582,6 +3716,9 @@
                 updateGraph: updateGraph,
                 renderConstants: renderConstants,
                 renderHistory: renderHistory,
+                parseCommandSeries: parseCommandSeries,
+                parseEngineeringCommand: parseMultiSeriesCommand,
+                runParserSmokeTests: runParserSmokeTests,
             };
         }
 
