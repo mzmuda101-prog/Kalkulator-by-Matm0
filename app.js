@@ -3362,9 +3362,10 @@
 
         function clamp(v, min, max) { return Math.max(min, Math.min(max, v)); }
         var PAN_DAMPING = 0.46;
-        var PINCH_DAMPING = 0.62;
-        var WHEEL_ZOOM_IN = 1.045;
-        var WHEEL_ZOOM_OUT = 0.957;
+        var PINCH_DAMPING = 0.46;
+        var WHEEL_ZOOM_IN = 0.992;
+        var WHEEL_ZOOM_OUT = 0.909;
+
 
         function dampScale(startScale, rawScale, minScale, maxScale) {
             return clamp(startScale + (rawScale - startScale) * PINCH_DAMPING, minScale, maxScale);
