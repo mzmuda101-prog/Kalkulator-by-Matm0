@@ -2635,8 +2635,8 @@
                 var startVal = parseFloat(fixed[1]);
                 var endVal = parseFloat(fixed[2]);
                 var spacingVal = parseFloat(fixed[3]);
-                // Calculate count based on spacing; ensure at least 1 division
-                var countVal = Math.max(1, Math.round((endVal - startVal) / spacingVal));
+                // Use Math.ceil to ensure the last division is included and avoid zero count
+                var countVal = Math.max(1, Math.ceil((endVal - startVal) / spacingVal));
                 return {
                     start: startVal,
                     length: endVal - startVal,
@@ -3369,8 +3369,8 @@
         function clamp(v, min, max) { return Math.max(min, Math.min(max, v)); }
         var PAN_DAMPING = 0.46;
         var PINCH_DAMPING = 0.46;
-        var WHEEL_ZOOM_IN = 0.992;
-        var WHEEL_ZOOM_OUT = 0.909;
+        var WHEEL_ZOOM_IN = 1.0241;
+        var WHEEL_ZOOM_OUT = 0.97614;
 
 
         function dampScale(startScale, rawScale, minScale, maxScale) {

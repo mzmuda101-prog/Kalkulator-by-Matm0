@@ -80,13 +80,14 @@ self.addEventListener('fetch', function(event) {
 
     /* [EN] For navigation requests (HTML shell), prefer the newest file */
     if (event.request.mode === 'navigate') {
-        event.respondWith(
-            fetch(event.request, { cache: 'no-store' }).then(function(response) {
-                return cacheResponse('./index.html', response);
-            }).catch(function() {
-                return caches.match('./index.html');
-            })
-        );
+            // Cache the navigation response using the original request to ensure proper caching
+            event.respondWith(
+                fetch(event.request, { cache: 'no-store' }).then(function(response) {
+                    return cacheResponse(event.request, response);
+                }).catch(function() {
+                    return caches.match(event.request);
+                })
+            );
         return;
     }
 
