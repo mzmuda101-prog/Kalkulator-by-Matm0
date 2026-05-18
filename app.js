@@ -2632,10 +2632,16 @@
 
             var fixed = text.match(/od\s+(-?\d+(?:\.\d+)?)\s+do\s+(-?\d+(?:\.\d+)?)\s+co\s+(\d+(?:\.\d+)?)/);
             if (fixed) {
+                var startVal = parseFloat(fixed[1]);
+                var endVal = parseFloat(fixed[2]);
+                var spacingVal = parseFloat(fixed[3]);
+                // Calculate count based on spacing; ensure at least 1 division
+                var countVal = Math.max(1, Math.round((endVal - startVal) / spacingVal));
                 return {
-                    start: parseFloat(fixed[1]),
-                    length: parseFloat(fixed[2]) - parseFloat(fixed[1]),
-                    spacing: parseFloat(fixed[3]),
+                    start: startVal,
+                    length: endVal - startVal,
+                    spacing: spacingVal,
+                    count: countVal,
                     mode: 'fixed',
                     y: y,
                 };
