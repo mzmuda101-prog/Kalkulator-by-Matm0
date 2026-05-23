@@ -2,6 +2,14 @@
         'use strict';
 
         /* ============================================================
+            [EN] Syntax Tokens
+            ============================================================ */
+        var SYNTAX = { PIPE: ',,', SERIES: ';;', MODE: '@' };
+        function expandTokens(s) {
+            return s.replace(/\{PIPE\}/g, SYNTAX.PIPE).replace(/\{SERIES\}/g, SYNTAX.SERIES).replace(/\{MODE\}/g, SYNTAX.MODE);
+        }
+
+        /* ============================================================
            [EN] App State
            ============================================================ */
         const STATE = {
@@ -1624,12 +1632,12 @@
             var row = document.createElement('p');
             if (item.command) {
                 row.className = 'help-command';
-                row.setAttribute('data-command', item.command);
+                row.setAttribute('data-command', expandTokens(item.command));
                 row.title = 'Kliknij, aby wstawić komendę';
             }
 
             var code = document.createElement('code');
-            code.textContent = item.syntax || item.command || '';
+            code.textContent = expandTokens(item.syntax || item.command || '');
             row.appendChild(code);
 
             if (item.description) {
@@ -2301,7 +2309,7 @@
             var raw = String(command || '').trim();
             if (raw.indexOf('|') === -1 && !/^(?:[xy]\s*(?:\(|[:=])|\d)/i.test(raw)) return null;
 
-            var parts = raw.split('|').map(function(part) { return part.trim(); }).filter(Boolean);
+            var parts = raw.split(',,').map(function(part) { return part.trim(); }).filter(Boolean);
             var head = parts.shift() || '';
             var headMatch = head.match(/^(?:([xy])\s*(?:\(\s*([^)]+)\s*\))?\s*[:=]\s*)?(-?\d+(?:[.,]\d+)?)(?:\s*\/\s*(\d+))?/i);
             if (!headMatch) return null;
@@ -2327,6 +2335,7 @@
                 var p = part.trim();
                 var lower = p.toLowerCase();
                 var simple = lower.normalize ? lower.normalize('NFD').replace(/[\u0300-\u036f]/g, '') : lower;
+                simple = simple.replace(/^\./, '@');
                 var num;
 
                 if (/^<-\s*/.test(simple)) {
@@ -2465,7 +2474,7 @@
             // --- punkt=x,y | label=... | r=... ---
             if (/^punkt\s*=\s*-?[\d.]/.test(lower) || /^p\s*=\s*-?[\d.]/.test(lower)) {
                 var body = str.replace(/^[^=]+=/, '').trim();
-                var parts = body.split('|').map(function(s) { return s.trim(); });
+                var parts = body.split(',,').map(function(s) { return s.trim(); });
                 var coords = parts[0].split(',');
                 var x = parseGraphNumber(coords[0], 0);
                 var y = parseGraphNumber(coords[1] || '0', 0);
@@ -2481,7 +2490,7 @@
             // --- rect=szerokoscxwysokosc | label=... ---
             if (/^rect\s*=/.test(lower) || /^prostokat\s*=/.test(lower)) {
                 var body = str.replace(/^[^=]+=/, '').trim();
-                var parts = body.split('|').map(function(s) { return s.trim(); });
+                var parts = body.split(',,').map(function(s) { return s.trim(); });
                 var dims = parts[0].toLowerCase().split('x');
                 var w = parseGraphNumber(dims[0], 100);
                 var h = parseGraphNumber(dims[1] || dims[0], 100);
@@ -2498,7 +2507,7 @@
             // --- siatka=szerokoscxwysokosc | co=dxdy | label=... ---
             if (/^(siatka|grid)\s*=/.test(lower)) {
                 var body = str.replace(/^[^=]+=/, '').trim();
-                var parts = body.split('|').map(function(s) { return s.trim(); });
+                var parts = body.split(',,').map(function(s) { return s.trim(); });
                 var dims = parts[0].toLowerCase().split('x');
                 var w = parseGraphNumber(dims[0], 100);
                 var h = parseGraphNumber(dims[1] || dims[0], 100);
