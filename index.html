@@ -101,8 +101,8 @@
                             <span class="mode-label">Tryb: ręczny</span>
                         </div>
                         <div class="command-row">
-                            <input type="text" id="engCommand" value="x(d)=100/3 | @between" inputmode="text"
-                                autocomplete="off" placeholder="np. x=120/4 | m=10/10 | @edges">
+                            <input type="text" id="engCommand" value="x(d)=100/3 ,, @between" inputmode="text"
+                                autocomplete="off" placeholder="np. x=120/4 {PIPE} m=10/10 {PIPE} {MODE}edges">
                             <button class="btn btn-primary command-btn" id="engApplyCommandBtn"
                                 type="button">Ustaw</button>
                         </div>
@@ -111,15 +111,15 @@
                     </div>
 
                     <div class="graph-examples">
-                        <button class="example-chip eng-command-chip" data-command="x=120/4 | @between" type="button">4
+                        <button class="example-chip eng-command-chip" data-command="x=120/4 {PIPE} {MODE}between" type="button">4
                             w polu</button>
-                        <button class="example-chip eng-command-chip" data-command="x=120/4 | m=10/10 | @edges"
+                        <button class="example-chip eng-command-chip" data-command="x=120/4 {PIPE} m=10/10 {PIPE} {MODE}edges"
                             type="button">z marginesami</button>
-                        <button class="example-chip eng-command-chip" data-command="x=120/4 | co=20" type="button">co
+                        <button class="example-chip eng-command-chip" data-command="x=120/4 {PIPE} co=20" type="button">co
                             20</button>
-                        <button class="example-chip eng-command-chip" data-command="y=200/5 | @edges | u=mm"
+                        <button class="example-chip eng-command-chip" data-command="y=200/5 {PIPE} {MODE}edges {PIPE} u=mm"
                             type="button">pionowo</button>
-                        <button class="example-chip eng-command-chip" data-command="x=120/4 | origin=-60 | @edges"
+                        <button class="example-chip eng-command-chip" data-command="x=120/4 {PIPE} origin=-60 {PIPE} {MODE}edges"
                             type="button">od środka</button>
                     </div>
 
@@ -242,7 +242,7 @@
                     <button class="example-chip" data-command="podziel 120 na 4 w polu y=-1" type="button">podziel 120
                         na 4</button>
                     <button class="example-chip"
-                        data-command="x(d)=120/4 | <-10 | ->10 | y=-1 | @edges | r=5 | label=otwory"
+                        data-command="x(d)=120/4 {PIPE} <-10 {PIPE} ->10 {PIPE} y=-1 {PIPE} {MODE}edges {PIPE} r=5 {PIPE} label=otwory"
                         type="button">komenda x(d)</button>
                     <button class="example-chip" data-command="od 0 do 120 co 20 y=0" type="button">co 20</button>
                 </div>
@@ -465,100 +465,100 @@
             <section>
                 <h4>Przykłady</h4>
                 <p class="help-command"
-                data-command="x=120/4 | m=10/10 | @edges | u=mm">
+                data-command="x=120/4 {PIPE} m=10/10 {PIPE} {MODE}edges {PIPE} u=mm">
 
                     <code>x=120/4 | m=10/10 | @edges | u=mm</code>
                 </p>
                 <p class="help-command"
-                data-command="x=120/4 | co=20 | opis=otwory">
+                data-command="x=120/4 {PIPE} co=20 {PIPE} opis=otwory">
 
                     <code>x=120/4 | co=20 | opis=otwory</code>
                 </p>
                 <p class="help-command"
-                data-command="y=200/5 | @edges | x=30">
+                data-command="y=200/5 {PIPE} {MODE}edges {PIPE} x=30">
 
                     <code>y=200/5 | @edges | x=30</code>
                 </p>
                 <p class="help-command"
-                data-command="x=120/4 | origin=-60 | @edges">
+                data-command="x=120/4 {PIPE} origin=-60 {PIPE} {MODE}edges">
 
                     <code>x=120/4 | origin=-60 | @edges</code>
                 </p>
                 <h4>Zaawansowane</h4>
                 <p class="help-command"
-                data-command="x=200/5 | @centered | @edges">
+                data-command="x=200/5 {PIPE} {MODE}centered {PIPE} {MODE}edges">
                     <code>@centered + @edges</code>
                     wyśrodkowana oś z punktami na krańcach
                 </p>
 
                 <p class="help-command"
-                data-command="x=120 | co=15 | fi=8 | opis=otwory">
+                data-command="x=120 {PIPE} co=15 {PIPE} fi=8 {PIPE} opis=otwory">
                     <code>co + fi + opis</code>
                     odstęp, średnica i opis serii
                 </p>
 
                 <p class="help-command"
-                data-command="x=120/4 | left=10 | right=20">
+                data-command="x=120/4 {PIPE} left=10 {PIPE} right=20">
                     <code>left/right</code>
                     aliasowe marginesy
                 </p>
 
                 <p class="help-command"
-                data-command="y=200/5 | origin=-100 | @edges">
+                data-command="y=200/5 {PIPE} origin=-100 {PIPE} {MODE}edges">
                     <code>origin + y</code>
                     pionowa oś liczona od środka
                 </p>
 
                 <p class="help-command"
-                data-command="x=120/4 | @centered">
+                data-command="x=120/4 {PIPE} {MODE}centered">
                     <code>@centered</code>
                     wyśrodkuj oś względem 0
                 </p>
 
                 <p class="help-command"
-                data-command="x=120 | co=20">
+                data-command="x=120 {PIPE} co=20">
                     <code>co=20</code>
                     stały odstęp między punktami
                 </p>
 
                 <p class="help-command"
-                data-command="x=120/4 | m=10/20">
+                data-command="x=120/4 {PIPE} m=10/20">
                     <code>m=10/20</code>
                     margines start / koniec
                 </p>
 
                 <p class="help-command"
-                data-command="x=120/4 | @edges">
+                data-command="x=120/4 {PIPE} @edges">
                     <code>@edges</code>
                     pierwszy i ostatni punkt na krawędzi
                 </p>
 
                 <p class="help-command"
-                data-command="x=120/4 | origin=-60">
+                data-command="x=120/4 {PIPE} origin=-60">
                     <code>origin=-60</code>
                     przesunięcie początku osi
                 </p>
 
                 <p class="help-command"
-                data-command="x=120/4 | fi=10">
+                data-command="x=120/4 {PIPE} fi=10">
                     <code>fi=10</code>
                     średnica punktów
                 </p>
 
                 <p class="help-command"
-                data-command="x=120/4 | opis=otwory">
+                data-command="x=120/4 {PIPE} opis=otwory">
                     <code>opis=otwory</code>
                     nazwa serii
                 </p>
 
                 <p class="help-command"
-                data-command="x=120/4 | u=mm">
+                data-command="x=120/4 {PIPE} u=mm">
                     <code>u=mm</code>
                     ustaw jednostkę
                 </p>
 
                 <p class="help-command"
-                data-command="x=120/4 ;; x=120/6 | y=30">
+                data-command="x=120/4 ;; x=120/6 {PIPE} y=30">
                     <code>;;</code>
                     wiele serii punktów
                 </p>

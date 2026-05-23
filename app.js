@@ -3876,6 +3876,10 @@
 
         init();
 
+        document.querySelectorAll('[data-command]').forEach(function(el) {
+            el.setAttribute('data-command', expandTokens(el.getAttribute('data-command')));
+        });
+
         function runParserSmokeTests() {
             var cases = [
                 { name: 'podzial z liczba punktow', command: 'x=120/4 | m=10/10 | @edges', expect: 'division' },
