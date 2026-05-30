@@ -263,18 +263,6 @@
            [EN] Haptic'stics — Selective Vibration on Interactions
            ============================================================ */
 
-        // Elementy które NIGDY nie dają haptyki — nawet jeśli są przyciskami lub elementami interaktywnymi. Pozwala to na bezpieczne dodawanie klas i atrybutów w HTML bez obawy o niechciane wibracje.
-        const NO_HAPTIC_SELECTORS = [
-        '.zoom-btn',         // przyciski zoom
-        '.sign-toggle',      // ± przy polach
-        '#orientationBtn',   // orientacja
-        '#cacheRefreshBtn',  // odświeżanie
-        '#installAppBtn',    // instalacja
-        'input[type="range"]',
-        'input:not([type="button"])',
-        '.no-haptic',        // klasa-parasol do dodawania w HTML
-        ];
-
         /* ---- Haptyka: tylko przy kliknięciu, nie przy scrollowaniu ---- */
         /* Lista elementów które NIE wibrują (niezależnie od kliknięcia) */
         var NO_HAPTIC = [
@@ -2307,9 +2295,9 @@
 
         function parsePipeCommand(command) {
             var raw = String(command || '').trim();
-            if (raw.indexOf('|') === -1 && !/^(?:[xy]\s*(?:\(|[:=])|\d)/i.test(raw)) return null;
+            if (raw.indexOf('|') === -1 && raw.indexOf(',,') === -1 && !/^(?:[xy]\s*(?:\(|[:=])|\d)/i.test(raw)) return null;
 
-            var parts = raw.split(',,').map(function(part) { return part.trim(); }).filter(Boolean);
+            var parts = raw.split(/\s*(?:,,|\|)\s*/).map(function(part) { return part.trim(); }).filter(Boolean);
             var head = parts.shift() || '';
             var headMatch = head.match(/^(?:([xy])\s*(?:\(\s*([^)]+)\s*\))?\s*[:=]\s*)?(-?\d+(?:[.,]\d+)?)(?:\s*\/\s*(\d+))?/i);
             if (!headMatch) return null;
@@ -2705,21 +2693,6 @@
             var bounds = getGraphBounds();
             setCommandError('graph', '');
             if (typeof updateGraphCmdBadge === 'function') updateGraphCmdBadge(command);
-            // Dostosuj zakres do kroku siatki jeśli użytkownik go ustawił
-            var xStepVal = graphXStep ? parseFloat(graphXStep.value) : NaN;
-            var yStepVal = graphYStep ? parseFloat(graphYStep.value) : NaN;
-            if (isFinite(xStepVal) && xStepVal > 0) {
-                var xRange = xStepVal * 10; // zawsze pokaż ~10 podziałek
-                graphXMin.value = formatRawNum(-xRange / 2);
-                graphXMax.value = formatRawNum(xRange / 2);
-                bounds = getGraphBounds();
-            }
-            if (isFinite(yStepVal) && yStepVal > 0) {
-                var yRange = yStepVal * 10;
-                graphYMin.value = formatRawNum(-yRange / 2);
-                graphYMax.value = formatRawNum(yRange / 2);
-                bounds = getGraphBounds();
-            }
             STATE.graph.command = command;
             STATE.graph.xMin = bounds.xMin;
             STATE.graph.xMax = bounds.xMax;
