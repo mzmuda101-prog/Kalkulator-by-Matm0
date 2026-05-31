@@ -363,10 +363,25 @@
             color: var(--text-muted);
             font-family: var(--font-mono);
             min-height: 20px;
-            word-break: break-all;
             text-align: right;
             width: 100%;
             transition: opacity 0.15s;
+            /* input reset */
+            background: transparent;
+            border: none;
+            outline: none;
+            padding: 0;
+            margin: 0;
+            -webkit-appearance: none;
+            appearance: none;
+            caret-color: var(--primary);
+        }
+        .calc-expression::placeholder {
+            color: var(--text-muted);
+            opacity: 0.5;
+        }
+        .calc-expression:focus {
+            color: var(--text-secondary);
         }
         .calc-result {
             font-size: 2.5rem;
@@ -449,7 +464,35 @@
 
         .calc-tools {
             display: flex;
+            gap: 8px;
             margin-top: 12px;
+        }
+        .calc-tools .history-open-btn {
+            flex: 1;
+            min-width: 0;
+        }
+        .calc-help-btn {
+            flex-shrink: 0;
+            min-height: 48px;
+            min-width: 80px;
+            padding: 0 14px;
+            border: 1.5px solid var(--border-focus);
+            border-radius: var(--radius);
+            background: var(--primary-light);
+            color: var(--primary);
+            font-family: var(--font);
+            font-size: 0.875rem;
+            font-weight: 700;
+            cursor: pointer;
+            white-space: nowrap;
+            transition: all var(--transition);
+            -webkit-tap-highlight-color: transparent;
+            -webkit-user-select: none;
+            user-select: none;
+        }
+        .calc-help-btn:active {
+            background: #bfdbfe;
+            transform: scale(0.96);
         }
         .history-open-btn {
             width: 100%;

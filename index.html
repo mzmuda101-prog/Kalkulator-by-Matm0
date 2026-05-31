@@ -71,7 +71,9 @@
         <section id="panel-calculator" class="panel active" role="tabpanel">
             <div class="card">
                 <div class="calc-display">
-                    <div class="calc-expression" id="calcExpr" aria-live="polite"></div>
+                    <input class="calc-expression" id="calcExpr" type="text"
+                        autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
+                        inputmode="text" aria-label="Wyrażenie kalkulatora" placeholder="Wpisz wyrażenie…">
                     <div class="calc-result" id="calcResult" aria-live="polite">0</div>
                 </div>
                 <div class="calc-grid" id="calcGrid">
@@ -82,6 +84,9 @@
                         aria-expanded="false">
                         <span>📋 Historia</span>
                         <span class="history-count" id="historyCount">0</span>
+                    </button>
+                    <button class="calc-help-btn no-haptic" id="calcHelpOpen" type="button" aria-label="Ściąga komend kalkulatora">
+                        ⓘ Ściąga
                     </button>
                 </div>
             </div>
@@ -427,6 +432,55 @@
                     placeholder="Szukaj komendy... np. edges, sin, margin"
                 >
 
+            </div>
+            <div class="help-section" data-help="calculator">
+                <section>
+                    <h4>Podstawy</h4>
+                    <p class="help-command" data-command="(5+3)*2"><code>(5+3)*2</code> nawiasy i kolejność działań = 16</p>
+                    <p class="help-command" data-command="2^10"><code>2^10</code> potęga = 1024</p>
+                    <p class="help-command" data-command="sqrt(144)"><code>sqrt(144)</code> pierwiastek = 12</p>
+                    <p class="help-command" data-command="2 do potegi 10"><code>2 do potegi 10</code> potęga po polsku</p>
+                    <p class="help-command" data-command="pierwiastek z 144"><code>pierwiastek z 144</code> = 12</p>
+                    <p class="help-command" data-command="sin(pi/4)"><code>sin(pi/4)</code> trygonometria (radiany)</p>
+                </section>
+                <section>
+                    <h4>Procenty</h4>
+                    <p class="help-command" data-command="20% z 150"><code>20% z 150</code> = 30</p>
+                    <p class="help-command" data-command="20 procent z 150"><code>20 procent z 150</code> to samo</p>
+                    <p class="help-command" data-command="150 + 10%"><code>150 + 10%</code> dodaj 10% = 165</p>
+                    <p class="help-command" data-command="20% rabatu na 150"><code>20% rabatu na 150</code> = 120</p>
+                    <p class="help-command" data-command="20% zniżki na 150"><code>20% zniżki na 150</code> = 120</p>
+                    <p class="help-command" data-command="15% narzutu na 200"><code>15% narzutu na 200</code> = 230</p>
+                    <p class="help-command" data-command="dodaj 15% do 200"><code>dodaj 15% do 200</code> = 230</p>
+                    <p class="help-command" data-command="15% napiwek na 42"><code>15% napiwek na 42</code> = 48,30</p>
+                </section>
+                <section>
+                    <h4>Jednostki długości</h4>
+                    <p class="help-command" data-command="120cm na mm"><code>120cm na mm</code> → 1200 mm</p>
+                    <p class="help-command" data-command="120cm do mm"><code>120cm do mm</code> to samo (PL)</p>
+                    <p class="help-command" data-command="5m na cm"><code>5m na cm</code> → 500 cm</p>
+                    <p class="help-command" data-command="10ft na cm"><code>10ft na cm</code> stopy → 304,8 cm</p>
+                    <p class="help-command" data-command="6 cali na mm"><code>6 cali na mm</code> → 152,4 mm</p>
+                    <p class="help-command" data-command="1 stopa na cm"><code>1 stopa na cm</code> → 30,48 cm</p>
+                    <p class="help-command" data-command="5m + 200cm"><code>5m + 200cm</code> mieszanie → 7000 mm</p>
+                    <p class="help-command" data-command="10ft + 6in na cm"><code>10ft + 6in na cm</code> stopy+cale → cm</p>
+                </section>
+                <section>
+                    <h4>Skróty liczbowe</h4>
+                    <p class="help-command" data-command="10K * 4.5"><code>10K</code> = 10 000 → wynik 45 000</p>
+                    <p class="help-command" data-command="2.5 tys * 12"><code>2,5 tys * 12</code> = 30 000</p>
+                    <p class="help-command" data-command="1.5 mln / 12"><code>1,5 mln / 12</code> = 125 000</p>
+                    <p class="help-command" data-command="połowa 300"><code>połowa 300</code> = 150</p>
+                    <p class="help-command" data-command="trzecia 120"><code>trzecia 120</code> = 40</p>
+                    <p class="help-command" data-command="proporcja 3 do 5"><code>proporcja 3 do 5</code> = 0,6</p>
+                    <p class="help-command" data-command="stosunek 1 do 3"><code>stosunek 1 do 3</code> = 0,333…</p>
+                </section>
+                <section>
+                    <h4>Stałe (z zakładki "Moje Stałe")</h4>
+                    <p>Wpisz nazwę stałej bezpośrednio w wyrażeniu.</p>
+                    <p class="help-command" data-command="10*DESKA"><code>10 * DESKA</code> jeśli DESKA = 4,5 → 45</p>
+                    <p class="help-command" data-command="CENA * 1.23"><code>CENA * 1,23</code> cena brutto z VAT 23%</p>
+                </section>
             </div>
             <div class="help-section" data-help="engineering">
             <section>

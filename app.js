@@ -16,12 +16,8 @@
             activeTab: 'calculator',
             // Calculator
             calc: {
-                currentInput: '0',
-                previousInput: '',
-                operator: null,
-                shouldResetDisplay: false,
-                expression: '',
                 lastResult: null,
+                lastUnit: null,
             },
             // Engineering
             eng: {
@@ -374,147 +370,273 @@
         }
 
         /* ============================================================
-           [EN] Calculator Logic
+           [EN] Calculator Logic — Raycast-style expression evaluator
            ============================================================ */
-        function handleCalcAction(action) {
-            var c = STATE.calc;
 
-            if (action >= '0' && action <= '9') {
-                if (c.shouldResetDisplay) {
-                    c.currentInput = '';
-                    c.shouldResetDisplay = false;
+        var CALC_UNITS = {
+            // Metric (base: mm)
+            mm: 1, cm: 10, m: 1000, km: 1000000,
+            // Imperial length
+            'in': 25.4, inch: 25.4, inches: 25.4, cal: 25.4, cale: 25.4,
+            ft: 304.8, feet: 304.8, foot: 304.8, stopa: 304.8, stopy: 304.8,
+            yd: 914.4, yard: 914.4, yards: 914.4, jard: 914.4, jardy: 914.4,
+        };
+
+        function parseNaturalShortcuts(raw) {
+            // --- Normalizacja: "10 procent" → "10%" (przed resztą) ---
+            raw = raw.replace(/([\d.,]+)\s+procent[a-z]*/gi, function(_, n) { return n + '%'; });
+
+            // --- Normalizacja skrótów liczbowych: tys / mln ---
+            raw = raw.replace(/([\d.,]+)\s*(?:tys\.?|tysi[aą]c[a-z]*)\b/gi,
+                function(_, n) { return '(' + n.replace(',', '.') + '*1000)'; });
+            raw = raw.replace(/([\d.,]+)\s*(?:mln\.?|milion[a-z]*)\b/gi,
+                function(_, n) { return '(' + n.replace(',', '.') + '*1000000)'; });
+            // K notation (angielski): 10K → 10000
+            raw = raw.replace(/([\d.,]+)\s*[kK](?!\w)/g,
+                function(_, n) { return '(' + n.replace(',', '.') + '*1000)'; });
+
+            // --- Ułamki PL + EN ---
+            raw = raw.replace(/\bpo[łl]owa\s+([\d.,]+)/gi,        '($1/2)');  // połowa / polowa
+            raw = raw.replace(/\bpó[łl]\s+([\d.,]+)/gi,           '($1/2)');  // pół / pol
+            raw = raw.replace(/\bpol\s+([\d.,]+)/gi,               '($1/2)');  // pol
+            raw = raw.replace(/\bjedna\s+trzecia\s+([\d.,]+)/gi,   '($1/3)');
+            raw = raw.replace(/\btrzecia\s+([\d.,]+)/gi,           '($1/3)');
+            raw = raw.replace(/\bjedna\s+czwarta\s+([\d.,]+)/gi,   '($1/4)');
+            raw = raw.replace(/\bczwarta\s+([\d.,]+)/gi,           '($1/4)');
+
+            // --- Matematyka naturalna PL + EN ---
+            raw = raw.replace(/(?:square\s+root\s+of|pierwiastek\s+(?:kwadratowy\s+)?z)\s+([\d.,]+)/gi,
+                function(_, n) { return 'sqrt(' + n.replace(',', '.') + ')'; });
+            raw = raw.replace(/(?:cube\s+root\s+of|pierwiastek\s+sze[sś]cienny\s+z)\s+([\d.,]+)/gi,
+                function(_, n) { return '(' + n.replace(',', '.') + '^(1/3))'; });
+            raw = raw.replace(/([\d.,]+)\s+(?:power|do\s+pot[eę]gi|podniesiony\s+do\s+pot[eę]gi)\s+([\d.,]+)/gi,
+                function(_, b, e) { return '(' + b.replace(',', '.') + '^' + e.replace(',', '.') + ')'; });
+
+            // --- Proporcja / ratio ---
+            raw = raw.replace(/(?:ratio\s+of|proporcja|stosunek)\s+([\d.,]+)\s+(?:to|do)\s+([\d.,]+)/gi,
+                function(_, a, b) { return '(' + a.replace(',', '.') + '/' + b.replace(',', '.') + ')'; });
+
+            // --- Procenty (od najbardziej szczegółowych) ---
+            // napiwek / tip
+            raw = raw.replace(/([\d.,]+)%\s+(?:tip|napiwek)\s+(?:on|na)\s+([\d.,]+)/gi,
+                function(_, p, b) { return '(' + b.replace(',', '.') + '*(1+' + p.replace(',', '.') + '/100))'; });
+            // rabat / zniżka / off
+            raw = raw.replace(/([\d.,]+)%\s+(?:off|rabat[u]?|zni[zż]k[aię]?)\s+(?:na|od|z|on)?\s*([\d.,]+)/gi,
+                function(_, p, b) { return '(' + b.replace(',', '.') + '*(1-' + p.replace(',', '.') + '/100))'; });
+            // narzut / marża / markup
+            raw = raw.replace(/([\d.,]+)%\s+(?:narzut[u]?|mar[zż][ae]?|markup)\s+(?:na|od|do|on)?\s*([\d.,]+)/gi,
+                function(_, p, b) { return '(' + b.replace(',', '.') + '*(1+' + p.replace(',', '.') + '/100))'; });
+            // "dodaj X% do Y"
+            raw = raw.replace(/dodaj\s+([\d.,]+)%\s+do\s+([\d.,]+)/gi,
+                function(_, p, b) { return '(' + b.replace(',', '.') + '*(1+' + p.replace(',', '.') + '/100))'; });
+            // "X% z Y" / "X% of Y"
+            raw = raw.replace(/([\d.,]+)%\s+(?:z|of)\s+([\d.,]+)/gi, '($2*$1/100)');
+            // "X% od Y" (rabat skrótowy)
+            raw = raw.replace(/([\d.,]+)%\s+od\s+([\d.,]+)/gi, '($2*(1-$1/100))');
+            // Samsung-style "A + B%" (prosta jednocyfrowa forma)
+            raw = raw.replace(/^([\d.,]+)\s*([+\-])\s*([\d.,]+)%\s*$/, function(_, a, op, b) {
+                return a.replace(',', '.') + op + '(' + a.replace(',', '.') + '*' + b.replace(',', '.') + '/100)';
+            });
+            // Samodzielne "N%"
+            raw = raw.replace(/([\d.,]+)%/g, '($1/100)');
+
+            return raw;
+        }
+
+        function resolveCalcConstants(raw, constants) {
+            if (!constants || !constants.length) return raw;
+            var result = raw;
+            constants.forEach(function(c) {
+                if (!c.name) return;
+                var escaped = c.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                result = result.replace(new RegExp('\\b' + escaped + '\\b', 'gi'), String(c.value));
+            });
+            return result;
+        }
+
+        var _UNIT_NAMES_RE = 'mm|cm|m|km|in|inch|inches|cal|cale|ft|feet|foot|stopa|stopy|yd|yard|yards|jard|jardy';
+
+        function resolveCalcUnits(raw) {
+            // "EXPR na|in|to|w UNIT" — explicit conversion keyword
+            var convertRe = new RegExp('^(.+?)\\s+(?:na|do|in|to|w)\\s+(' + _UNIT_NAMES_RE + ')\\s*$', 'i');
+            var naMatch = raw.match(convertRe);
+            if (naMatch) {
+                var inner = resolveCalcUnits(naMatch[1].trim());
+                var targetUnit = naMatch[2].toLowerCase();
+                if (inner.unit !== null && CALC_UNITS[targetUnit] !== undefined) {
+                    var converted = inner.valueInBase / CALC_UNITS[targetUnit];
+                    return { expr: String(converted), unit: targetUnit, valueInBase: inner.valueInBase };
                 }
-                if (c.currentInput === '0') {
-                    c.currentInput = action;
-                } else {
-                    c.currentInput += action;
-                }
-                updateCalcDisplay();
-                return;
             }
 
-            if (action === '.') {
-                if (c.shouldResetDisplay) {
-                    c.currentInput = '0';
-                    c.shouldResetDisplay = false;
+            var totalBase = 0;
+            var hasUnits = false;
+            var expr = raw;
+
+            // Handle N' (feet) and N" (inches) notation
+            expr = expr.replace(/([\d.,]+)\s*'/g, function(_, n) {
+                hasUnits = true;
+                var base = parseFloat(n.replace(',', '.')) * 304.8;
+                totalBase += base;
+                return String(base);
+            });
+            expr = expr.replace(/([\d.,]+)\s*"/g, function(_, n) {
+                hasUnits = true;
+                var base = parseFloat(n.replace(',', '.')) * 25.4;
+                totalBase += base;
+                return String(base);
+            });
+
+            // Handle named unit tokens
+            var unitRe = new RegExp('([\\d.,]+)\\s*(' + _UNIT_NAMES_RE + ')\\b', 'gi');
+            expr = expr.replace(unitRe, function(_, numStr, unit) {
+                var factor = CALC_UNITS[unit.toLowerCase()];
+                if (factor === undefined) return _;
+                hasUnits = true;
+                var base = parseFloat(numStr.replace(',', '.')) * factor;
+                totalBase += base;
+                return String(base);
+            });
+
+            return { expr: expr, unit: hasUnits ? 'mm' : null, valueInBase: totalBase };
+        }
+
+        function evalCalcExpression(raw) {
+            var original = String(raw || '').trim();
+            if (!original) return { value: null, unit: null, error: null };
+            try {
+                var expr = original;
+                expr = parseNaturalShortcuts(expr);
+                expr = resolveCalcConstants(expr, STATE.constants);
+                var unitResult = resolveCalcUnits(expr);
+                expr = unitResult.expr;
+                var unit = unitResult.unit;
+                expr = expr.replace(/,(?=\d)/g, '.');
+                expr = expr.replace(/×/g, '*').replace(/÷/g, '/').replace(/−/g, '-');
+                expr = expr.replace(/\s+/g, '');
+                if (!expr) return { value: null, unit: null, error: null };
+                var fn = compileGraphExpression(expr);
+                var value = fn(0);
+                if (!isFinite(value)) return { value: Infinity, unit: unit, error: '∞' };
+                if (Math.abs(value) < 1e308 && value !== 0) {
+                    value = parseFloat(value.toPrecision(12));
                 }
-                if (c.currentInput.indexOf('.') === -1) {
-                    c.currentInput += '.';
-                }
-                updateCalcDisplay();
+                STATE.calc.lastResult = value;
+                STATE.calc.lastUnit = unit;
+                return { value: value, unit: unit, error: null };
+            } catch (err) {
+                return { value: null, unit: null, error: null };
+            }
+        }
+
+        function formatCalcResult(res) {
+            if (!res || res.value === null) return '';
+            if (res.error === '∞') return '∞';
+            var str = formatLocaleNumber(res.value, 10);
+            if (res.unit) str += ' ' + res.unit;
+            return str;
+        }
+
+        function insertAtCursor(input, text) {
+            var focused = document.activeElement === input;
+            var start = focused && input.selectionStart != null ? input.selectionStart : input.value.length;
+            var end   = focused && input.selectionEnd   != null ? input.selectionEnd   : input.value.length;
+            input.value = input.value.slice(0, start) + text + input.value.slice(end);
+            try { input.setSelectionRange(start + text.length, start + text.length); } catch(e) {}
+        }
+
+        function liveEval() {
+            var res = evalCalcExpression(calcExpr.value);
+            var display = res.value !== null ? formatCalcResult(res) : (calcExpr.value === '' ? '0' : '');
+            calcResult.textContent = display;
+            calcResult.classList.remove('small', 'xsmall');
+            if (display.length > 10) calcResult.classList.add('small');
+            if (display.length > 14) calcResult.classList.add('xsmall');
+        }
+
+        function handleCalcAction(action) {
+            var expr = calcExpr.value;
+
+            if ((action >= '0' && action <= '9') || action === '.') {
+                insertAtCursor(calcExpr, action);
+                liveEval();
                 return;
             }
 
             if (action === '±') {
-                if (c.currentInput !== '0' && c.currentInput !== '') {
-                    if (c.currentInput.charAt(0) === '-') {
-                        c.currentInput = c.currentInput.slice(1);
-                    } else {
-                        c.currentInput = '-' + c.currentInput;
-                    }
+                var trimmed = expr.trim();
+                if (!trimmed) { liveEval(); return; }
+                var asNum = parseFloat(normalizeNumberText(trimmed));
+                if (!isNaN(asNum) && String(asNum) === trimmed.replace(/\s/g, '')) {
+                    calcExpr.value = String(-asNum);
+                } else {
+                    calcExpr.value = '-(' + trimmed + ')';
                 }
-                updateCalcDisplay();
+                calcExpr.setSelectionRange(calcExpr.value.length, calcExpr.value.length);
+                liveEval();
                 return;
             }
 
             if (action === '%') {
-                var val = parseFloat(c.currentInput) || 0;
-                if (c.operator && c.previousInput !== '') {
-                    // Samsung-style: 200 + 5% → 200 + (200 * 5/100) = 210
-                    var base = parseFloat(c.previousInput) || 0;
-                    if (c.operator === '+' || c.operator === '−') {
-                        c.currentInput = String(base * val / 100);
-                    } else {
-                        // dla × i ÷: 200 × 5% → 200 × 0.05
-                        c.currentInput = String(val / 100);
-                    }
+                var trimmed = expr.trim();
+                // Samsung-style: detect BASE [+|-] NUMBER at the end of expression
+                var addSubM = trimmed.match(/^([\s\S]+?)([+\-−])([\d.,]+)\s*$/);
+                if (addSubM) {
+                    var baseE = addSubM[1];
+                    var opE   = addSubM[2];
+                    var pctE  = addSubM[3].replace(',', '.');
+                    // A + B → A + (A * B/100)
+                    calcExpr.value = baseE + opE + '(' + baseE + '*' + pctE + '/100)';
+                } else if (/^[\d.,]+$/.test(trimmed)) {
+                    // Standalone number: 25 → (25/100)
+                    calcExpr.value = '(' + trimmed.replace(',', '.') + '/100)';
                 } else {
-                    c.currentInput = String(val / 100);
+                    insertAtCursor(calcExpr, '%');
                 }
-                updateCalcDisplay();
+                calcExpr.setSelectionRange(calcExpr.value.length, calcExpr.value.length);
+                liveEval();
                 return;
             }
 
             if (action === '⌫') {
-                if (c.currentInput.length > 1) {
-                    c.currentInput = c.currentInput.slice(0, -1);
-                } else {
-                    c.currentInput = '0';
+                var focused = document.activeElement === calcExpr;
+                var s = focused ? calcExpr.selectionStart : expr.length;
+                var eb = focused ? calcExpr.selectionEnd : expr.length;
+                if (s !== eb) {
+                    calcExpr.value = expr.slice(0, s) + expr.slice(eb);
+                    try { calcExpr.setSelectionRange(s, s); } catch(e) {}
+                } else if (s > 0) {
+                    calcExpr.value = expr.slice(0, s - 1) + expr.slice(s);
+                    try { calcExpr.setSelectionRange(s - 1, s - 1); } catch(e) {}
                 }
-                if (c.currentInput === '-') c.currentInput = '0';
-                updateCalcDisplay();
+                liveEval();
                 return;
             }
 
             if (action === 'AC') {
-                c.currentInput = '0';
-                c.previousInput = '';
-                c.operator = null;
-                c.shouldResetDisplay = false;
-                c.expression = '';
-                c.lastResult = null;
-                updateCalcDisplay();
+                calcExpr.value = '';
+                STATE.calc.lastResult = null;
+                STATE.calc.lastUnit = null;
+                liveEval();
                 return;
             }
 
-            // Operators: + − × ÷
             if (action === '+' || action === '−' || action === '×' || action === '÷') {
-                if (c.operator && !c.shouldResetDisplay && c.previousInput !== '') {
-                    // [EN] Chain operations — compute previous first
-                    var result = computeResult();
-                    c.previousInput = result;
-                    c.expression = formatNumber(result) + ' ' + action + ' ';
-                } else {
-                    c.previousInput = c.currentInput;
-                    c.expression = formatNumber(c.currentInput) + ' ' + action + ' ';
-                }
-                c.operator = action;
-                c.shouldResetDisplay = true;
-                updateCalcDisplay();
+                insertAtCursor(calcExpr, action);
+                liveEval();
                 return;
             }
 
-            // Equals
             if (action === '=') {
-                if (c.operator && c.previousInput !== '') {
-                    var exprText = c.expression + formatNumber(c.currentInput);
-                    var result = computeResult();
-                    addHistory(exprText + ' = ' + formatNumber(result));
-                    c.expression = '';
-                    c.currentInput = result;
-                    c.previousInput = '';
-                    c.operator = null;
-                    c.shouldResetDisplay = true;
-                    c.lastResult = result;
-                    updateCalcDisplay();
+                var res = evalCalcExpression(expr);
+                if (res.value !== null && expr.trim()) {
+                    addHistory(expr + ' = ' + formatCalcResult(res));
+                    calcExpr.value = formatRawNum(res.value);
+                    calcExpr.setSelectionRange(calcExpr.value.length, calcExpr.value.length);
+                    liveEval();
                 }
                 return;
             }
-        }
-
-        function computeResult() {
-            var c = STATE.calc;
-            var a = parseFloat(c.previousInput) || 0;
-            var b = parseFloat(c.currentInput) || 0;
-            var result;
-            switch (c.operator) {
-                case '+': result = a + b; break;
-                case '−': result = a - b; break;
-                case '×': result = a * b; break;
-                case '÷':
-                    if (b === 0) {
-                        showToast('⚠️ Nie dziel przez zero!', 'error');
-                        return '0';
-                    }
-                    result = a / b;
-                    break;
-                default: result = b;
-            }
-            // [EN] Avoid floating-point artifacts: round to 12 significant digits
-            if (Math.abs(result) < 1e308) {
-                result = parseFloat(result.toPrecision(12));
-            }
-            return String(result);
         }
 
         function formatNumber(str) {
@@ -524,19 +646,7 @@
         }
 
         function updateCalcDisplay() {
-            var c = STATE.calc;
-            calcExpr.textContent = c.expression;
-            var display = c.shouldResetDisplay && c.operator ? formatNumber(c.previousInput) : formatNumber(c.currentInput);
-
-            // [EN] Auto-size: reduce font for long numbers
-            calcResult.textContent = display;
-            calcResult.classList.remove('small', 'xsmall');
-            if (display.length > 10) {
-                calcResult.classList.add('small');
-            }
-            if (display.length > 14) {
-                calcResult.classList.add('xsmall');
-            }
+            liveEval();
         }
 
         function bindLongPressCopy(el, getText) {
@@ -578,8 +688,9 @@
         }
 
         bindLongPressCopy(calcResult, function() {
-            var raw = STATE.calc.shouldResetDisplay && STATE.calc.operator ? STATE.calc.previousInput : STATE.calc.currentInput;
-            return normalizeNumberText(raw);
+            if (STATE.calc.lastResult !== null) return String(STATE.calc.lastResult);
+            var res = evalCalcExpression(calcExpr.value);
+            return res.value !== null ? String(res.value) : calcExpr.value;
         });
 
         function bindCopyBox(el) {
@@ -649,12 +760,9 @@
                     }
                     // [EN] Reuse history result as current input
                     if (resultPart) {
-                        STATE.calc.currentInput = normalizeNumberText(resultPart);
-                        STATE.calc.shouldResetDisplay = true;
-                        STATE.calc.operator = null;
-                        STATE.calc.previousInput = '';
-                        STATE.calc.expression = '';
-                        updateCalcDisplay();
+                        calcExpr.value = normalizeNumberText(resultPart);
+                        calcExpr.setSelectionRange(calcExpr.value.length, calcExpr.value.length);
+                        liveEval();
                         switchTab('calculator');
                         closeHistoryDrawer();
                         showToast('📋 Przywrócono wynik', 'success');
@@ -1763,6 +1871,26 @@
                 });
             }
 
+            var calcHelpOpen = $('#calcHelpOpen');
+            if (calcHelpOpen) {
+                calcHelpOpen.addEventListener('click', function() {
+                    activeCommandTarget = 'calculator';
+                    openCommandHelp();
+                });
+            }
+
+            // Calculator example chips → fill calcExpr and evaluate
+            document.querySelectorAll('.calc-example-chip').forEach(function(chip) {
+                chip.addEventListener('click', function() {
+                    var expr = chip.getAttribute('data-expr') || '';
+                    if (!expr) return;
+                    calcExpr.value = expr;
+                    calcExpr.setSelectionRange(expr.length, expr.length);
+                    liveEval();
+                    calcExpr.focus();
+                });
+            });
+
             var graphCommandHelpOpen = $('#graphCommandHelpOpen');
 
             if (graphCommandHelpOpen) {
@@ -1803,19 +1931,24 @@
 
                         applyEngineeringCommand(command);
 
-                    }
-
-                    else if (activeCommandTarget === 'graph') {
+                    } else if (activeCommandTarget === 'graph') {
 
                         graphCommand.value = command;
 
                         updateGraph(graphCommand.value);
 
+                    } else if (activeCommandTarget === 'calculator') {
+
+                        calcExpr.value = command;
+                        calcExpr.setSelectionRange(command.length, command.length);
+                        liveEval();
+                        switchTab('calculator');
+
                     }
 
                     closeCommandHelp();
 
-                    showToast('⚡ Komenda wstawiona', 'success');
+                    showToast('⚡ Wstawiono', 'success');
 
                 });
 
@@ -3064,12 +3197,9 @@
                             var multInput = li.querySelector('.quick-mult');
                             var mult = parseFloat(multInput.value) || 1;
                             var finalVal = c.value * mult;
-                            STATE.calc.currentInput = String(finalVal);
-                            STATE.calc.shouldResetDisplay = true;
-                            STATE.calc.operator = null;
-                            STATE.calc.previousInput = '';
-                            STATE.calc.expression = '';
-                            updateCalcDisplay();
+                            calcExpr.value = String(finalVal);
+                            calcExpr.setSelectionRange(calcExpr.value.length, calcExpr.value.length);
+                            liveEval();
                             switchTab('calculator');
                             showToast('📊 ' + c.name + ' × ' + mult + ' = ' + formatNum(finalVal), 'success');
                         }
@@ -3828,7 +3958,12 @@
             /* [EN] Load saved engineering values */
             loadFromStorage();
             buildCalcButtons();
-            updateCalcDisplay();
+            calcExpr.addEventListener('input', liveEval);
+            calcExpr.addEventListener('keydown', function(e) {
+                if (e.key === 'Enter' || e.key === '=') { e.preventDefault(); handleCalcAction('='); }
+                if (e.key === 'Escape') { handleCalcAction('AC'); }
+            });
+            liveEval();
             renderHistory();
             updateEngineering();
             updateGraph();
