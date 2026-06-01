@@ -215,8 +215,8 @@
             </div>
 
             <!-- Card 3: Zakres widoku (ukryty dla komend podziału, widoczny dla wykresów) -->
-            <div class="card" id="komendaViewCard">
-                <div class="card-header"><span class="icon">🧭</span> Zakres widoku</div>
+            <details class="command-panel card" id="komendaViewCard">
+                <summary><span class="icon">🧭</span> Zakres widoku osi x/y</summary>
                 <div class="input-row">
                     <div class="input-group">
                         <label for="graphXMin">X od</label>
@@ -246,7 +246,7 @@
                         <input type="number" id="graphYStep" step="any" min="0.1" placeholder="auto" class="input no-haptic" inputmode="decimal">
                     </div>
                 </div>
-            </div>
+            </details>
 
         </section>
 
