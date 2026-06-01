@@ -771,6 +771,7 @@
         }
         .help-open-btn {
             width: 100%;
+            height: auto;
             min-height: 42px;
             border: 1px solid var(--border);
             border-radius: var(--radius-sm);

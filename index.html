@@ -92,37 +92,8 @@
         <!-- ==================== PANEL: Komenda (merged Engineering + Graph) ==================== -->
         <section id="panel-komenda" class="panel" role="tabpanel">
 
-            <!-- Card 1: Command input -->
-            <div class="card">
-                <div class="card-header"><span class="icon">⌨️</span> Komenda</div>
-
-                <div class="input-group">
-                    <div id="graphCmdModeBadge" class="cmd-mode-badge">
-                        <span class="mode-dot"></span>
-                        <span class="mode-label">Tryb: pusty</span>
-                    </div>
-                    <input type="text" id="graphCommand" value="" inputmode="text" autocomplete="off"
-                        placeholder="np. x=120/4 ,, @edges   albo   f(x)=sin(x)">
-                    <div class="command-error" id="graphCommandError" aria-live="polite"></div>
-                    <div class="recent-commands" id="graphRecentCommands" aria-label="Ostatnie komendy"></div>
-                </div>
-
-                <div class="graph-examples">
-                    <button class="example-chip" data-command="x=120/4" type="button">podziel 120/4</button>
-                    <button class="example-chip" data-command="x=120/4 ,, @edges" type="button">od krańców</button>
-                    <button class="example-chip" data-command="x=120/4 ,, m=10/10 ,, @edges" type="button">z marginesami</button>
-                    <button class="example-chip" data-command="f(x)=sin(x)" type="button">sin(x)</button>
-                    <button class="example-chip" data-command="f(x)=x^2-4" type="button">x²−4</button>
-                    <button class="example-chip" data-command="siatka=400x300 ,, co=200x150 ,, label=słup" type="button">siatka</button>
-                </div>
-
-                <div class="komenda-actions">
-                    <button class="btn btn-primary" id="graphDrawBtn" type="button">▶ Uruchom</button>
-                    <button class="help-open-btn no-haptic" id="graphCommandHelpOpen" type="button">📋 Ściąga</button>
-                </div>
-
-                <!-- Kreator — noob-friendly, collapsible -->
-                <details class="command-panel" id="kreatorPanel">
+            <!-- Kreator — noob-friendly, collapsible -->
+                <details class="command-panel card" id="kreatorPanel">
                     <summary>Kreator podziału</summary>
 
                     <div class="input-group">
@@ -189,7 +160,38 @@
                         </div>
                     </div>
                 </details>
-            </div>
+
+            <!-- Card 1: Command input -->
+                <details class="command-panel card">
+                    <summary><span class="icon">⌨️</span> Komenda</summary>
+
+                    <div class="input-group">
+                        <div id="graphCmdModeBadge" class="cmd-mode-badge">
+                            <span class="mode-dot"></span>
+                            <span class="mode-label">Tryb: pusty</span>
+                        </div>
+                        <input type="text" id="graphCommand" value="" inputmode="text" autocomplete="off"
+                            placeholder="np. x=120/4 ,, @edges   albo   f(x)=sin(x)">
+                        <div class="command-error" id="graphCommandError" aria-live="polite"></div>
+                        <div class="recent-commands" id="graphRecentCommands" aria-label="Ostatnie komendy"></div>
+                    </div>
+
+                    <div class="graph-examples">
+                        <button class="example-chip" data-command="x=120/4" type="button">podziel 120/4</button>
+                        <button class="example-chip" data-command="x=120/4 ,, @edges" type="button">od krańców</button>
+                        <button class="example-chip" data-command="x=120/4 ,, m=10/10 ,, @edges" type="button">z marginesami</button>
+                        <button class="example-chip" data-command="f(x)=sin(x)" type="button">sin(x)</button>
+                        <button class="example-chip" data-command="f(x)=x^2-4" type="button">x²−4</button>
+                        <button class="example-chip" data-command="siatka=400x300 ,, co=200x150 ,, label=słup" type="button">siatka</button>
+                    </div>
+
+                    <div class="komenda-actions">
+                        <button class="btn btn-primary" id="graphDrawBtn" type="button">▶ Uruchom</button>
+                        <button class="btn help-open-btn no-haptic" id="graphCommandHelpOpen" type="button">📋 Ściąga</button>
+                    </div>
+
+                    
+                </details>
 
             <!-- Card 2: Canvas -->
             <div class="card">
