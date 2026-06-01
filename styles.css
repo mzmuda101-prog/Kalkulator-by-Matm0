@@ -104,7 +104,7 @@
             height: 40px;
             border: 1.5px solid var(--border);
             border-radius: var(--radius);
-            background: #f1f5f9;
+            background: var(--bg);
             color: var(--text-secondary);
             font-size: 1.2rem;
             cursor: pointer;
@@ -296,7 +296,7 @@
             align-items: center;
             gap: 4px;
             margin-left: auto;
-            background: #f1f5f9;
+            background: var(--bg);
             border-radius: var(--radius-sm);
             padding: 2px;
         }
@@ -431,7 +431,7 @@
         }
         .calc-btn:active { transform: scale(0.94); }
         .calc-btn--number {
-            background: #f1f5f9;
+            background: var(--bg);
             color: var(--text);
         }
         .calc-btn--number:active { background: #e2e8f0; }
@@ -613,7 +613,7 @@
             height: 34px;
             border: none;
             border-radius: var(--radius-sm);
-            background: #f1f5f9;
+            background: var(--bg);
             color: var(--text-secondary);
             font-size: 1.4rem;
             line-height: 1;
@@ -734,7 +734,7 @@
         .kreator-preview {
             position: relative;
             height: 56px;
-            background: #f1f5f9;
+            background: var(--bg);
             border-radius: var(--radius-sm);
             border: 1px solid var(--border);
             margin: 14px 0 0;
@@ -970,7 +970,7 @@
             min-height: 48px;
             border: 1.5px solid var(--border);
             border-radius: var(--radius);
-            background: #f1f5f9;
+            background: var(--bg);
             color: var(--text-secondary);
             font-family: var(--font);
             font-size: 1.25rem;
@@ -996,7 +996,7 @@
         .unit-toggle {
             display: flex;
             gap: 4px;
-            background: #f1f5f9;
+            background: var(--bg);
             border-radius: var(--radius);
             padding: 3px;
         }
@@ -1026,7 +1026,7 @@
             display: grid;
             grid-template-columns: repeat(3, 1fr);
             gap: 4px;
-            background: #f1f5f9;
+            background: var(--bg);
             border-radius: var(--radius);
             padding: 3px;
         }

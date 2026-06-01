@@ -2954,12 +2954,10 @@
                 }
 
                 var bounds2 = getGraphBounds();
-                var xStepInfo = (isFinite(parseFloat(graphXStep && graphXStep.value)) && parseFloat(graphXStep.value) > 0)
-                    ? parseFloat(graphXStep.value)
-                    : niceGridStep(bounds2.xMax - bounds2.xMin);
-                var yStepInfo = (isFinite(parseFloat(graphYStep && graphYStep.value)) && parseFloat(graphYStep.value) > 0)
-                    ? parseFloat(graphYStep.value)
-                    : niceGridStep(bounds2.yMax - bounds2.yMin);
+                var xStepRaw = parseFloat(graphXStep && graphXStep.value);
+                var yStepRaw = parseFloat(graphYStep && graphYStep.value);
+                var xStepInfo = (isFinite(xStepRaw) && xStepRaw > 0) ? xStepRaw : niceGridStep(bounds2.xMax - bounds2.xMin);
+                var yStepInfo = (isFinite(yStepRaw) && yStepRaw > 0) ? yStepRaw : niceGridStep(bounds2.yMax - bounds2.yMin);
 
                 var infoHeader = '📊 Zakres X: ' + formatNum(bounds2.xMin) + ' → ' + formatNum(bounds2.xMax) +
                     '   |   krok: ' + formatNum(xStepInfo) + '\n' +
