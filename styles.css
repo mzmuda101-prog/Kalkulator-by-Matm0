@@ -1488,6 +1488,65 @@
         }
 
         /* ============================================================
+           [EN] Autocomplete Dropdown
+           ============================================================ */
+        .autocomplete-wrap {
+            position: relative;
+        }
+        .autocomplete-dropdown {
+            display: none;
+            position: absolute;
+            top: calc(100% + 4px);
+            left: 0;
+            right: 0;
+            z-index: 500;
+            background: var(--card-bg);
+            border: 1.5px solid var(--border-focus);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow-lg);
+            overflow: hidden;
+            max-height: 260px;
+            overflow-y: auto;
+        }
+        .autocomplete-dropdown.open {
+            display: block;
+        }
+        .autocomplete-item {
+            display: flex;
+            align-items: baseline;
+            gap: 10px;
+            padding: 10px 14px;
+            cursor: pointer;
+            border-bottom: 1px solid var(--border);
+            transition: background var(--transition);
+            font-size: 0.8125rem;
+            line-height: 1.4;
+        }
+        .autocomplete-item:last-child {
+            border-bottom: none;
+        }
+        .autocomplete-item:hover,
+        .autocomplete-item.active {
+            background: var(--primary-light);
+        }
+        .autocomplete-item code {
+            font-family: var(--font-mono);
+            font-size: 0.8125rem;
+            font-weight: 700;
+            color: var(--primary);
+            white-space: nowrap;
+            flex-shrink: 0;
+        }
+        .autocomplete-item .ac-desc {
+            color: var(--text-muted);
+            font-size: 0.75rem;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            min-width: 0;
+        }
+
+        /* ============================================================
            [EN] Responsive — Tablet & Laptop
            ============================================================ */
         @media (min-width: 640px) {

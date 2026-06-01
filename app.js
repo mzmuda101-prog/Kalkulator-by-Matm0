@@ -884,15 +884,19 @@
         }
 
         function formatNum(val) {
-            if (val === 0) return '0';
+            var num = Number(val);
+            if (!isFinite(num)) return '0';
+            if (num === 0) return '0';
             // [EN] Smart formatting: remove trailing zeros but keep reasonable precision
-            var formatted = parseFloat(val.toFixed(6));
+            var formatted = parseFloat(num.toFixed(6));
             return formatLocaleNumber(formatted, 6);
         }
 
         function formatRawNum(val) {
-            if (val === 0) return '0';
-            return String(parseFloat(Number(val).toFixed(6)));
+            var num = Number(val);
+            if (!isFinite(num)) return '0';
+            if (num === 0) return '0';
+            return String(parseFloat(num.toFixed(6)));
         }
 
         function drawEmptyCanvas(_canvas, _ctx) {
@@ -907,98 +911,164 @@
         }
 
         function drawEngineeringCanvasMulti(L, ms, me, allSeries, origin, _canvas, _ctx) {
-            // Kolory dla kolejnych serii
-            var seriesColors = ['#2563eb', '#dc2626', '#16a34a', '#d97706', '#7c3aed', '#0891b2'];
-            // Zbierz wszystkie punkty żeby znać zakres
-            var allPoints = [];
-            allSeries.forEach(function(s) { allPoints = allPoints.concat(s.points); });
-
+            var COLORS = ['#2563eb', '#e11d48', '#16a34a', '#d97706', '#7c3aed', '#0891b2'];
             var ctx = _ctx || graphCtx;
             var W = (_canvas || graphCanvas).width;
             var H = (_canvas || graphCanvas).height;
             ctx.clearRect(0, 0, W, H);
 
-            var PAD_L = 60, PAD_R = 40, PAD_T = 60, PAD_B = 60;
+            var PAD_L = 56, PAD_R = 36, PAD_T = 52, PAD_B = 48;
             var drawW = W - PAD_L - PAD_R;
-            var drawH = H - PAD_T - PAD_B;
-
             var unit = getUnitLabel();
             var displayL = L + (origin || 0);
             var scale = drawW / Math.max(displayL, 1);
-
             function toX(pos) { return PAD_L + (pos - (origin || 0)) * scale; }
-            var midY = PAD_T + drawH / 2;
 
             // Tło
-            ctx.fillStyle = '#f8fafc';
+            ctx.fillStyle = '#ffffff';
             ctx.fillRect(0, 0, W, H);
 
-            // Belka
-            var beamY = midY - 12;
-            var beamH = 24;
-            ctx.fillStyle = '#e2e8f0';
-            ctx.strokeStyle = '#94a3b8';
+            // Delikatna siatka pomocnicza
+            ctx.strokeStyle = 'rgba(226,232,240,0.7)';
+            ctx.lineWidth = 1;
+            var nLines = 8;
+            for (var gi = 0; gi <= nLines; gi++) {
+                var gx = PAD_L + (gi / nLines) * drawW;
+                ctx.beginPath(); ctx.moveTo(gx, PAD_T); ctx.lineTo(gx, H - PAD_B); ctx.stroke();
+            }
+
+            // Linia bazowa (oś)
+            var axisY = PAD_T + (H - PAD_T - PAD_B) / 2;
+            ctx.strokeStyle = '#cbd5e1'; ctx.lineWidth = 1; ctx.setLineDash([]);
+            ctx.beginPath(); ctx.moveTo(PAD_L, axisY); ctx.lineTo(PAD_L + drawW, axisY); ctx.stroke();
+
+            // Belka — wąski prostokąt z zaokrąglonymi końcami
+            var beamH = 14;
+            var beamY = axisY - beamH / 2;
+            ctx.fillStyle = '#e8d5b7';
+            ctx.strokeStyle = '#b8956a';
             ctx.lineWidth = 1.5;
             ctx.beginPath();
-            ctx.rect(PAD_L, beamY, drawW, beamH);
+            ctx.roundRect(PAD_L, beamY, drawW, beamH, 3);
             ctx.fill(); ctx.stroke();
 
-            // Etykiety osi
-            ctx.fillStyle = '#64748b';
-            ctx.font = '11px ' + getComputedStyle(document.body).fontFamily;
-            ctx.textAlign = 'center';
-            ctx.fillText('0', PAD_L, midY + 34);
-            ctx.fillText(formatNum(L) + ' ' + unit, PAD_L + drawW, midY + 34);
+            // Etykiety 0 i L pod belką
+            ctx.fillStyle = '#94a3b8';
+            ctx.font = '10px ' + getComputedStyle(document.body).fontFamily;
+            ctx.textBaseline = 'top'; ctx.textAlign = 'center';
+            ctx.fillText('0', PAD_L, axisY + beamH / 2 + 4);
+            ctx.fillText(formatNum(L) + ' ' + unit, PAD_L + drawW, axisY + beamH / 2 + 4);
 
-            // Marginesy
+            // Marginesy — półprzezroczyste strefy
             if (ms > 0) {
-                ctx.strokeStyle = '#fbbf24'; ctx.lineWidth = 1.5; ctx.setLineDash([4, 3]);
-                ctx.beginPath(); ctx.moveTo(PAD_L + ms * scale, PAD_T); ctx.lineTo(PAD_L + ms * scale, PAD_T + drawH); ctx.stroke();
+                var msX = toX(ms);
+                ctx.fillStyle = 'rgba(251,191,36,0.12)';
+                ctx.fillRect(PAD_L, beamY, msX - PAD_L, beamH);
+                ctx.strokeStyle = '#fbbf24'; ctx.lineWidth = 1; ctx.setLineDash([3, 3]);
+                ctx.beginPath(); ctx.moveTo(msX, PAD_T - 4); ctx.lineTo(msX, H - PAD_B + 4); ctx.stroke();
                 ctx.setLineDash([]);
+                ctx.fillStyle = '#d97706'; ctx.font = 'bold 10px ' + getComputedStyle(document.body).fontFamily;
+                ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
+                ctx.fillText(formatNum(ms), (PAD_L + msX) / 2, beamY - 2);
             }
             if (me > 0) {
-                ctx.strokeStyle = '#fbbf24'; ctx.lineWidth = 1.5; ctx.setLineDash([4, 3]);
-                ctx.beginPath(); ctx.moveTo(PAD_L + (L - me) * scale, PAD_T); ctx.lineTo(PAD_L + (L - me) * scale, PAD_T + drawH); ctx.stroke();
+                var meX = toX(L - me);
+                ctx.fillStyle = 'rgba(251,191,36,0.12)';
+                ctx.fillRect(meX, beamY, PAD_L + drawW - meX, beamH);
+                ctx.strokeStyle = '#fbbf24'; ctx.lineWidth = 1; ctx.setLineDash([3, 3]);
+                ctx.beginPath(); ctx.moveTo(meX, PAD_T - 4); ctx.lineTo(meX, H - PAD_B + 4); ctx.stroke();
                 ctx.setLineDash([]);
+                ctx.fillStyle = '#d97706'; ctx.font = 'bold 10px ' + getComputedStyle(document.body).fontFamily;
+                ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
+                ctx.fillText(formatNum(me), (meX + PAD_L + drawW) / 2, beamY - 2);
             }
 
-            // Każda seria — punkty innym kolorem, etykiety nad/pod na przemian
+            // Serie — każda nad/pod osią na przemian
+            var DOT_R = 11;
             allSeries.forEach(function(series, si) {
-                var color = seriesColors[si % seriesColors.length];
-                var above = si % 2 === 0; // naprzemiennie góra/dół żeby się nie nakładały
-                series.points.forEach(function(pt, pi) {
+                var color = COLORS[si % COLORS.length];
+                var above = si % 2 === 0;
+                var rowOffset = above ? -(DOT_R + beamH / 2 + 10) : (DOT_R + beamH / 2 + 10);
+                var pts = series.points;
+
+                // Linie odstępów między sąsiednimi punktami (pod/nad belką)
+                if (pts.length > 1) {
+                    var spacingY = axisY + rowOffset + (above ? -DOT_R - 8 : DOT_R + 8);
+                    for (var pi = 0; pi < pts.length - 1; pi++) {
+                        var x1 = toX(pts[pi].x !== undefined ? pts[pi].x : pts[pi]);
+                        var x2 = toX(pts[pi + 1].x !== undefined ? pts[pi + 1].x : pts[pi + 1]);
+                        var gap = (pts[pi + 1].x !== undefined ? pts[pi + 1].x : pts[pi + 1]) -
+                                  (pts[pi].x !== undefined ? pts[pi].x : pts[pi]);
+                        var midX = (x1 + x2) / 2;
+
+                        // Linia z grotikami
+                        ctx.strokeStyle = color; ctx.lineWidth = 1; ctx.setLineDash([]);
+                        ctx.beginPath(); ctx.moveTo(x1 + 2, spacingY); ctx.lineTo(x2 - 2, spacingY); ctx.stroke();
+                        // Małe grotki
+                        ctx.fillStyle = color;
+                        ctx.beginPath(); ctx.moveTo(x1 + 2, spacingY); ctx.lineTo(x1 + 7, spacingY - 3); ctx.lineTo(x1 + 7, spacingY + 3); ctx.closePath(); ctx.fill();
+                        ctx.beginPath(); ctx.moveTo(x2 - 2, spacingY); ctx.lineTo(x2 - 7, spacingY - 3); ctx.lineTo(x2 - 7, spacingY + 3); ctx.closePath(); ctx.fill();
+                        // Etykieta odstępu
+                        ctx.fillStyle = color;
+                        ctx.font = '600 9px ' + getComputedStyle(document.body).fontFamily;
+                        ctx.textAlign = 'center'; ctx.textBaseline = above ? 'bottom' : 'top';
+                        ctx.fillText(formatNum(gap), midX, spacingY + (above ? -2 : 2));
+                    }
+                }
+
+                // Pionowe kreski na belkę + numerowane kółka
+                pts.forEach(function(pt, pi) {
                     var px = toX(pt.x !== undefined ? pt.x : pt);
-                    var py = midY;
-                    // Pionowa kreska
-                    ctx.strokeStyle = color; ctx.lineWidth = 1.5; ctx.setLineDash([]);
+                    var cy = axisY + rowOffset;
+
+                    // Pionowa kreska łącząca kółko z belką
+                    ctx.strokeStyle = color + '88'; ctx.lineWidth = 1.5; ctx.setLineDash([]);
                     ctx.beginPath();
-                    ctx.moveTo(px, beamY - 6);
-                    ctx.lineTo(px, beamY + beamH + 6);
+                    ctx.moveTo(px, above ? cy + DOT_R : cy - DOT_R);
+                    ctx.lineTo(px, above ? axisY - beamH / 2 : axisY + beamH / 2);
                     ctx.stroke();
-                    // Kółko
+
+                    // Wypełnione kółko z numerem
                     ctx.beginPath();
-                    ctx.arc(px, py, pt.r || 6, 0, Math.PI * 2);
+                    ctx.arc(px, cy, DOT_R, 0, Math.PI * 2);
                     ctx.fillStyle = color;
                     ctx.fill();
-                    ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5;
+                    ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 2;
                     ctx.stroke();
-                    // Numer punktu
-                    ctx.fillStyle = color;
-                    ctx.font = 'bold 11px ' + getComputedStyle(document.body).fontFamily;
+
+                    // Numer wewnątrz kółka
+                    ctx.fillStyle = '#ffffff';
+                    ctx.font = 'bold ' + (DOT_R > 9 ? '11' : '9') + 'px ' + getComputedStyle(document.body).fontFamily;
+                    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+                    ctx.fillText(pi + 1, px, cy);
+
+                    // Wartość pozycji pod/nad kółkiem
+                    ctx.fillStyle = '#0f172a';
+                    ctx.font = '600 10px ' + getComputedStyle(document.body).fontFamily;
                     ctx.textAlign = 'center';
-                    var labelY = above ? beamY - 14 : beamY + beamH + 20;
-                    ctx.fillText((pi + 1), px, labelY);
+                    ctx.textBaseline = above ? 'bottom' : 'top';
+                    ctx.fillText(formatNum(pt.x !== undefined ? pt.x : pt) + ' ' + unit,
+                        px, cy + (above ? -DOT_R - 3 : DOT_R + 3));
                 });
-                // Legenda
-                var legendX = PAD_L + 8 + si * 90;
-                var legendY = PAD_T - 10;
-                ctx.fillStyle = color;
-                ctx.beginPath(); ctx.arc(legendX, legendY, 5, 0, Math.PI * 2); ctx.fill();
-                ctx.fillStyle = '#1e293b';
-                ctx.font = '11px ' + getComputedStyle(document.body).fontFamily;
-                ctx.textAlign = 'left';
-                ctx.fillText(series.label || ('Seria ' + (si + 1)), legendX + 9, legendY + 4);
+
+                // Legenda — kolorowy punkt + nazwa serii
+                var legendX = PAD_L + si * 110;
+                ctx.beginPath(); ctx.arc(legendX + 6, 16, 5, 0, Math.PI * 2);
+                ctx.fillStyle = color; ctx.fill();
+                ctx.fillStyle = '#1e293b'; ctx.font = '600 11px ' + getComputedStyle(document.body).fontFamily;
+                ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+                ctx.fillText(series.label || ('Seria ' + (si + 1)), legendX + 14, 16);
             });
+
+            // Wymiar całkowitej długości — strzałka na górze
+            var dimY = PAD_T - 22;
+            ctx.strokeStyle = '#475569'; ctx.lineWidth = 1; ctx.setLineDash([]);
+            ctx.beginPath(); ctx.moveTo(PAD_L, dimY); ctx.lineTo(PAD_L + drawW, dimY); ctx.stroke();
+            drawArrow(ctx, PAD_L, dimY, 'left');
+            drawArrow(ctx, PAD_L + drawW, dimY, 'right');
+            ctx.fillStyle = '#0f172a'; ctx.font = 'bold 12px ' + getComputedStyle(document.body).fontFamily;
+            ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
+            ctx.fillText(formatNum(L) + ' ' + unit, PAD_L + drawW / 2, dimY - 3);
         }
 
         function drawEngineeringCanvas(totalLength, marginStart, marginEnd, positions, count, step, origin, _canvas, _ctx) {
@@ -2154,6 +2224,33 @@
             return { xMin: xMin, xMax: xMax, yMin: yMin, yMax: yMax };
         }
 
+        // [EN] Zrównuje skalę px/jednostkę na obu osiach (okrąg = okrąg, nie elipsa).
+        // Tylko POWIĘKSZA zakres osi o większej skali — nic nie przycina.
+        function equalizeGraphAspect() {
+            var b = getGraphBounds();
+            var drawW = graphCanvas.width - 2 * GRAPH_PAD;
+            var drawH = graphCanvas.height - 2 * GRAPH_PAD;
+            if (drawW <= 0 || drawH <= 0) return;
+            var xRange = b.xMax - b.xMin;
+            var yRange = b.yMax - b.yMin;
+            if (xRange <= 0 || yRange <= 0) return;
+            var xScale = drawW / xRange;
+            var yScale = drawH / yRange;
+            var target = Math.min(xScale, yScale);
+            var needX = drawW / target;
+            var needY = drawH / target;
+            if (needX > xRange + 1e-9) {
+                var cx = (b.xMin + b.xMax) / 2;
+                graphXMin.value = formatRawNum(cx - needX / 2);
+                graphXMax.value = formatRawNum(cx + needX / 2);
+            }
+            if (needY > yRange + 1e-9) {
+                var cy = (b.yMin + b.yMax) / 2;
+                graphYMin.value = formatRawNum(cy - needY / 2);
+                graphYMax.value = formatRawNum(cy + needY / 2);
+            }
+        }
+
         function graphToScreen(x, y, bounds, w, h, pad) {
             var sx = pad + ((x - bounds.xMin) / (bounds.xMax - bounds.xMin)) * (w - pad * 2);
             var sy = h - pad - ((y - bounds.yMin) / (bounds.yMax - bounds.yMin)) * (h - pad * 2);
@@ -2169,11 +2266,13 @@
             return pow;
         }
 
+        var GRAPH_PAD = 46;
+
         function drawGraphBase(bounds) {
             var ctx = graphCtx;
             var w = graphCanvas.width;
             var h = graphCanvas.height;
-            var pad = 46;
+            var pad = GRAPH_PAD;
             ctx.clearRect(0, 0, w, h);
             ctx.fillStyle = '#f8fafc';
             ctx.fillRect(0, 0, w, h);
@@ -2547,7 +2646,180 @@
                 return { type: 'siatka', w: w, h: h, dx: dx, dy: dy, ox: ox, oy: oy, label: label, r: r };
             }
 
+            // --- okrag=R / kolo=R / circle=R [,, ox=... ,, oy=...] ---
+            if (/^(okrag|kolo|circle|okr[aą]g|ko[lł]o)\s*=/.test(lower)) {
+                var body = str.replace(/^[^=]+=/, '').trim();
+                var parts = body.split(',,').map(function(s) { return s.trim(); });
+                var r = Math.abs(parseGraphNumber(parts[0], 50));
+                var ox = 0; var oy = 0; var label = '';
+                parts.slice(1).forEach(function(p) {
+                    var pl = p.toLowerCase();
+                    if (/^(label|opis|nazwa)=/.test(pl)) label = p.split('=').slice(1).join('=').trim();
+                    if (/^(ox|x0|od_x)=/.test(pl)) ox = parseGraphNumber(p.split('=')[1], 0);
+                    if (/^(oy|y0|od_y)=/.test(pl)) oy = parseGraphNumber(p.split('=')[1], 0);
+                });
+                return { type: 'okrag', r: r, ox: ox, oy: oy, label: label };
+            }
+
+            // --- wielokat=N,R (foremny)  LUB  wielokat=x,y/x,y/x,y (nieforemny) ---
+            if (/^(wielokat|wielok[aą]t|poly|figura)\s*=/.test(lower)) {
+                var body = str.replace(/^[^=]+=/, '').trim();
+                var parts = body.split(',,').map(function(s) { return s.trim(); });
+                var ox = 0; var oy = 0; var label = '';
+                parts.slice(1).forEach(function(p) {
+                    var pl = p.toLowerCase();
+                    if (/^(label|opis|nazwa)=/.test(pl)) label = p.split('=').slice(1).join('=').trim();
+                    if (/^(ox|x0|od_x)=/.test(pl)) ox = parseGraphNumber(p.split('=')[1], 0);
+                    if (/^(oy|y0|od_y)=/.test(pl)) oy = parseGraphNumber(p.split('=')[1], 0);
+                });
+
+                // Nieforemny: lista wierzchołków rozdzielona "/" (każdy jako x,y)
+                if (parts[0].indexOf('/') !== -1) {
+                    var vertices = parts[0].split('/').map(function(v) {
+                        var c = v.trim().split(',');
+                        return { x: parseGraphNumber(c[0], 0), y: parseGraphNumber(c[1] || '0', 0) };
+                    }).filter(function(v) { return isFinite(v.x) && isFinite(v.y); });
+                    if (vertices.length >= 2) {
+                        return { type: 'wielokat', vertices: vertices, n: vertices.length, ox: ox, oy: oy, label: label, irregular: true };
+                    }
+                }
+
+                // Foremny: N boków wpisany w okrąg o promieniu R
+                var mainParts = parts[0].split(',');
+                var n = Math.max(3, Math.round(parseGraphNumber(mainParts[0], 6)));
+                var r = Math.abs(parseGraphNumber(mainParts[1] || '100', 100));
+                return { type: 'wielokat', n: n, r: r, ox: ox, oy: oy, label: label };
+            }
+
+            // --- trojkat=x,y/x,y/x,y — trójkąt z 3 wierzchołków (analiza boków, kątów, pola) ---
+            if (/^(trojkat|tr[oó]jk[aą]t|triangle)\s*=/.test(lower)) {
+                var body = str.replace(/^[^=]+=/, '').trim();
+                var parts = body.split(',,').map(function(s) { return s.trim(); });
+                var ox = 0; var oy = 0; var label = '';
+                parts.slice(1).forEach(function(p) {
+                    var pl = p.toLowerCase();
+                    if (/^(label|opis|nazwa)=/.test(pl)) label = p.split('=').slice(1).join('=').trim();
+                    if (/^(ox|x0|od_x)=/.test(pl)) ox = parseGraphNumber(p.split('=')[1], 0);
+                    if (/^(oy|y0|od_y)=/.test(pl)) oy = parseGraphNumber(p.split('=')[1], 0);
+                });
+                var verts = parts[0].split('/').map(function(v) {
+                    var c = v.trim().split(',');
+                    return { x: parseGraphNumber(c[0], 0), y: parseGraphNumber(c[1] || '0', 0) };
+                }).filter(function(v) { return isFinite(v.x) && isFinite(v.y); });
+                if (verts.length !== 3) {
+                    return { type: 'trojkat', error: 'Trójkąt wymaga dokładnie 3 wierzchołków (x,y/x,y/x,y).' };
+                }
+                return { type: 'trojkat', vertices: verts, ox: ox, oy: oy, label: label };
+            }
+
+            // --- pitagoras=a,b — trójkąt prostokątny z dwóch przyprostokątnych ---
+            if (/^(pitagoras|pythagoras)\s*=/.test(lower)) {
+                var body = str.replace(/^[^=]+=/, '').trim();
+                var parts = body.split(',,').map(function(s) { return s.trim(); });
+                var ox = 0; var oy = 0; var label = '';
+                parts.slice(1).forEach(function(p) {
+                    var pl = p.toLowerCase();
+                    if (/^(label|opis|nazwa)=/.test(pl)) label = p.split('=').slice(1).join('=').trim();
+                    if (/^(ox|x0|od_x)=/.test(pl)) ox = parseGraphNumber(p.split('=')[1], 0);
+                    if (/^(oy|y0|od_y)=/.test(pl)) oy = parseGraphNumber(p.split('=')[1], 0);
+                });
+                var legs = parts[0].split(/[,/]/);
+                var a = Math.abs(parseGraphNumber(legs[0], 0));
+                var b = Math.abs(parseGraphNumber(legs[1] || '0', 0));
+                if (!(a > 0) || !(b > 0)) {
+                    return { type: 'trojkat', error: 'Pitagoras wymaga dwóch przyprostokątnych, np. pitagoras=3,4.' };
+                }
+                // Wierzchołki trójkąta prostokątnego: kąt prosty w (0,0)
+                var verts = [
+                    { x: 0, y: 0 },
+                    { x: a, y: 0 },
+                    { x: 0, y: b },
+                ];
+                return { type: 'trojkat', vertices: verts, ox: ox, oy: oy, label: label, pythagoras: true };
+            }
+
             return null;
+        }
+
+        // [EN] Pomiary wielokąta z listy wierzchołków (zamknięty): boki, obwód, pole, kąty wewn.
+        function analyzePolygon(pts) {
+            var n = pts.length;
+            var sides = [];      // długości boków (bok i = od wierzchołka i do i+1)
+            var perimeter = 0;
+            for (var i = 0; i < n; i++) {
+                var p1 = pts[i];
+                var p2 = pts[(i + 1) % n];
+                var len = Math.hypot(p2.x - p1.x, p2.y - p1.y);
+                sides.push(len);
+                perimeter += len;
+            }
+            // Pole — wzór Gaussa (shoelace), wartość bezwzględna
+            var area2 = 0;
+            for (var i = 0; i < n; i++) {
+                var p1 = pts[i];
+                var p2 = pts[(i + 1) % n];
+                area2 += p1.x * p2.y - p2.x * p1.y;
+            }
+            var area = Math.abs(area2) / 2;
+            // Kąty wewnętrzne przy każdym wierzchołku
+            var angles = [];
+            for (var i = 0; i < n; i++) {
+                var prev = pts[(i - 1 + n) % n];
+                var cur = pts[i];
+                var next = pts[(i + 1) % n];
+                var ux = prev.x - cur.x, uy = prev.y - cur.y;
+                var wx = next.x - cur.x, wy = next.y - cur.y;
+                var dot = ux * wx + uy * wy;
+                var mag = Math.hypot(ux, uy) * Math.hypot(wx, wy);
+                var ang = mag > 0 ? Math.acos(Math.max(-1, Math.min(1, dot / mag))) * 180 / Math.PI : 0;
+                angles.push(ang);
+            }
+            // Wykrycie kąta prostego (najbliżej 90°)
+            var rightVertex = -1;
+            for (var i = 0; i < n; i++) {
+                if (Math.abs(angles[i] - 90) < 0.5) { rightVertex = i; break; }
+            }
+            return { sides: sides, perimeter: perimeter, area: area, angles: angles, rightVertex: rightVertex };
+        }
+
+        // [EN] Tekstowe podsumowanie trójkąta (boki, kąty, pole, Pitagoras)
+        function describeTriangle(pts, isPythagoras) {
+            if (pts.length !== 3) return 'Trójkąt wymaga 3 wierzchołków.';
+            var a = analyzePolygon(pts);
+            var V = ['A', 'B', 'C'];
+            var sideNames = ['AB', 'BC', 'CA'];
+            var lines = [];
+            lines.push('🔺 Trójkąt ABC');
+            lines.push('Wierzchołki: A(' + formatNum(pts[0].x) + ',' + formatNum(pts[0].y) + ') '
+                + 'B(' + formatNum(pts[1].x) + ',' + formatNum(pts[1].y) + ') '
+                + 'C(' + formatNum(pts[2].x) + ',' + formatNum(pts[2].y) + ')');
+            lines.push('Boki: ' + sideNames.map(function(nm, i) { return nm + '=' + formatNum(a.sides[i]); }).join(', '));
+            lines.push('Kąty: ' + V.map(function(v, i) {
+                return v + '=' + (a.rightVertex === i ? '90' : formatNum(a.angles[i])) + '°';
+            }).join(', '));
+            lines.push('Obwód: ' + formatNum(a.perimeter) + '   Pole: ' + formatNum(a.area));
+            if (a.rightVertex >= 0) {
+                // przeciwprostokątna = bok naprzeciw kąta prostego
+                var hypLen = a.sides[(a.rightVertex + 1) % 3];
+                lines.push('✓ Prostokątny (kąt prosty przy ' + V[a.rightVertex] + '). Przeciwprostokątna = ' + formatNum(hypLen));
+            }
+            if (isPythagoras) {
+                var legs = a.sides.slice().sort(function(x, y) { return x - y; });
+                lines.push('Pitagoras: ' + formatNum(legs[0]) + '² + ' + formatNum(legs[1]) + '² = ' + formatNum(legs[2]) + '²');
+            }
+            return lines.join('\n');
+        }
+
+        // [EN] Tekstowe podsumowanie wielokąta nieforemnego (boki, obwód, pole, kąty)
+        function describeIrregularPolygon(pts) {
+            var n = pts.length;
+            var a = analyzePolygon(pts);
+            var lines = [];
+            lines.push('🔷 Wielokąt nieforemny (' + n + ' wierzch.)');
+            lines.push('Obwód: ' + formatNum(a.perimeter) + '   Pole: ' + formatNum(a.area));
+            lines.push('Boki: ' + a.sides.map(function(s) { return formatNum(s); }).join(', '));
+            lines.push('Kąty: ' + a.angles.map(function(ang) { return formatNum(ang) + '°'; }).join(', '));
+            return lines.join('\n');
         }
 
         function buildGeometryPoints(geo) {
@@ -2562,6 +2834,52 @@
                     { x: geo.ox + geo.w,  y: geo.oy + geo.h,  r: 5, label: geo.label || 'C' },
                     { x: geo.ox,          y: geo.oy + geo.h,  r: 5, label: geo.label || 'D' },
                 ];
+            }
+            if (geo.type === 'okrag') {
+                // 4 punkty skrajne (tylko do dopasowania zakresu osi — nie rysowane) + środek
+                var pts = [
+                    { x: geo.ox + geo.r, y: geo.oy, r: 0, label: '', _hidden: true },
+                    { x: geo.ox - geo.r, y: geo.oy, r: 0, label: '', _hidden: true },
+                    { x: geo.ox, y: geo.oy + geo.r, r: 0, label: '', _hidden: true },
+                    { x: geo.ox, y: geo.oy - geo.r, r: 0, label: '', _hidden: true },
+                    { x: geo.ox, y: geo.oy, r: 5, label: geo.label || 'O' },
+                ];
+                return pts;
+            }
+            if (geo.type === 'trojkat') {
+                if (geo.error || !geo.vertices) return [];
+                return geo.vertices.map(function(v, i) {
+                    return {
+                        x: parseFloat((geo.ox + v.x).toFixed(6)),
+                        y: parseFloat((geo.oy + v.y).toFixed(6)),
+                        r: 5,
+                        label: 'ABC'.charAt(i) || String.fromCharCode(65 + i),
+                    };
+                });
+            }
+            if (geo.type === 'wielokat' && geo.vertices) {
+                // Nieforemny — wierzchołki podane jawnie (+ ewentualne przesunięcie ox/oy)
+                return geo.vertices.map(function(v, i) {
+                    return {
+                        x: parseFloat((geo.ox + v.x).toFixed(6)),
+                        y: parseFloat((geo.oy + v.y).toFixed(6)),
+                        r: 5,
+                        label: geo.label || String.fromCharCode(65 + (i % 26)),
+                    };
+                });
+            }
+            if (geo.type === 'wielokat') {
+                var pts = [];
+                for (var i = 0; i < geo.n; i++) {
+                    var angle = (2 * Math.PI * i) / geo.n - Math.PI / 2;
+                    pts.push({
+                        x: parseFloat((geo.ox + geo.r * Math.cos(angle)).toFixed(6)),
+                        y: parseFloat((geo.oy + geo.r * Math.sin(angle)).toFixed(6)),
+                        r: 5,
+                        label: geo.label || String.fromCharCode(65 + (i % 26)),
+                    });
+                }
+                return pts;
             }
             if (geo.type === 'siatka') {
                 var pts = [];
@@ -2591,6 +2909,122 @@
                 var geo = item.geo;
                 var points = item.points;
                 var color = item.color || colors[si % colors.length];
+
+                // Narysuj okrąg
+                if (geo.type === 'okrag') {
+                    var center = graphToScreen(geo.ox, geo.oy, bounds, w, h, pad);
+                    var edgeX = graphToScreen(geo.ox + geo.r, geo.oy, bounds, w, h, pad);
+                    var edgeY = graphToScreen(geo.ox, geo.oy + geo.r, bounds, w, h, pad);
+                    // Osobny promień w pikselach dla X i Y — skale osi mogą się różnić,
+                    // więc koło w danych rysujemy jako elipsę na ekranie (nie ucina się w Y)
+                    var screenRx = Math.abs(edgeX.x - center.x);
+                    var screenRy = Math.abs(edgeY.y - center.y);
+                    ctx.strokeStyle = color;
+                    ctx.lineWidth = 2;
+                    ctx.setLineDash([]);
+                    ctx.beginPath();
+                    ctx.ellipse(center.x, center.y, screenRx, screenRy, 0, 0, Math.PI * 2);
+                    ctx.stroke();
+                    // Promień — linia + etykieta
+                    ctx.setLineDash([4, 3]);
+                    ctx.lineWidth = 1;
+                    ctx.beginPath();
+                    ctx.moveTo(center.x, center.y);
+                    ctx.lineTo(center.x + screenRx, center.y);
+                    ctx.stroke();
+                    ctx.setLineDash([]);
+                    ctx.fillStyle = color;
+                    ctx.font = '11px ' + getComputedStyle(document.body).fontFamily;
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'bottom';
+                    ctx.fillText('r=' + formatNum(geo.r), center.x + screenRx / 2, center.y - 4);
+                }
+
+                // Narysuj wielokąt jako zamkniętą linię
+                if (geo.type === 'wielokat') {
+                    ctx.strokeStyle = color;
+                    ctx.lineWidth = 2;
+                    ctx.setLineDash([]);
+                    ctx.beginPath();
+                    points.slice(0, geo.n).forEach(function(pt, i) {
+                        var p = graphToScreen(pt.x, pt.y, bounds, w, h, pad);
+                        if (i === 0) ctx.moveTo(p.x, p.y); else ctx.lineTo(p.x, p.y);
+                    });
+                    ctx.closePath();
+                    ctx.stroke();
+                    // Nieforemny: podpisz długość każdego boku w jego środku
+                    if (geo.vertices) {
+                        var poly = points.slice(0, geo.n);
+                        ctx.fillStyle = color;
+                        ctx.font = '600 10px ' + getComputedStyle(document.body).fontFamily;
+                        ctx.textAlign = 'center';
+                        ctx.textBaseline = 'middle';
+                        poly.forEach(function(pt, i) {
+                            var nx = poly[(i + 1) % poly.length];
+                            var len = Math.hypot(nx.x - pt.x, nx.y - pt.y);
+                            var midData = { x: (pt.x + nx.x) / 2, y: (pt.y + nx.y) / 2 };
+                            var midScr = graphToScreen(midData.x, midData.y, bounds, w, h, pad);
+                            ctx.fillStyle = 'rgba(255,255,255,0.85)';
+                            var tw = ctx.measureText(formatNum(len)).width + 6;
+                            ctx.fillRect(midScr.x - tw / 2, midScr.y - 7, tw, 14);
+                            ctx.fillStyle = color;
+                            ctx.fillText(formatNum(len), midScr.x, midScr.y);
+                        });
+                    }
+                }
+
+                // Narysuj trójkąt — boki z długościami + kąty przy wierzchołkach
+                if (geo.type === 'trojkat' && points.length === 3) {
+                    var P = points.map(function(pt) { return graphToScreen(pt.x, pt.y, bounds, w, h, pad); });
+                    // Wypełnienie + obrys
+                    ctx.fillStyle = color + '1a';
+                    ctx.strokeStyle = color;
+                    ctx.lineWidth = 2;
+                    ctx.setLineDash([]);
+                    ctx.beginPath();
+                    ctx.moveTo(P[0].x, P[0].y);
+                    ctx.lineTo(P[1].x, P[1].y);
+                    ctx.lineTo(P[2].x, P[2].y);
+                    ctx.closePath();
+                    ctx.fill();
+                    ctx.stroke();
+
+                    var analysis = analyzePolygon(points);
+                    var centroid = {
+                        x: (P[0].x + P[1].x + P[2].x) / 3,
+                        y: (P[0].y + P[1].y + P[2].y) / 3,
+                    };
+
+                    // Długości boków w środkach
+                    ctx.font = '600 11px ' + getComputedStyle(document.body).fontFamily;
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    P.forEach(function(pScr, i) {
+                        var nScr = P[(i + 1) % 3];
+                        var mx = (pScr.x + nScr.x) / 2, my = (pScr.y + nScr.y) / 2;
+                        var label = formatNum(analysis.sides[i]);
+                        ctx.fillStyle = 'rgba(255,255,255,0.88)';
+                        var tw = ctx.measureText(label).width + 6;
+                        ctx.fillRect(mx - tw / 2, my - 8, tw, 16);
+                        ctx.fillStyle = color;
+                        ctx.fillText(label, mx, my);
+                    });
+
+                    // Kąty przy wierzchołkach (oraz znacznik kąta prostego)
+                    ctx.font = '600 10px ' + getComputedStyle(document.body).fontFamily;
+                    P.forEach(function(vScr, i) {
+                        // przesuń etykietę kąta do środka trójkąta
+                        var dx = centroid.x - vScr.x, dy = centroid.y - vScr.y;
+                        var d = Math.hypot(dx, dy) || 1;
+                        var lx = vScr.x + (dx / d) * 24, ly = vScr.y + (dy / d) * 24;
+                        var txt = (analysis.rightVertex === i ? '90°' : formatNum(analysis.angles[i]) + '°');
+                        ctx.fillStyle = 'rgba(255,255,255,0.88)';
+                        var tw = ctx.measureText(txt).width + 6;
+                        ctx.fillRect(lx - tw / 2, ly - 7, tw, 14);
+                        ctx.fillStyle = analysis.rightVertex === i ? '#dc2626' : '#475569';
+                        ctx.fillText(txt, lx, ly);
+                    });
+                }
 
                 // Narysuj prostokąt jako linię
                 if (geo.type === 'rect') {
@@ -2628,6 +3062,7 @@
                 ctx.textBaseline = 'bottom';
 
                 points.forEach(function(pt, idx) {
+                    if (pt._hidden) return;
                     var p = graphToScreen(pt.x, pt.y, bounds, w, h, pad);
                     if (p.x < pad - 10 || p.x > w - pad + 10 || p.y < pad - 10 || p.y > h - pad + 10) return;
                     var radius = pt.r || 6;
@@ -2637,10 +3072,15 @@
                     ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5;
                     ctx.stroke();
                     ctx.fillStyle = color;
-                    // Dla siatki — pokaż indeks, dla reszty label+numer
-                    var txt = geo.type === 'siatka'
-                        ? (pt.label || 'P') + '(' + pt._ix + ',' + pt._iy + ')'
-                        : (pt.label || 'P') + (points.length > 1 ? (idx + 1) : '');
+                    // Dla siatki — pokaż indeks; dla trójkąta czyste A/B/C; dla reszty label+numer
+                    var txt;
+                    if (geo.type === 'siatka') {
+                        txt = (pt.label || 'P') + '(' + pt._ix + ',' + pt._iy + ')';
+                    } else if (geo.type === 'trojkat') {
+                        txt = pt.label || 'P';
+                    } else {
+                        txt = (pt.label || 'P') + (points.length > 1 ? (idx + 1) : '');
+                    }
                     ctx.fillStyle = '#0f172a';
                     ctx.font = '700 10px ' + getComputedStyle(document.body).fontFamily;
                     ctx.fillText(txt, p.x, p.y - radius - 3);
@@ -2780,6 +3220,10 @@
             graphResult.textContent = txt;
         }
 
+        // [EN] Gdy true, updateGraph NIE auto-dopasowuje zakresu osi —
+        // ustawiane przy ręcznej edycji pól "Zakres widoku", żeby ich nie nadpisywać.
+        var skipBoundsFit = false;
+
         function updateGraph() {
             var command = graphCommand.value.trim();
             var bounds = getGraphBounds();
@@ -2820,6 +3264,7 @@
                 var colors = ['#2563eb', '#dc2626', '#16a34a', '#d97706', '#7c3aed', '#0891b2'];
                 var hasDivision = false;
                 var hasFunction = false;
+                var hasProportional = false; // okrąg/wielokąt — wymaga równej skali osi
                 var fnCommands = [];
 
                 parsedSeries.forEach(function(item, si) {
@@ -2829,22 +3274,37 @@
                     // 1. Geometria 2D?
                     if (item.type === 'geometry') {
                         var geo = item.data;
+                        if (geo.error) throw new Error(geo.error);
                         var pts = buildGeometryPoints(geo);
+                        if (geo.type === 'okrag' || geo.type === 'wielokat' || geo.type === 'trojkat') hasProportional = true;
                         allGeos.push({ geo: geo, points: pts, color: color });
-                        var summary = geo.type === 'rect'
-                            ? 'Prostokąt ' + formatNum(geo.w) + '×' + formatNum(geo.h)
-                            : geo.type === 'siatka'
-                                ? 'Siatka ' + formatNum(geo.w) + '×' + formatNum(geo.h) + ', co ' + formatNum(geo.dx) + '×' + formatNum(geo.dy) + ' (' + pts.length + ' pkt)'
-                                : 'Punkt (' + formatNum(geo.x) + ', ' + formatNum(geo.y) + ')';
+                        var summary;
+                        if (geo.type === 'rect') {
+                            summary = 'Prostokąt ' + formatNum(geo.w) + '×' + formatNum(geo.h);
+                        } else if (geo.type === 'siatka') {
+                            summary = 'Siatka ' + formatNum(geo.w) + '×' + formatNum(geo.h) + ', co ' + formatNum(geo.dx) + '×' + formatNum(geo.dy) + ' (' + pts.length + ' pkt)';
+                        } else if (geo.type === 'okrag') {
+                            summary = 'Okrąg r=' + formatNum(geo.r) + ', środek (' + formatNum(geo.ox) + ', ' + formatNum(geo.oy) + ')';
+                        } else if (geo.type === 'trojkat') {
+                            summary = describeTriangle(pts, geo.pythagoras);
+                        } else if (geo.type === 'wielokat' && geo.irregular) {
+                            summary = describeIrregularPolygon(pts);
+                        } else if (geo.type === 'wielokat') {
+                            summary = 'Wielokąt foremny ' + geo.n + '-boczny, r=' + formatNum(geo.r) + ', środek (' + formatNum(geo.ox) + ', ' + formatNum(geo.oy) + ')';
+                        } else {
+                            summary = 'Punkt (' + formatNum(geo.x) + ', ' + formatNum(geo.y) + ')';
+                        }
                         resultLines.push(summary);
-                        // Dopasuj bounds
-                        pts.forEach(function(pt) {
-                            if (pt.x < bounds.xMin) { graphXMin.value = formatRawNum(pt.x - Math.abs(pt.x * 0.1) - 1); }
-                            if (pt.x > bounds.xMax) { graphXMax.value = formatRawNum(pt.x + Math.abs(pt.x * 0.1) + 1); }
-                            if (pt.y < bounds.yMin) { graphYMin.value = formatRawNum(pt.y - Math.abs(pt.y * 0.1) - 1); }
-                            if (pt.y > bounds.yMax) { graphYMax.value = formatRawNum(pt.y + Math.abs(pt.y * 0.1) + 1); }
-                        });
-                        bounds = getGraphBounds();
+                        // Dopasuj bounds (pomiń przy ręcznej edycji pól zakresu)
+                        if (!skipBoundsFit) {
+                            pts.forEach(function(pt) {
+                                if (pt.x < bounds.xMin) { graphXMin.value = formatRawNum(pt.x - Math.abs(pt.x * 0.1) - 1); }
+                                if (pt.x > bounds.xMax) { graphXMax.value = formatRawNum(pt.x + Math.abs(pt.x * 0.1) + 1); }
+                                if (pt.y < bounds.yMin) { graphYMin.value = formatRawNum(pt.y - Math.abs(pt.y * 0.1) - 1); }
+                                if (pt.y > bounds.yMax) { graphYMax.value = formatRawNum(pt.y + Math.abs(pt.y * 0.1) + 1); }
+                            });
+                            bounds = getGraphBounds();
+                        }
                         return;
                     }
 
@@ -2855,7 +3315,7 @@
                         var pts = buildDivisionPoints(division);
                         allGeos.push({ geo: { type: 'division', division: division }, points: pts, color: color });
                         resultLines.push(commandSummary(division, pts));
-                        if (pts.length) {
+                        if (pts.length && !skipBoundsFit) {
                             var pxArr = pts.map(function(p) { return p.x; });
                             var pyArr = pts.map(function(p) { return p.y; });
                             var minX = Math.min.apply(Math, pxArr); var maxX = Math.max.apply(Math, pxArr);
@@ -2877,6 +3337,12 @@
                     hasFunction = true;
                     fnCommands.push({ cmd: s, color: color });
                 });
+
+                // Okrąg/wielokąt — zrównaj skalę osi, żeby koło było okrągłe (nie elipsa)
+                if (hasProportional && !skipBoundsFit) {
+                    equalizeGraphAspect();
+                    bounds = getGraphBounds();
+                }
 
                 // Rysuj bazę i geometrię
                 drawGraphBase(bounds);
@@ -2983,7 +3449,11 @@
             }
         });
         [graphXMin, graphXMax, graphYMin, graphYMax, graphXStep, graphYStep].forEach(function(input) {
-            if (input) input.addEventListener('input', updateGraph);
+            if (input) input.addEventListener('input', function() {
+                // [EN] Ręczna zmiana zakresu — nie pozwól auto-dopasowaniu nadpisać wpisanej wartości
+                skipBoundsFit = true;
+                try { updateGraph(); } finally { skipBoundsFit = false; }
+            });
         });
         document.addEventListener('click', function(e) {
             var chip = e.target.closest('.example-chip');
@@ -3600,6 +4070,164 @@
         /* ============================================================
            [EN] Initialization
            ============================================================ */
+        /* ============================================================
+           Autocomplete — Raycast-style suggestion dropdown
+        ============================================================ */
+        function buildACSuggestions() {
+            var seen = {};
+            var list = [];
+            function add(syntax, description, command) {
+                var key = String(syntax).toLowerCase().replace(/\s+/g, '');
+                if (seen[key]) return;
+                seen[key] = true;
+                list.push({ syntax: expandTokens(syntax), description: description || '', command: command ? expandTokens(command) : null });
+            }
+
+            var caps = getParserCapabilities();
+            ['engineering', 'graph'].forEach(function(k) {
+                (caps[k] || []).forEach(function(c) { add(c.syntax, c.description, c.command); });
+            });
+
+            var defs = window.MATM0_COMMAND_DEFINITIONS || {};
+            ['engineering', 'graph'].forEach(function(k) {
+                (defs[k] || []).forEach(function(group) {
+                    (group.items || []).forEach(function(item) {
+                        add(item.syntax, item.description, item.command);
+                    });
+                });
+            });
+            return list;
+        }
+
+        var _acSuggestions = null;
+        function getACSuggestions() {
+            if (!_acSuggestions) _acSuggestions = buildACSuggestions();
+            return _acSuggestions;
+        }
+
+        function acQueryFromInput(val) {
+            // Extract the last segment after ;; or the last parameter after ,,
+            var parts = val.split(';;');
+            var lastSeries = parts[parts.length - 1];
+            var params = lastSeries.split(',,');
+            var lastParam = params[params.length - 1].trim();
+            return lastParam.toLowerCase();
+        }
+
+        function acFilterSuggestions(query) {
+            if (!query || query.length < 1) return [];
+            var sug = getACSuggestions();
+            var q = query.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+            var results = [];
+            sug.forEach(function(s) {
+                var synLower = s.syntax.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+                var descLower = s.description.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+                // Prioritise: starts-with > contains in syntax > contains in description
+                if (synLower.startsWith(q)) { results.unshift(s); }
+                else if (synLower.includes(q)) { results.push(s); }
+                else if (descLower.includes(q) && results.length < 8) { results.push(s); }
+            });
+            return results.slice(0, 7);
+        }
+
+        function initAutocomplete(inputEl, dropdownEl) {
+            if (!inputEl || !dropdownEl) return;
+            var activeIdx = -1;
+
+            function closeAC() {
+                dropdownEl.classList.remove('open');
+                activeIdx = -1;
+            }
+
+            function openAC(items) {
+                dropdownEl.replaceChildren();
+                activeIdx = -1;
+                items.forEach(function(item) {
+                    var row = document.createElement('div');
+                    row.className = 'autocomplete-item';
+                    row.setAttribute('role', 'option');
+                    var code = document.createElement('code');
+                    code.textContent = item.syntax;
+                    var desc = document.createElement('span');
+                    desc.className = 'ac-desc';
+                    desc.textContent = item.description;
+                    row.appendChild(code);
+                    row.appendChild(desc);
+
+                    row.addEventListener('mousedown', function(e) {
+                        e.preventDefault();
+                        insertACSuggestion(item);
+                        closeAC();
+                    });
+                    dropdownEl.appendChild(row);
+                });
+                dropdownEl.classList.add('open');
+            }
+
+            function insertACSuggestion(item) {
+                var val = inputEl.value;
+                var seriesParts = val.split(';;');
+                var lastSeries = seriesParts[seriesParts.length - 1];
+                var paramParts = lastSeries.split(',,');
+                // Replace last param with selected command (or syntax if no command)
+                var toInsert = item.command || item.syntax;
+                paramParts[paramParts.length - 1] = ' ' + toInsert;
+                seriesParts[seriesParts.length - 1] = paramParts.join(',,');
+                inputEl.value = seriesParts.join(';;');
+                inputEl.focus();
+                // Trigger live update
+                inputEl.dispatchEvent(new Event('input', { bubbles: true }));
+            }
+
+            function setActiveItem(idx) {
+                var rows = dropdownEl.querySelectorAll('.autocomplete-item');
+                rows.forEach(function(r) { r.classList.remove('active'); });
+                if (idx >= 0 && idx < rows.length) {
+                    rows[idx].classList.add('active');
+                    rows[idx].scrollIntoView({ block: 'nearest' });
+                }
+                activeIdx = idx;
+            }
+
+            inputEl.addEventListener('input', function() {
+                var query = acQueryFromInput(inputEl.value);
+                if (!query) { closeAC(); return; }
+                var matches = acFilterSuggestions(query);
+                if (!matches.length) { closeAC(); return; }
+                openAC(matches);
+            });
+
+            inputEl.addEventListener('keydown', function(e) {
+                if (!dropdownEl.classList.contains('open')) return;
+                var rows = dropdownEl.querySelectorAll('.autocomplete-item');
+                if (e.key === 'ArrowDown') {
+                    e.preventDefault();
+                    setActiveItem(Math.min(activeIdx + 1, rows.length - 1));
+                } else if (e.key === 'ArrowUp') {
+                    e.preventDefault();
+                    setActiveItem(Math.max(activeIdx - 1, 0));
+                } else if (e.key === 'Enter' || e.key === 'Tab') {
+                    if (activeIdx >= 0 && rows[activeIdx]) {
+                        e.preventDefault();
+                        rows[activeIdx].dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+                    } else {
+                        closeAC();
+                    }
+                } else if (e.key === 'Escape') {
+                    closeAC();
+                }
+            });
+
+            inputEl.addEventListener('blur', function() {
+                // Small delay so mousedown on item fires first
+                setTimeout(closeAC, 150);
+            });
+
+            document.addEventListener('click', function(e) {
+                if (!dropdownEl.contains(e.target) && e.target !== inputEl) closeAC();
+            });
+        }
+
         function init() {
             /* [EN] Wrap graph canvas for CSS zoom/pan */
             var graphFsExitEl = $('#graphFsExitBtn');
@@ -3617,6 +4245,7 @@
             updateGraph();
             renderConstants();
             renderAllRecentCommands();
+            initAutocomplete(graphCommand, $('#graphCommandAC'));
 
             // Inicjalizacja kreatora
             updateKreatorModeUI();

@@ -178,8 +178,11 @@
                             <span class="mode-dot"></span>
                             <span class="mode-label">Tryb: pusty</span>
                         </div>
-                        <input type="text" id="graphCommand" value="" inputmode="text" autocomplete="off"
-                            placeholder="np. x=120/4 ,, @edges   albo   f(x)=sin(x)">
+                        <div class="autocomplete-wrap">
+                            <input type="text" id="graphCommand" value="" inputmode="text" autocomplete="off"
+                                placeholder="np. x=120/4 ,, @edges   albo   f(x)=sin(x)">
+                            <div class="autocomplete-dropdown" id="graphCommandAC" role="listbox"></div>
+                        </div>
                         <div class="command-error" id="graphCommandError" aria-live="polite"></div>
                         <div class="recent-commands" id="graphRecentCommands" aria-label="Ostatnie komendy"></div>
                     </div>
