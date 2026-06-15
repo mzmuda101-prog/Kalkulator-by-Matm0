@@ -1573,6 +1573,47 @@
         }
 
         /* ============================================================
+           [EN] Kalkulator — dopasowanie do ekranu telefonu (bez scrolla)
+           Panel wypełnia dostępną wysokość, a siatka przycisków rozciąga się
+           na resztę miejsca — nie trzeba przewijać, żeby dosięgnąć przyciski.
+           ============================================================ */
+        @media (max-width: 639px) {
+            #panel-calculator.active {
+                display: flex;
+                flex-direction: column;
+                min-height: 100%;
+            }
+            #panel-calculator .card {
+                display: flex;
+                flex-direction: column;
+                flex: 1 1 auto;
+                min-height: 0;
+                margin-bottom: 0;
+            }
+            /* Wyświetlacz: kompaktowa, stała wysokość */
+            #panel-calculator .calc-display {
+                flex: 0 0 auto;
+                min-height: 64px;
+                margin-bottom: 12px;
+            }
+            /* Siatka przycisków zajmuje całą pozostałą przestrzeń */
+            #panel-calculator .calc-grid {
+                flex: 1 1 auto;
+                min-height: 0;
+                grid-template-rows: repeat(5, minmax(0, 1fr));
+            }
+            /* Przyciski wypełniają komórki zamiast mieć stałą wysokość */
+            #panel-calculator .calc-btn {
+                aspect-ratio: auto;
+                min-height: 0;
+                height: 100%;
+            }
+            #panel-calculator .calc-tools {
+                flex: 0 0 auto;
+            }
+        }
+
+        /* ============================================================
            [EN] Responsive — Tablet & Laptop
            ============================================================ */
         @media (min-width: 640px) {
