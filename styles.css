@@ -1663,6 +1663,13 @@
         }
         .ws-section-icon { font-size: 1.2rem; }
         .ws-result { cursor: pointer; }
+        .ws-fov-preview {
+            display: block;
+            width: 100%;
+            max-width: 240px;
+            height: auto;
+            margin: 10px auto 6px;
+        }
         .ws-hint {
             font-size: 0.75rem;
             color: var(--text-muted);

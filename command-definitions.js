@@ -112,11 +112,22 @@
                 ],
             },
             {
+                title: 'Pole widzenia (kamera / czujnik / reflektor)',
+                items: [
+                    { syntax: 'kamera=x,y {PIPE} kąt=K {PIPE} zasięg=Z', command: 'kamera=0,0 {PIPE} kąt=110 {PIPE} zasięg=15', description: 'rysuje stożek (wycinek) widzenia. x,y = miejsce montażu, K = kąt widzenia (°), Z = zasięg. Aliasy: widok=, fov=.' },
+                    { syntax: 'cel=x,y', command: 'kamera=0,0 {PIPE} kąt=110 {PIPE} zasięg=15 {PIPE} cel=10,8', description: 'kierunek przez wycelowanie w PUNKT (np. brama). Najpraktyczniejsze — nie musisz liczyć stopni.' },
+                    { syntax: 'azymut=A', command: 'kamera=0,0 {PIPE} kąt=90 {PIPE} azymut=135', description: 'kierunek jak na kompasie: 0°=góra (płn.), 90°=prawo, zgodnie z zegarem.' },
+                    { syntax: 'kierunek=A', command: 'kamera=0,0 {PIPE} kąt=90 {PIPE} kierunek=45', description: 'kierunek matematyczny: 0°=w prawo (+X), rośnie przeciwnie do zegara.' },
+                    { syntax: 'na=D', command: 'kamera=0,0 {PIPE} kąt=110 {PIPE} zasięg=15 {PIPE} na=5', description: 'D = odległość od kamery — rysuje poprzeczną linię granic i podpisuje szerokość pola w tym miejscu.' },
+                ],
+            },
+            {
                 title: 'Przykłady',
                 items: [
                     { syntax: 'trojkat=0,0/4,0/0,3', command: 'trojkat=0,0/4,0/0,3', description: 'trójkąt prostokątny 3-4-5 (kąt prosty przy A).' },
                     { syntax: 'wielokat=0,0/120,0/120,80/40,120', command: 'wielokat=0,0/120,0/120,80/40,120 {PIPE} label=działka', description: 'czworokąt nieforemny — z długościami boków, polem i kątami.' },
                     { syntax: 'okrag=100 {SERIES} wielokat=6,100', command: 'okrag=100 {SERIES} wielokat=6,100', description: 'okrąg i wpisany w niego sześciokąt foremny.' },
+                    { syntax: 'kamera=0,0 {PIPE} kąt=110 {PIPE} zasięg=15 {PIPE} cel=12,4 {SERIES} kamera=20,0 {PIPE} kąt=90 {PIPE} zasięg=12 {PIPE} cel=12,4', command: 'kamera=0,0 {PIPE} kąt=110 {PIPE} zasięg=15 {PIPE} cel=12,4 {SERIES} kamera=20,0 {PIPE} kąt=90 {PIPE} zasięg=12 {PIPE} cel=12,4', description: 'dwie kamery celujące w ten sam punkt — widać pokrycie i martwe pola.' },
                 ],
             },
         ],

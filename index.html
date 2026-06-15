@@ -596,6 +596,35 @@
                 <p class="ws-hint">Sprawdzenie kąta prostego: zmierz boki a i b, przekątna powinna wyjść = c (np. 3-4-5).</p>
             </details>
 
+            <!-- Tool 4C: Pole widzenia (kamera / czujnik / reflektor) -->
+            <details class="section-panel card">
+                <summary><span class="icon">📷</span> Pole widzenia (kamera / czujnik)</summary>
+
+                <div class="input-row">
+                    <div class="input-group">
+                        <label>Kąt widzenia (°)</label>
+                        <input type="number" id="wsFovAngle" min="0" max="360" step="any" value="110" inputmode="decimal" placeholder="np. 110">
+                    </div>
+                    <div class="input-group">
+                        <label>Zasięg</label>
+                        <input type="number" id="wsFovRange" min="0" step="any" inputmode="decimal" placeholder="np. 15">
+                    </div>
+                </div>
+
+                <div class="input-group">
+                    <label>Na odległości (opcjonalnie)</label>
+                    <input type="number" id="wsFovDist" min="0" step="any" inputmode="decimal" placeholder="np. 5 — ile obejmuje wszerz w tym miejscu">
+                </div>
+
+                <svg id="wsFovPreview" class="ws-fov-preview" viewBox="0 0 160 96" role="img" aria-label="Podgląd pola widzenia">
+                    <path id="wsFovWedge" fill="rgba(37,99,235,0.18)" stroke="#2563eb" stroke-width="2" stroke-linejoin="round"></path>
+                    <circle id="wsFovApex" cx="80" cy="86" r="4" fill="#2563eb"></circle>
+                </svg>
+
+                <div class="eng-result ws-result" id="wsFovResult" aria-live="polite">Podaj kąt i zasięg…</div>
+                <p class="ws-hint">„Szerokość na wprost" = jak szeroką scenę obejmiesz na końcu zasięgu (2·zasięg·tan(kąt/2)). Działa też dla czujnika ruchu, reflektora czy zraszacza. Pełne rozmieszczenie z kierunkiem zrobisz w „Komenda" (kamera=…).</p>
+            </details>
+
             <!-- ---- Sekcja 5: Moc, prąd i koszt zużycia ---- -->
             <h2 class="ws-section-title"><span class="ws-section-icon">⚡</span> Moc, prąd i koszt zużycia</h2>
 

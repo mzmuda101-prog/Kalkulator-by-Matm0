@@ -3128,6 +3128,48 @@
                 return { type: 'trojkat', vertices: verts, ox: ox, oy: oy, label: label, pythagoras: true };
             }
 
+            // --- kamera=x,y / widok / fov / pole widzenia — stożek (wycinek) pola widzenia ---
+            // Kierunek: cel=x,y (patrz w punkt), azymut=A (kompas: 0°=góra, zgodnie z zegarem),
+            // kierunek=A (matematyczny: 0°=prawo, przeciwnie do zegara). Domyślnie 0° (w prawo).
+            if (/^(kamera|widok|fov|pole[_ ]?widzenia|stozek|sto[zż]ek)\s*=/.test(lower)) {
+                var body = str.replace(/^[^=]+=/, '').trim();
+                var parts = body.split(',,').map(function(s) { return s.trim(); });
+                var posC = parts[0].split('/')[0].split(',');
+                var ox = parseGraphNumber(posC[0], 0);
+                var oy = parseGraphNumber(posC[1] || '0', 0);
+                var fov = 90, range = 10, label = '', markDist = 0;
+                var dirRad = 0, dirMode = 'kierunek', dirValue = 0, targetTxt = null;
+                parts.slice(1).forEach(function(p) {
+                    var pl = p.toLowerCase();
+                    var val = p.split('=').slice(1).join('=').trim();
+                    if (/^(k[aą]t|kat|fov|angle)=/.test(pl)) {
+                        fov = Math.abs(parseGraphNumber(val, 90));
+                    } else if (/^(na|przy|odl|dystans)=/.test(pl)) {
+                        markDist = Math.abs(parseGraphNumber(val, 0));
+                    } else if (/^(zasi[eę]g|zasieg|range|d[lł]ugo[sś][cć]|r)=/.test(pl)) {
+                        range = Math.abs(parseGraphNumber(val, 10));
+                    } else if (/^(cel|target|patrz)=/.test(pl)) {
+                        var c = val.split(',');
+                        var cx = parseGraphNumber(c[0], 0), cy = parseGraphNumber(c[1] || '0', 0);
+                        dirRad = Math.atan2(cy - oy, cx - ox); dirMode = 'cel';
+                        targetTxt = formatNum(cx) + ', ' + formatNum(cy);
+                    } else if (/^(azymut|bearing|kompas)=/.test(pl)) {
+                        dirValue = parseGraphNumber(val, 0);
+                        dirRad = (90 - dirValue) * Math.PI / 180; dirMode = 'azymut';
+                    } else if (/^(kierunek|dir|kat_kier)=/.test(pl)) {
+                        dirValue = parseGraphNumber(val, 0);
+                        dirRad = dirValue * Math.PI / 180; dirMode = 'kierunek';
+                    } else if (/^(label|opis|nazwa)=/.test(pl)) {
+                        label = val;
+                    }
+                });
+                if (!(fov > 0)) fov = 90;
+                if (fov > 360) fov = 360;
+                if (!(range > 0)) range = 10;
+                return { type: 'widok', ox: ox, oy: oy, fov: fov, range: range, dir: dirRad,
+                         dirMode: dirMode, dirValue: dirValue, targetTxt: targetTxt, label: label, markDist: markDist };
+            }
+
             return null;
         }
 
@@ -3212,6 +3254,27 @@
             return lines.join('\n');
         }
 
+        // [EN] Opis pola widzenia (stożka/wycinka) — kąt, kierunek, szerokość pokrycia, pole, łuk.
+        function describeFov(geo) {
+            var rad = geo.fov * Math.PI / 180;
+            var dirTxt;
+            if (geo.dirMode === 'cel') dirTxt = 'cel (' + geo.targetTxt + ')';
+            else if (geo.dirMode === 'azymut') dirTxt = 'azymut ' + formatNum(geo.dirValue) + '°';
+            else dirTxt = 'kierunek ' + formatNum(geo.dirValue) + '°';
+            var lines = [];
+            lines.push('📷 Pole widzenia ' + formatNum(geo.fov) + '° → ' + dirTxt);
+            lines.push('Montaż: (' + formatNum(geo.ox) + ', ' + formatNum(geo.oy) + '), zasięg ' + formatNum(geo.range));
+            if (geo.fov < 180) {
+                lines.push('Szerokość na wprost (na zasięgu): ' + formatNum(2 * geo.range * Math.tan(rad / 2)));
+            }
+            lines.push('Pole pokrycia: ' + formatNum(0.5 * geo.range * geo.range * rad));
+            lines.push('Łuk na zasięgu: ' + formatNum(geo.range * rad));
+            if (geo.markDist > 0 && geo.fov < 180) {
+                lines.push('Na odległości ' + formatNum(geo.markDist) + ': szerokość ' + formatNum(2 * geo.markDist * Math.tan(rad / 2)));
+            }
+            return lines.join('\n');
+        }
+
         function buildGeometryPoints(geo) {
             if (geo.type === 'punkt') {
                 return [{ x: geo.x, y: geo.y, r: geo.r, label: geo.label }];
@@ -3281,6 +3344,21 @@
                         iy++;
                     }
                     ix++;
+                }
+                return pts;
+            }
+            if (geo.type === 'widok') {
+                // Punkty tylko do dopasowania zakresu (wierzchołek + próbki łuku) — rysowane osobno.
+                var pts = [{ x: geo.ox, y: geo.oy, r: 0, label: '', _hidden: true }];
+                var half = geo.fov * Math.PI / 360;
+                var steps = 12;
+                for (var i = 0; i <= steps; i++) {
+                    var a = geo.dir - half + (2 * half) * i / steps;
+                    pts.push({
+                        x: parseFloat((geo.ox + geo.range * Math.cos(a)).toFixed(6)),
+                        y: parseFloat((geo.oy + geo.range * Math.sin(a)).toFixed(6)),
+                        r: 0, label: '', _hidden: true,
+                    });
                 }
                 return pts;
             }
@@ -3441,6 +3519,73 @@
                     var midL = graphToScreen(geo.ox, geo.oy + geo.h / 2, bounds, w, h, pad);
                     ctx.textAlign = 'right';
                     ctx.fillText(formatNum(geo.h), midL.x - 8, midL.y + 4);
+                }
+
+                // Narysuj pole widzenia (stożek/wycinek)
+                if (geo.type === 'widok') {
+                    var apex = graphToScreen(geo.ox, geo.oy, bounds, w, h, pad);
+                    var half = geo.fov * Math.PI / 360;
+                    var steps = 64;
+                    // Wypełniony wycinek (wierzchołek → łuk → wierzchołek)
+                    ctx.beginPath();
+                    ctx.moveTo(apex.x, apex.y);
+                    for (var i = 0; i <= steps; i++) {
+                        var a = geo.dir - half + (2 * half) * i / steps;
+                        var pd = graphToScreen(geo.ox + geo.range * Math.cos(a), geo.oy + geo.range * Math.sin(a), bounds, w, h, pad);
+                        ctx.lineTo(pd.x, pd.y);
+                    }
+                    ctx.closePath();
+                    ctx.fillStyle = color + '22';
+                    ctx.fill();
+                    ctx.strokeStyle = color;
+                    ctx.lineWidth = 2;
+                    ctx.setLineDash([]);
+                    ctx.stroke();
+                    // Oś kierunku (przerywana)
+                    var axisEnd = graphToScreen(geo.ox + geo.range * Math.cos(geo.dir), geo.oy + geo.range * Math.sin(geo.dir), bounds, w, h, pad);
+                    ctx.setLineDash([5, 4]);
+                    ctx.lineWidth = 1;
+                    ctx.beginPath(); ctx.moveTo(apex.x, apex.y); ctx.lineTo(axisEnd.x, axisEnd.y); ctx.stroke();
+                    ctx.setLineDash([]);
+                    // Poprzeczna linia granic FOV na zadanej odległości (na=...)
+                    if (geo.markDist > 0 && geo.fov < 180) {
+                        var halfW = geo.markDist * Math.tan(half);
+                        var ux = Math.cos(geo.dir), uy = Math.sin(geo.dir);   // oś
+                        var pxu = -uy, pyu = ux;                              // prostopadła do osi
+                        var cxD = geo.ox + geo.markDist * ux, cyD = geo.oy + geo.markDist * uy;
+                        var mL = graphToScreen(cxD + halfW * pxu, cyD + halfW * pyu, bounds, w, h, pad);
+                        var mR = graphToScreen(cxD - halfW * pxu, cyD - halfW * pyu, bounds, w, h, pad);
+                        var mC = graphToScreen(cxD, cyD, bounds, w, h, pad);
+                        ctx.strokeStyle = color; ctx.lineWidth = 1.5; ctx.setLineDash([2, 2]);
+                        ctx.beginPath(); ctx.moveTo(mL.x, mL.y); ctx.lineTo(mR.x, mR.y); ctx.stroke();
+                        ctx.setLineDash([]);
+                        var wTxt = formatNum(2 * halfW) + ' @ ' + formatNum(geo.markDist);
+                        ctx.font = '600 10px ' + getComputedStyle(document.body).fontFamily;
+                        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+                        var twW = ctx.measureText(wTxt).width + 6;
+                        ctx.fillStyle = 'rgba(255,255,255,0.85)';
+                        ctx.fillRect(mC.x - twW / 2, mC.y - 8, twW, 16);
+                        ctx.fillStyle = color;
+                        ctx.fillText(wTxt, mC.x, mC.y);
+                    }
+                    // Etykieta kąta przy wierzchołku
+                    var midA = graphToScreen(geo.ox + geo.range * 0.34 * Math.cos(geo.dir), geo.oy + geo.range * 0.34 * Math.sin(geo.dir), bounds, w, h, pad);
+                    ctx.font = '600 11px ' + getComputedStyle(document.body).fontFamily;
+                    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+                    var angLabel = formatNum(geo.fov) + '°';
+                    var twA = ctx.measureText(angLabel).width + 6;
+                    ctx.fillStyle = 'rgba(255,255,255,0.85)';
+                    ctx.fillRect(midA.x - twA / 2, midA.y - 8, twA, 16);
+                    ctx.fillStyle = color;
+                    ctx.fillText(angLabel, midA.x, midA.y);
+                    // Marker kamery (wierzchołek)
+                    ctx.beginPath(); ctx.arc(apex.x, apex.y, 6, 0, Math.PI * 2);
+                    ctx.fillStyle = color; ctx.fill();
+                    ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5; ctx.stroke();
+                    ctx.fillStyle = '#0f172a';
+                    ctx.font = '700 10px ' + getComputedStyle(document.body).fontFamily;
+                    ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
+                    ctx.fillText(geo.label || '📷', apex.x, apex.y - 9);
                 }
 
                 // Narysuj punkty
@@ -3666,7 +3811,7 @@
                         var geo = item.data;
                         if (geo.error) throw new Error(geo.error);
                         var pts = buildGeometryPoints(geo);
-                        if (geo.type === 'okrag' || geo.type === 'wielokat' || geo.type === 'trojkat') hasProportional = true;
+                        if (geo.type === 'okrag' || geo.type === 'wielokat' || geo.type === 'trojkat' || geo.type === 'widok') hasProportional = true;
                         allGeos.push({ geo: geo, points: pts, color: color });
                         var summary;
                         if (geo.type === 'rect') {
@@ -3681,6 +3826,8 @@
                             summary = describeIrregularPolygon(pts);
                         } else if (geo.type === 'wielokat') {
                             summary = 'Wielokąt foremny ' + geo.n + '-boczny, r=' + formatNum(geo.r) + ', środek (' + formatNum(geo.ox) + ', ' + formatNum(geo.oy) + ')';
+                        } else if (geo.type === 'widok') {
+                            summary = describeFov(geo);
                         } else {
                             summary = 'Punkt (' + formatNum(geo.x) + ', ' + formatNum(geo.y) + ')';
                         }
@@ -4857,6 +5004,47 @@
                 }
             }
 
+            /* ---- Tool 4C: Pole widzenia (kamera / czujnik / reflektor) ---- */
+            function renderFov() {
+                var el = $('#wsFovResult');
+                var ang = num('#wsFovAngle', NaN), r = num('#wsFovRange', NaN);
+                updateFovPreview(ang);
+                if (!(ang > 0) || !(r > 0)) { el.textContent = 'Podaj kąt i zasięg…'; return; }
+                var rad = Math.min(ang, 360) * Math.PI / 180;
+                var lines = [];
+                if (ang < 180) {
+                    lines.push('Szerokość na wprost (na zasięgu ' + formatNum(r) + '): ' + formatNum(2 * r * Math.tan(rad / 2)));
+                } else {
+                    lines.push('Kąt ≥ 180° — brak „szerokości na wprost" (widok dookolny).');
+                }
+                lines.push('Pole pokrycia: ' + formatNum(0.5 * r * r * rad));
+                lines.push('Łuk na zasięgu: ' + formatNum(r * rad));
+                // Opcjonalnie: szerokość FOV na zadanej odległości od kamery.
+                var dist = num('#wsFovDist', NaN);
+                if (dist > 0 && ang < 180) {
+                    var wAtD = 2 * dist * Math.tan(rad / 2);
+                    lines.push('— Na odległości ' + formatNum(dist) + ': szerokość ' + formatNum(wAtD) + ' (granice ±' + formatNum(wAtD / 2) + ' od osi)');
+                }
+                el.textContent = lines.join('\n');
+            }
+
+            // Mini-podgląd: rysuje klin o danym kącie (wierzchołek na dole, otwarcie do góry).
+            function updateFovPreview(ang) {
+                var path = $('#wsFovWedge');
+                if (!path) return;
+                if (!(ang > 0)) { path.setAttribute('d', ''); return; }
+                var capped = Math.min(ang, 360);
+                var cx = 80, cy = 86, R = 70;
+                var half = capped * Math.PI / 360;
+                var base = -Math.PI / 2; // „do góry" na ekranie (oś Y w dół)
+                var a1 = base - half, a2 = base + half;
+                var p1x = (cx + R * Math.cos(a1)).toFixed(2), p1y = (cy + R * Math.sin(a1)).toFixed(2);
+                var p2x = (cx + R * Math.cos(a2)).toFixed(2), p2y = (cy + R * Math.sin(a2)).toFixed(2);
+                var largeArc = capped > 180 ? 1 : 0;
+                path.setAttribute('d', 'M' + cx + ',' + cy + ' L' + p1x + ',' + p1y +
+                    ' A' + R + ',' + R + ' 0 ' + largeArc + ' 1 ' + p2x + ',' + p2y + ' Z');
+            }
+
             /* ---- Tool 5A: Moc / prąd / napięcie (Ohm) ---- */
             function updateElLabels() {
                 var la = $('#wsElALabel'), lb = $('#wsElBLabel'), ia = $('#wsElA'), ib = $('#wsElB');
@@ -4943,7 +5131,7 @@
             }
 
             /* ---- Tool 6B: Zaokrąglenie do opakowań ---- */
-            function renderAll() { renderArea(); renderCoverage(); renderVolume(); renderGrid(); renderSlope(); renderPy(); renderEl(); renderEnergy(); renderVd(); renderConv(); }
+            function renderAll() { renderArea(); renderCoverage(); renderVolume(); renderGrid(); renderSlope(); renderPy(); renderFov(); renderEl(); renderEnergy(); renderVd(); renderConv(); }
 
             /* ---- Pokaż pola właściwe dla kształtu ---- */
             function applyShapeVisibility() {
@@ -5006,7 +5194,7 @@
 
 
             // [EN] Tap wyniku = kopiuj (jak w eng-result)
-            ['#wsAreaResult', '#wsCovResult', '#wsVolResult', '#wsGridResult', '#wsSlResult', '#wsPyResult', '#wsElResult', '#wsEnResult', '#wsVdResult', '#wsConvResult'].forEach(function(sel) {
+            ['#wsAreaResult', '#wsCovResult', '#wsVolResult', '#wsGridResult', '#wsSlResult', '#wsPyResult', '#wsFovResult', '#wsElResult', '#wsEnResult', '#wsVdResult', '#wsConvResult'].forEach(function(sel) {
                 var el = $(sel);
                 if (el) el.addEventListener('click', function() {
                     var t = el.textContent.trim();
