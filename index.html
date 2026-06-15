@@ -536,52 +536,6 @@
                 </div>
 
                 <div class="eng-result ws-result" id="wsVolResult" aria-live="polite">Podaj wymiary…</div>
-
-                <div class="komenda-actions">
-                    <button class="btn btn-primary" id="wsVolToFillBtn" type="button">▽ Użyj objętości w wypełnieniu</button>
-                </div>
-            </details>
-
-            <!-- Tool 2B: Wypełnienie (worki / waga) -->
-            <details class="section-panel card">
-                <summary><span class="icon">🛒</span> Wypełnienie (worki / waga)</summary>
-
-                <div class="input-group">
-                    <label>Objętość (m³)</label>
-                    <input type="number" id="wsFillVol" min="0" step="any" inputmode="decimal" placeholder="np. 0.8">
-                </div>
-
-                <div class="input-group">
-                    <label>Sposób przeliczenia</label>
-                    <div class="unit-toggle" id="wsFillModeToggle">
-                        <button class="unit-btn active" data-fillmode="density" type="button">gęstość (kg/m³)</button>
-                        <button class="unit-btn" data-fillmode="bagYield" type="button">wydajność worka (m³)</button>
-                    </div>
-                </div>
-
-                <div class="input-row">
-                    <div class="input-group">
-                        <label id="wsFillRateLabel">Gęstość (kg/m³)</label>
-                        <input type="number" id="wsFillRate" min="0" step="any" inputmode="decimal" placeholder="np. 2400">
-                    </div>
-                    <div class="input-group" id="wsFillPerBagGroup">
-                        <label>Na worek (kg)</label>
-                        <input type="number" id="wsFillPerBag" min="0" step="any" inputmode="decimal" placeholder="np. 25">
-                    </div>
-                </div>
-
-                <div class="input-row">
-                    <div class="input-group">
-                        <label>Zapas (%)</label>
-                        <input type="number" id="wsFillWaste" min="0" step="any" value="5" inputmode="decimal">
-                    </div>
-                    <div class="input-group">
-                        <label>Cena za worek (opcjonalnie)</label>
-                        <input type="number" id="wsFillPrice" min="0" step="any" inputmode="decimal" placeholder="np. 15">
-                    </div>
-                </div>
-
-                <div class="eng-result ws-result" id="wsFillResult" aria-live="polite">Podaj objętość i przelicznik…</div>
             </details>
 
             <!-- ---- Sekcja 4: Spadki, kąty i poziomy ---- -->
@@ -782,29 +736,6 @@
                 </div>
 
                 <div class="eng-result ws-result" id="wsConvResult" aria-live="polite">Podaj wartość…</div>
-            </details>
-
-            <!-- Tool 6B: Zaokrąglenie do opakowań -->
-            <details class="section-panel card">
-                <summary><span class="icon">📦</span> Zaokrąglenie do opakowań</summary>
-
-                <div class="input-row">
-                    <div class="input-group">
-                        <label>Potrzeba (ilość)</label>
-                        <input type="number" id="wsRoundNeed" min="0" step="any" inputmode="decimal" placeholder="np. 7.3">
-                    </div>
-                    <div class="input-group">
-                        <label>Na opakowanie</label>
-                        <input type="number" id="wsRoundPer" min="0" step="any" value="1" inputmode="decimal" placeholder="np. 1">
-                    </div>
-                </div>
-
-                <div class="input-group">
-                    <label>Zapas (%)</label>
-                    <input type="number" id="wsRoundWaste" min="0" step="any" value="0" inputmode="decimal" placeholder="np. 10">
-                </div>
-
-                <div class="eng-result ws-result" id="wsRoundResult" aria-live="polite">Podaj ilość…</div>
             </details>
 
         </section>

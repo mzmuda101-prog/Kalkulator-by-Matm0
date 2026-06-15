@@ -227,7 +227,7 @@
 
         function formatLocaleNumber(num, maxDigits) {
             if (!isFinite(num)) return String(num);
-            var rounded = Math.abs(num) < 1e308 ? parseFloat(num.toPrecision(12)) : num;
+            var rounded = Math.abs(num) < 1e308 ? parseFloat(num.toPrecision(15)) : num;
             return rounded.toLocaleString('pl-PL', {
                 maximumFractionDigits: maxDigits == null ? 10 : maxDigits,
                 useGrouping: true,
@@ -837,7 +837,7 @@
                 var value = fn(0);
                 if (!isFinite(value)) return { value: Infinity, unit: unit, error: '∞' };
                 if (Math.abs(value) < 1e308 && value !== 0) {
-                    value = parseFloat(value.toPrecision(12));
+                    value = parseFloat(value.toPrecision(15));
                 }
                 STATE.calc.lastResult = value;
                 STATE.calc.lastUnit = unit;
@@ -866,6 +866,14 @@
         }
 
         function liveEval() {
+            // Blokada: liczba dłuższa niż 15 cyfr przekracza dokładność JS (2^53) i
+            // dalsze cyfry zamieniłyby się w zera — utnij nadmiar zamiast kłamać.
+            var clamped = calcExpr.value.replace(/\d{16,}/g, function(run) { return run.slice(0, 15); });
+            if (clamped !== calcExpr.value) {
+                var atEnd = calcExpr.selectionStart >= calcExpr.value.length;
+                calcExpr.value = clamped;
+                if (atEnd) { try { calcExpr.setSelectionRange(clamped.length, clamped.length); } catch (e) {} }
+            }
             var res = evalCalcExpression(calcExpr.value);
             // Waluty: kursów brak/przeterminowane — pobierz i pokaż status zamiast wyniku.
             if (res.pendingFx) {
@@ -4620,7 +4628,7 @@
 
             var wsState = {
                 shape: 'rect', dimUnit: 'm', covMode: 'perUnit',
-                volShape: 'box', volDimUnit: 'm', fillMode: 'density',
+                volShape: 'box', volDimUnit: 'm',
                 gridUnit: 'cm', gridMode: 'count',
                 slMode: 'dims', pyMode: 'legs',
                 elMode: 'UI', vdMat: 'cu', vdPhase: '1', convCat: 'length',
@@ -4761,49 +4769,6 @@
                 lines.push('Objętość: ' + formatNum(r.total) + ' m³');
                 if (r.count !== 1) lines.push('(1 szt.: ' + formatNum(r.single) + ' m³ × ' + formatNum(r.count) + ')');
                 lines.push(formatNum(r.total * 1000) + ' litrów');
-                el.textContent = lines.join('\n');
-            }
-
-            /* ---- Tool 2B: Wypełnienie (worki / waga) ---- */
-            function updateFillRateLabel() {
-                var lab = $('#wsFillRateLabel');
-                if (lab) lab.textContent = wsState.fillMode === 'bagYield' ? 'Wydajność worka (m³)' : 'Gęstość (kg/m³)';
-                var perBagGroup = $('#wsFillPerBagGroup');
-                if (perBagGroup) perBagGroup.hidden = wsState.fillMode === 'bagYield';
-            }
-
-            function renderFill() {
-                var el = $('#wsFillResult');
-                var vol = num('#wsFillVol', 0);
-                var rate = num('#wsFillRate', 0);
-                if (!(vol > 0) || !(rate > 0)) { el.textContent = 'Podaj objętość i przelicznik…'; return; }
-
-                var waste = num('#wsFillWaste', 0) || 0;
-                var volAdj = vol * (1 + waste / 100);
-                var price = num('#wsFillPrice', 0);
-                var lines = [];
-                var bags = null;
-
-                if (wsState.fillMode === 'bagYield') {
-                    bags = Math.ceil(volAdj / rate);
-                    lines.push('Worki: ' + bags + ' szt. (po ' + formatNum(rate) + ' m³)');
-                    if (waste) lines.push('(objętość +' + formatNum(waste) + '% = ' + formatNum(volAdj) + ' m³)');
-                } else {
-                    var weight = volAdj * rate; // kg
-                    lines.push('Waga: ' + formatNum(weight) + ' kg' + (weight >= 1000 ? ' (' + formatNum(weight / 1000) + ' t)' : ''));
-                    if (waste) lines.push('(objętość +' + formatNum(waste) + '% = ' + formatNum(volAdj) + ' m³)');
-                    var perBag = num('#wsFillPerBag', 0);
-                    if (perBag > 0) {
-                        bags = Math.ceil(weight / perBag);
-                        lines.push('Worki: ' + bags + ' szt. (po ' + formatNum(perBag) + ' kg)');
-                    }
-                }
-
-                if (price > 0 && bags != null) {
-                    lines.push('Koszt: ' + formatNum(bags * price) + ' zł');
-                } else if (price > 0) {
-                    lines.push('Koszt: podaj „na worek", by policzyć liczbę worków');
-                }
                 el.textContent = lines.join('\n');
             }
 
@@ -4978,22 +4943,7 @@
             }
 
             /* ---- Tool 6B: Zaokrąglenie do opakowań ---- */
-            function renderRound() {
-                var el = $('#wsRoundResult');
-                var need = num('#wsRoundNeed', NaN), per = num('#wsRoundPer', NaN);
-                if (isNaN(need) || !(per > 0)) { el.textContent = 'Podaj ilość…'; return; }
-                var waste = num('#wsRoundWaste', 0) || 0;
-                var total = need * (1 + waste / 100);
-                var packs = Math.ceil(total / per);
-                var covered = packs * per;
-                var lines = ['Opakowania: ' + packs + ' szt.'];
-                if (waste) lines.push('(z zapasem: ' + formatNum(total) + ')');
-                lines.push('Łącznie: ' + formatNum(covered));
-                lines.push('Nadwyżka: ' + formatNum(covered - total));
-                el.textContent = lines.join('\n');
-            }
-
-            function renderAll() { renderArea(); renderCoverage(); renderVolume(); renderFill(); renderGrid(); renderSlope(); renderPy(); renderEl(); renderEnergy(); renderVd(); renderConv(); renderRound(); }
+            function renderAll() { renderArea(); renderCoverage(); renderVolume(); renderGrid(); renderSlope(); renderPy(); renderEl(); renderEnergy(); renderVd(); renderConv(); }
 
             /* ---- Pokaż pola właściwe dla kształtu ---- */
             function applyShapeVisibility() {
@@ -5023,7 +4973,6 @@
             bindToggle('#wsCovModeToggle', 'data-covmode', function(v) { wsState.covMode = v; updateCovRateLabel(); renderCoverage(); });
             bindToggle('#wsVolShapeToggle', 'data-volshape', function(v) { wsState.volShape = v; applyVolShapeVisibility(); renderVolume(); });
             bindToggle('#wsVolDimUnitToggle', 'data-voldimunit', function(v) { wsState.volDimUnit = v; renderVolume(); });
-            bindToggle('#wsFillModeToggle', 'data-fillmode', function(v) { wsState.fillMode = v; updateFillRateLabel(); renderFill(); });
             bindToggle('#wsGridUnitToggle', 'data-gridunit', function(v) { wsState.gridUnit = v; renderGrid(); });
             bindToggle('#wsGridModeToggle', 'data-gridmode', function(v) { wsState.gridMode = v; applyGridModeVisibility(); renderGrid(); });
             bindToggle('#wsSlModeToggle', 'data-slmode', function(v) { wsState.slMode = v; updateSlVarLabel(); renderSlope(); });
@@ -5055,18 +5004,9 @@
                 showToast('▽ Przeniesiono pole: ' + formatNum(r.net) + ' m²', 'success');
             });
 
-            var toFill = $('#wsVolToFillBtn');
-            if (toFill) toFill.addEventListener('click', function() {
-                var r = totalVolume();
-                if (!r.ok) { showToast('⚠️ Najpierw podaj wymiary', 'error'); return; }
-                $('#wsFillVol').value = formatRawNum(r.total);
-                renderFill();
-                $('#wsFillVol').scrollIntoView({ behavior: 'smooth', block: 'center' });
-                showToast('▽ Przeniesiono objętość: ' + formatNum(r.total) + ' m³', 'success');
-            });
 
             // [EN] Tap wyniku = kopiuj (jak w eng-result)
-            ['#wsAreaResult', '#wsCovResult', '#wsVolResult', '#wsFillResult', '#wsGridResult', '#wsSlResult', '#wsPyResult', '#wsElResult', '#wsEnResult', '#wsVdResult', '#wsConvResult', '#wsRoundResult'].forEach(function(sel) {
+            ['#wsAreaResult', '#wsCovResult', '#wsVolResult', '#wsGridResult', '#wsSlResult', '#wsPyResult', '#wsElResult', '#wsEnResult', '#wsVdResult', '#wsConvResult'].forEach(function(sel) {
                 var el = $(sel);
                 if (el) el.addEventListener('click', function() {
                     var t = el.textContent.trim();
@@ -5079,7 +5019,6 @@
             applyVolShapeVisibility();
             applyGridModeVisibility();
             updateCovRateLabel();
-            updateFillRateLabel();
             updateSlVarLabel();
             updatePyLabels();
             updateElLabels();
