@@ -317,7 +317,7 @@
            [EN] STANDARD CALCULATOR — Button Layout
            ============================================================ */
         const calcButtons = [
-            ['AC', 'fn clear', '±', 'fn', '%', 'fn', '÷', 'operator'],
+            ['AC', 'fn clear', '()', 'fn', '%', 'fn', '÷', 'operator'],
             ['7', 'number', '8', 'number', '9', 'number', '×', 'operator'],
             ['4', 'number', '5', 'number', '6', 'number', '−', 'operator'],
             ['1', 'number', '2', 'number', '3', 'number', '+', 'operator'],
@@ -894,16 +894,17 @@
                 return;
             }
 
-            if (action === '±') {
-                var trimmed = expr.trim();
-                if (!trimmed) { liveEval(); return; }
-                var asNum = parseFloat(normalizeNumberText(trimmed));
-                if (!isNaN(asNum) && String(asNum) === trimmed.replace(/\s/g, '')) {
-                    calcExpr.value = String(-asNum);
-                } else {
-                    calcExpr.value = '-(' + trimmed + ')';
-                }
-                calcExpr.setSelectionRange(calcExpr.value.length, calcExpr.value.length);
+            // Smart „()" jak w Samsungu: domknij nawias, gdy jest co domknąć i poprzedni
+            // znak to liczba / ) / „.", w przeciwnym razie otwórz nowy.
+            if (action === '()') {
+                var focused = document.activeElement === calcExpr;
+                var pos = focused && calcExpr.selectionStart != null ? calcExpr.selectionStart : calcExpr.value.length;
+                var before = calcExpr.value.slice(0, pos);
+                var opens = (before.match(/\(/g) || []).length;
+                var closes = (before.match(/\)/g) || []).length;
+                var prev = before.slice(-1);
+                var canClose = opens > closes && /[\d.)]/.test(prev);
+                insertAtCursor(calcExpr, canClose ? ')' : '(');
                 liveEval();
                 return;
             }
