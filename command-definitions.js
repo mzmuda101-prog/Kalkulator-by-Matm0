@@ -22,6 +22,7 @@
                     { syntax: 'y=L/N', command: 'y=200/5', description: 'oś Y. L = długość, N = liczba punktów (pionowo).' },
                     { syntax: 'L/N', command: '120/4', description: 'skrót bez nazwy osi — zakłada oś X.' },
                     { syntax: 'x=L {PIPE} co=S', command: 'x=120 {PIPE} co=20', description: 'S = stały odstęp między punktami. Liczbę punktów liczy automatycznie.' },
+                    { syntax: 'x=L {PIPE} co=S1;S2', command: 'x=120 {PIPE} co=20;30', description: 'naprzemienne odstępy: 20, 30, 20, 30… Po średniku dowolnie wiele wartości (cykl się powtarza).' },
                     { syntax: 'od A do B co S', command: 'od 0 do 120 co 20', description: 'naturalny zapis: A = start, B = koniec, S = odstęp.' },
                 ],
             },

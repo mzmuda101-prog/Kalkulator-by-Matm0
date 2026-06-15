@@ -1222,26 +1222,37 @@
             return STATE.eng.unit;
         }
 
+        // [EN] Zamienia "20" lub "20;30" na tablicę dodatnich odstępów (naprzemiennych).
+        function parseSpacingList(value) {
+            return String(value == null ? '' : value)
+                .split(';')
+                .map(function (s) { return parseGraphNumber(s, NaN); })
+                .filter(function (n) { return isFinite(n) && n > 0; });
+        }
+
         function calculatePegPositions(totalLength, count, marginStart, marginEnd, fixedSpacing, mode) {
             var usableLength = totalLength - marginStart - marginEnd;
             var positions = [];
             var step = 0;
 
             if (mode === 'fixed') {
-                if (fixedSpacing <= 0) {
+                // fixedSpacing może być liczbą (stały odstęp) lub tablicą (naprzemienny: x, y, x, y…)
+                var spacings = (Array.isArray(fixedSpacing) ? fixedSpacing : [fixedSpacing]).filter(function (s) { return s > 0; });
+                if (!spacings.length) {
                     return { error: '⚠️ Podaj dodatni stały odstęp między podziałami.' };
                 }
                 var start = marginStart;
                 var end = totalLength - marginEnd;
-                var safety = 0;
-                for (var pos = start; pos <= end + 1e-9 && safety < 100; pos += fixedSpacing) {
+                var safety = 0, idx = 0;
+                for (var pos = start; pos <= end + 1e-9 && safety < 500; safety++) {
                     positions.push(parseFloat(pos.toFixed(6)));
-                    safety++;
+                    pos += spacings[idx % spacings.length];
+                    idx++;
                 }
                 if (positions.length === 0) {
                     return { error: '⚠️ Stały odstęp nie mieści żadnego podziału w zadanym polu.' };
                 }
-                return { positions: positions, step: fixedSpacing };
+                return { positions: positions, step: spacings.length === 1 ? spacings[0] : spacings.slice() };
             }
 
             if (mode === 'edges') {
@@ -1876,11 +1887,12 @@
             var count   = parseInt(engCount ? engCount.value : '4', 10) || 4;
             var ms      = parseFloat(normalizeNumberText(engMarginStart ? engMarginStart.value : '0')) || 0;
             var me      = parseFloat(normalizeNumberText(engMarginEnd   ? engMarginEnd.value   : '0')) || 0;
-            var spacing = parseFloat(normalizeNumberText(engSpacing ? engSpacing.value : '20')) || 20;
+            var spacingList = parseSpacingList(engSpacing ? engSpacing.value : '20');
+            var spacingArg = spacingList.length ? (spacingList.length === 1 ? spacingList[0] : spacingList) : 20;
             var mode    = STATE.eng.mode || 'between';
             var unit    = STATE.eng.unit || 'cm';
 
-            var placement = calculatePegPositions(length, count, ms, me, spacing, mode);
+            var placement = calculatePegPositions(length, count, ms, me, spacingArg, mode);
             preview.classList.toggle('kreator-preview--error', !!placement.error);
 
             while (preview.firstChild) preview.removeChild(preview.firstChild);
@@ -1925,8 +1937,9 @@
             if (infoEl) {
                 var n = positions.length;
                 var step = placement.step;
+                var stepStr = Array.isArray(step) ? step.map(function (s) { return formatNum(s); }).join('/') : formatNum(step);
                 var nStr = n + (n === 1 ? ' punkt' : n < 5 ? ' punkty' : ' punktów');
-                infoEl.textContent = nStr + '  ·  co ' + formatNum(step) + ' ' + unit;
+                infoEl.textContent = nStr + '  ·  co ' + stepStr + ' ' + unit;
             }
         }
 
@@ -1936,7 +1949,8 @@
             var origin  = parseFloat(normalizeNumberText(engOrigin  ? engOrigin.value  : '0'))  || 0;
             var ms      = parseFloat(normalizeNumberText(engMarginStart ? engMarginStart.value : '0')) || 0;
             var me      = parseFloat(normalizeNumberText(engMarginEnd   ? engMarginEnd.value   : '0')) || 0;
-            var spacing = parseFloat(normalizeNumberText(engSpacing ? engSpacing.value : '20')) || 20;
+            var spacingList = parseSpacingList(engSpacing ? engSpacing.value : '20');
+            if (!spacingList.length) spacingList = [20];
             var axis    = STATE.eng.axis || 'X';
             var mode    = STATE.eng.mode || 'between';
             var unit    = STATE.eng.unit || 'cm';
@@ -1946,7 +1960,7 @@
             if (ms > 0 || me > 0) parts.push('m=' + formatRawNum(ms) + '/' + formatRawNum(me));
             if (origin !== 0) parts.push('origin=' + formatRawNum(origin));
             if (mode === 'edges') parts.push('@edges');
-            else if (mode === 'fixed') parts.push('co=' + formatRawNum(spacing));
+            else if (mode === 'fixed') parts.push('co=' + spacingList.map(function (s) { return formatRawNum(s); }).join(';'));
             parts.push('u=' + unit);
 
             var cmd = parts.join(' ,, ');
@@ -2048,6 +2062,7 @@
                     { syntax: 'y=120/4', command: 'y=120/4', description: 'podstawowy podzial osi Y.', terms: ['y=120/4'] },
                     { syntax: '120/4', command: '120/4', description: 'skrot bez nazwy osi.', terms: ['120/4'] },
                     { syntax: 'co=20 / step=20 / every=20 / odstep=20', command: 'x=120 | co=20', description: 'staly odstep.', terms: ['co=20', 'step=20', 'every=20', 'odstep=20'] },
+                    { syntax: 'co=20;30', command: 'x=120 | co=20;30', description: 'naprzemienny odstep: 20, 30, 20, 30... (dowolnie wiele wartosci po ;).', terms: ['co=20;30', 'naprzemienny', 'alternating'] },
                     { syntax: '@every:20', command: 'x=120 | @every:20', description: 'staly odstep z prefiksem @.', terms: ['@every:20'] },
                     { syntax: '@between / @inside / @pole / @center / @srodek', command: 'x=120/4 | @inside', description: 'punkty wewnatrz pola.', terms: ['@between', '@inside', '@pole', '@center', '@srodek'] },
                     { syntax: '@edges / @krance / @krawedzie', command: 'x=120/4 | @edges', description: 'punkty na krancach.', terms: ['@edges', '@krance', '@krawedzie'] },
@@ -2831,6 +2846,7 @@
                 marginEnd: 0,
                 mode: 'between',
                 spacing: 0,
+                spacings: null,
                 x: 0,
                 y: 0,
                 r: 7,
@@ -2881,12 +2897,14 @@
                 }
                 if (simple.indexOf('@every:') === 0) {
                     config.mode = 'fixed';
-                    config.spacing = parseGraphNumber(p.split(':')[1], 0);
+                    config.spacings = parseSpacingList(p.split(':').slice(1).join(':'));
+                    config.spacing = config.spacings[0] || 0;
                     return;
                 }
                 if (/^(co|step|every|odstep)\s*=/.test(simple)) {
                     config.mode = 'fixed';
-                    config.spacing = parseGraphNumber(p.split('=')[1], 0);
+                    config.spacings = parseSpacingList(p.split('=').slice(1).join('='));
+                    config.spacing = config.spacings[0] || 0;
                     return;
                 }
                 if (/^(origin|zero|offset|od)\s*=/.test(simple)) {
@@ -2949,7 +2967,7 @@
                 config.count,
                 config.marginStart,
                 config.marginEnd,
-                config.spacing,
+                (config.spacings && config.spacings.length > 1) ? config.spacings : config.spacing,
                 config.mode
             );
             if (placement.error) throw new Error(placement.error.replace('⚠️ ', ''));
@@ -3707,7 +3725,7 @@
             var ms = cfg.marginStart || 0;
             var me = cfg.marginEnd   || 0;
             var n  = cfg.count;
-            var spacing = cfg.spacing || 0;
+            var spacing = (cfg.spacings && cfg.spacings.length > 1) ? cfg.spacings : (cfg.spacing || 0);
             var mode   = cfg.mode || 'between';
             var origin = cfg.origin || 0;
             var unit   = cfg.unit   || STATE.eng.unit || 'cm';
@@ -3744,10 +3762,11 @@
             var unit2 = unit;
             var placement2 = calculatePegPositions(L, n, ms, me, spacing, mode);
             var step2 = placement2.step || 0;
+            var step2Str = Array.isArray(step2) ? step2.map(function (s) { return formatNum(s); }).join('/') : formatNum(step2);
             var positions2 = (placement2.positions || []).map(function(p) { return p + origin; });
             var txt = '📏 ' + formatNum(L) + ' ' + unit2;
             if (ms > 0 || me > 0) txt += '  ↔ marginesy: ' + formatNum(ms) + '/' + formatNum(me) + ' ' + unit2;
-            txt += '\n📐 Odstęp: ' + formatNum(step2) + ' ' + unit2;
+            txt += '\n📐 Odstęp: ' + step2Str + (Array.isArray(step2) ? ' (naprzemiennie)' : '') + ' ' + unit2;
             txt += '\n\n📍 Pozycje:\n';
             positions2.forEach(function(pos, i) {
                 txt += '  ' + (i + 1) + ': ' + formatNum(pos) + ' ' + unit2 + '\n';

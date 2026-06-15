@@ -1670,6 +1670,11 @@
             height: auto;
             margin: 10px auto 6px;
         }
+        .label-hint {
+            font-weight: 400;
+            color: var(--text-muted);
+            font-size: 0.85em;
+        }
         .ws-fov-compass {
             font-size: 9px;
             font-weight: 600;
