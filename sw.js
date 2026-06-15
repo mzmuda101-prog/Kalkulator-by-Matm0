@@ -105,7 +105,8 @@ self.addEventListener('fetch', function(event) {
         return;
     }
 
-    /* [EN] For cross-origin requests, try network only (no external APIs anyway) */
+    /* [EN] For cross-origin requests (np. kursy NBP) — sieć; offline odrzuci, a strona
+       obsłuży błąd sama (loadFxRates → fallback na cache w localStorage). Bez cache'owania. */
     event.respondWith(fetch(event.request));
 });
 

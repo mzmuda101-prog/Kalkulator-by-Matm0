@@ -18,7 +18,10 @@
             calc: {
                 lastResult: null,
                 lastUnit: null,
+                ans: null, // ostatni ZATWIERDZONY wynik (=) — dla słowa „ans"/„wynik"
             },
+            // Kursy walut (NBP, opcjonalnie online — działa offline z cache)
+            fx: { rates: null, ts: null, date: null, loading: false, error: null },
             // Komenda tab (merged Engineering + Graph)
             eng: { unit: 'cm', axis: 'X', mode: 'between' }, // used by drawEngineeringCanvas
             graph: {
@@ -121,6 +124,7 @@
             history: 'matm0_calc_history',
             constants: 'matm0_calc_constants',
             recentCommands: 'matm0_recent_commands',
+            fxRates: 'matm0_fx_rates',
         };
 
         function loadFromStorage() {
@@ -136,6 +140,11 @@
                 if (!Array.isArray(STATE.recentCommands.graph)) {
                     var old = [].concat(STATE.recentCommands.engineering || [], STATE.recentCommands.graph || []);
                     STATE.recentCommands.graph = old.slice(0, 6);
+                }
+                const fx = localStorage.getItem(STORAGE_KEYS.fxRates);
+                if (fx) {
+                    const fxObj = JSON.parse(fx);
+                    if (fxObj && fxObj.rates) { STATE.fx.rates = fxObj.rates; STATE.fx.ts = fxObj.ts; STATE.fx.date = fxObj.date; }
                 }
             } catch (e) {
                 STATE.history = [];
@@ -339,14 +348,62 @@
            [EN] Calculator Logic — Raycast-style expression evaluator
            ============================================================ */
 
-        var CALC_UNITS = {
-            // Metric (base: mm)
-            mm: 1, cm: 10, m: 1000, km: 1000000,
-            // Imperial length
-            'in': 25.4, inch: 25.4, inches: 25.4, cal: 25.4, cale: 25.4,
-            ft: 304.8, feet: 304.8, foot: 304.8, stopa: 304.8, stopy: 304.8,
-            yd: 914.4, yard: 914.4, yards: 914.4, jard: 914.4, jardy: 914.4,
+        // ── Jednostki konwersji (kategorie) ─────────────────────────
+        // factor = ile jednostek bazowych kategorii mieści się w 1 tej jednostce.
+        // Temperatura jest skalą afiniczną (offset) → osobna obsługa niżej.
+        var CALC_UNIT_CATEGORIES = {
+            length: { base: 'mm', units: {
+                mm: 1, cm: 10, dm: 100, m: 1000, km: 1000000,
+                'in': 25.4, inch: 25.4, inches: 25.4, cal: 25.4, cale: 25.4,
+                ft: 304.8, feet: 304.8, foot: 304.8, stopa: 304.8, stopy: 304.8,
+                yd: 914.4, yard: 914.4, yards: 914.4, jard: 914.4, jardy: 914.4,
+                mila: 1609344, mile: 1609344, mil: 1609344,
+            } },
+            mass: { base: 'g', units: {
+                mg: 0.001, g: 1, dag: 10, dkg: 10, deko: 10, kg: 1000,
+                t: 1000000, tona: 1000000, tony: 1000000, ton: 1000000,
+                lb: 453.59237, lbs: 453.59237, funt: 453.59237, funty: 453.59237, funtow: 453.59237,
+                oz: 28.349523, uncja: 28.349523, uncje: 28.349523,
+            } },
+            time: { base: 's', units: {
+                ms: 0.001, s: 1, sek: 1, sekunda: 1, sekundy: 1,
+                min: 60, minuta: 60, minuty: 60,
+                h: 3600, godz: 3600, godzina: 3600, godziny: 3600,
+                doba: 86400, dzien: 86400, dni: 86400,
+                tydzien: 604800, tyg: 604800, week: 604800,
+                rok: 31557600, lata: 31557600, lat: 31557600, year: 31557600,
+            } },
+            volume: { base: 'ml', units: {
+                ml: 1, cl: 10, dl: 100, l: 1000, litr: 1000, litry: 1000, litrow: 1000,
+                hl: 100000, m3: 1000000,
+                gal: 3785.411784, galon: 3785.411784, gallon: 3785.411784,
+            } },
+            data: { base: 'B', units: {
+                // KB/MB/… traktowane binarnie (1024). Bity pominięte celowo —
+                // flaga „i" w regexie nie odróżnia b od B.
+                B: 1, KB: 1024, MB: 1048576, GB: 1073741824, TB: 1099511627776, PB: 1125899906842624,
+            } },
+            area: { base: 'm2', units: {
+                mm2: 0.000001, cm2: 0.0001, dm2: 0.01, m2: 1, ar: 100, ha: 10000, km2: 1000000,
+            } },
+            angle: { base: 'deg', units: {
+                deg: 1, '°': 1, stopnie: 1, stopni: 1,
+                rad: 180 / Math.PI, radian: 180 / Math.PI, radiany: 180 / Math.PI,
+                grad: 0.9, gon: 0.9,
+            } },
         };
+
+        // Płaska mapa: nazwa jednostki (lowercase) → { cat, factor, base }
+        var CALC_UNITS = {};
+        var CALC_UNIT_DISPLAY = {}; // lowercase → oryginalna pisownia (np. „mb" → „MB")
+        Object.keys(CALC_UNIT_CATEGORIES).forEach(function(cat) {
+            var def = CALC_UNIT_CATEGORIES[cat];
+            Object.keys(def.units).forEach(function(u) {
+                var key = u.toLowerCase();
+                CALC_UNITS[key] = { cat: cat, factor: def.units[u], base: def.base };
+                if (!CALC_UNIT_DISPLAY[key]) CALC_UNIT_DISPLAY[key] = u;
+            });
+        });
 
         function parseNaturalShortcuts(raw) {
             // --- Normalizacja: "10 procent" → "10%" (przed resztą) ---
@@ -392,6 +449,24 @@
             // narzut / marża / markup
             raw = raw.replace(/([\d.,]+)%\s+(?:narzut[u]?|mar[zż][ae]?|markup)\s+(?:na|od|do|on)?\s*([\d.,]+)/gi,
                 function(_, p, b) { return '(' + b.replace(',', '.') + '*(1+' + p.replace(',', '.') + '/100))'; });
+            // --- Finanse PL: brutto / netto / VAT (domyślny VAT 23%, opcjonalna własna stawka) ---
+            // Kolejność: brutto/netto najpierw, by „skonsumowały" swoje końcowe „vat N%",
+            // zanim ogólna reguła VAT spróbuje je złapać.
+            function _vatRate(r) { var v = r != null ? parseFloat(String(r).replace(',', '.')) : 23; return isFinite(v) && v >= 0 ? v : 23; }
+            // brutto = netto + VAT. „brutto 1000", „brutto 1000 vat 8%", „1000 brutto"
+            raw = raw.replace(/\bbrutto\s+([\d.,]+)(?:\s+(?:z\s+)?vat\s+([\d.,]+)%?)?/gi,
+                function(_, x, r) { return '(' + x.replace(',', '.') + '*(1+' + _vatRate(r) + '/100))'; });
+            raw = raw.replace(/([\d.,]+)\s+brutto\b(?:\s+(?:z\s+)?vat\s+([\d.,]+)%?)?/gi,
+                function(_, x, r) { return '(' + x.replace(',', '.') + '*(1+' + _vatRate(r) + '/100))'; });
+            // netto = brutto − VAT. „netto 1230", „netto 1080 vat 8%", „1230 netto"
+            raw = raw.replace(/\bnetto\s+([\d.,]+)(?:\s+(?:z\s+)?vat\s+([\d.,]+)%?)?/gi,
+                function(_, x, r) { return '(' + x.replace(',', '.') + '/(1+' + _vatRate(r) + '/100))'; });
+            raw = raw.replace(/([\d.,]+)\s+netto\b(?:\s+(?:z\s+)?vat\s+([\d.,]+)%?)?/gi,
+                function(_, x, r) { return '(' + x.replace(',', '.') + '/(1+' + _vatRate(r) + '/100))'; });
+            // sama kwota VAT od netto. „vat od 1000", „vat 1000", „vat 8% od 1000"
+            raw = raw.replace(/\bvat\s+(?:([\d.,]+)%\s+)?(?:od\s+|z\s+)?([\d.,]+)/gi,
+                function(_, r, x) { return '(' + x.replace(',', '.') + '*' + _vatRate(r) + '/100)'; });
+
             // "dodaj X% do Y"
             raw = raw.replace(/dodaj\s+([\d.,]+)%\s+do\s+([\d.,]+)/gi,
                 function(_, p, b) { return '(' + b.replace(',', '.') + '*(1+' + p.replace(',', '.') + '/100))'; });
@@ -409,6 +484,14 @@
             return raw;
         }
 
+        // „ans" / „wynik" / „poprzedni" → ostatni zatwierdzony wynik (STATE.calc.ans).
+        // Gdy brak zatwierdzonego wyniku — zostawiamy słowo, więc wyrażenie po prostu
+        // nie da rezultatu (zamiast cichego podstawienia 0).
+        function resolveCalcAnswer(raw) {
+            if (STATE.calc.ans === null || !isFinite(STATE.calc.ans)) return raw;
+            return raw.replace(/\b(?:ans|wynik|poprzedni)\b/gi, '(' + String(STATE.calc.ans) + ')');
+        }
+
         function resolveCalcConstants(raw, constants) {
             if (!constants || !constants.length) return raw;
             var result = raw;
@@ -420,63 +503,332 @@
             return result;
         }
 
-        var _UNIT_NAMES_RE = 'mm|cm|m|km|in|inch|inches|cal|cale|ft|feet|foot|stopa|stopy|yd|yard|yards|jard|jardy';
+        // Regex nazw jednostek — najdłuższe najpierw, żeby „m2" nie złapało się jako „m".
+        var _UNIT_NAMES_RE = Object.keys(CALC_UNITS)
+            .sort(function(a, b) { return b.length - a.length; })
+            .map(function(u) { return u.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); })
+            .join('|');
+
+        // ── Temperatura (skala afiniczna) — tylko jawna konwersja „X na Y" ──
+        function _tempCanon(s) {
+            s = String(s).toLowerCase();
+            if (s.charAt(0) === 'c') return 'C';
+            if (s.charAt(0) === 'f') return 'F';
+            if (s.charAt(0) === 'k') return 'K';
+            return null;
+        }
+        function _tempConvert(value, from, to) {
+            var c; // najpierw na Celsjusza
+            if (from === 'C') c = value;
+            else if (from === 'F') c = (value - 32) * 5 / 9;
+            else c = value - 273.15; // K
+            if (to === 'C') return c;
+            if (to === 'F') return c * 9 / 5 + 32;
+            return c + 273.15; // K
+        }
+        var _tempConvertRe = /^\s*(-?[\d.,]+)\s*°?\s*(c|celsjus\w*|f|fahrenheit\w*|k|kelwin\w*)\s+(?:na|do|in|to|w)\s+°?\s*(c|celsjus\w*|f|fahrenheit\w*|k|kelwin\w*)\s*$/i;
 
         function resolveCalcUnits(raw) {
-            // "EXPR na|in|to|w UNIT" — explicit conversion keyword
+            // 0) Temperatura — wyłącznie jawna konwersja „X na Y" (offset, nie da się sumować)
+            var tMatch = raw.match(_tempConvertRe);
+            if (tMatch) {
+                var tFrom = _tempCanon(tMatch[2]);
+                var tTo = _tempCanon(tMatch[3]);
+                var tVal = parseFloat(tMatch[1].replace(',', '.'));
+                if (tFrom && tTo && isFinite(tVal)) {
+                    var tOut = _tempConvert(tVal, tFrom, tTo);
+                    return { expr: String(tOut), unit: tTo === 'K' ? 'K' : '°' + tTo, cat: 'temperature', valueInBase: tOut };
+                }
+            }
+
+            // 1) Jawna konwersja „EXPR na|do|in|to|w UNIT"
             var convertRe = new RegExp('^(.+?)\\s+(?:na|do|in|to|w)\\s+(' + _UNIT_NAMES_RE + ')\\s*$', 'i');
             var naMatch = raw.match(convertRe);
             if (naMatch) {
                 var inner = resolveCalcUnits(naMatch[1].trim());
-                var targetUnit = naMatch[2].toLowerCase();
-                if (inner.unit !== null && CALC_UNITS[targetUnit] !== undefined) {
-                    var converted = inner.valueInBase / CALC_UNITS[targetUnit];
-                    return { expr: String(converted), unit: targetUnit, valueInBase: inner.valueInBase };
+                var targetDef = CALC_UNITS[naMatch[2].toLowerCase()];
+                if (inner.unit !== null && targetDef && inner.cat === targetDef.cat) {
+                    var converted = inner.valueInBase / targetDef.factor;
+                    var targetKey = naMatch[2].toLowerCase();
+                    return { expr: String(converted), unit: CALC_UNIT_DISPLAY[targetKey] || targetKey, cat: targetDef.cat, valueInBase: inner.valueInBase };
                 }
             }
 
+            // 2) Sumowanie jednostek tej samej kategorii (pierwsza napotkana wyznacza kategorię)
             var totalBase = 0;
+            var cat = null;
+            var baseUnit = null;
             var hasUnits = false;
+            var mixed = false; // wykryto jednostki z różnych kategorii (np. kg + cm)
             var expr = raw;
 
-            // Handle N' (feet) and N" (inches) notation
+            // Notacja stóp (N') i cali (N") — zawsze długość
             expr = expr.replace(/([\d.,]+)\s*'/g, function(_, n) {
-                hasUnits = true;
+                if (cat && cat !== 'length') { mixed = true; return _; }
+                hasUnits = true; cat = 'length'; baseUnit = 'mm';
                 var base = parseFloat(n.replace(',', '.')) * 304.8;
                 totalBase += base;
                 return String(base);
             });
             expr = expr.replace(/([\d.,]+)\s*"/g, function(_, n) {
-                hasUnits = true;
+                if (cat && cat !== 'length') { mixed = true; return _; }
+                hasUnits = true; cat = 'length'; baseUnit = 'mm';
                 var base = parseFloat(n.replace(',', '.')) * 25.4;
                 totalBase += base;
                 return String(base);
             });
 
-            // Handle named unit tokens
-            var unitRe = new RegExp('([\\d.,]+)\\s*(' + _UNIT_NAMES_RE + ')\\b', 'gi');
-            expr = expr.replace(unitRe, function(_, numStr, unit) {
-                var factor = CALC_UNITS[unit.toLowerCase()];
-                if (factor === undefined) return _;
-                hasUnits = true;
-                var base = parseFloat(numStr.replace(',', '.')) * factor;
+            // Nazwane jednostki. Lookahead (?![A-Za-z0-9]) zamiast \b — obsługuje też „°".
+            var unitRe = new RegExp('([\\d.,]+)\\s*(' + _UNIT_NAMES_RE + ')(?![A-Za-z0-9])', 'gi');
+            expr = expr.replace(unitRe, function(m, numStr, unit) {
+                var def = CALC_UNITS[unit.toLowerCase()];
+                if (!def) return m;
+                if (cat && def.cat !== cat) { mixed = true; return m; } // miks kategorii
+                cat = def.cat; baseUnit = def.base; hasUnits = true;
+                var base = parseFloat(numStr.replace(',', '.')) * def.factor;
                 totalBase += base;
                 return String(base);
             });
 
-            return { expr: expr, unit: hasUnits ? 'mm' : null, valueInBase: totalBase };
+            // Miks kategorii (kg + cm) nie ma sensu → zwróć surowiec bez wyniku jednostkowego.
+            if (mixed) return { expr: raw, unit: null, cat: null, valueInBase: 0 };
+
+            return { expr: expr, unit: hasUnits ? baseUnit : null, cat: cat, valueInBase: totalBase };
+        }
+
+        /* ============================================================
+           [EN] Daty i czas — „za 3 tygodnie", „ile dni do 1.09", „dziś + 90 dni"
+           ============================================================ */
+        var _PL_MONTHS = {
+            stycznia:1, styczen:1, 'styczeń':1, lutego:2, luty:2, marca:3, marzec:3,
+            kwietnia:4, kwiecien:4, 'kwiecień':4, maja:5, maj:5, czerwca:6, czerwiec:6,
+            lipca:7, lipiec:7, sierpnia:8, sierpien:8, 'sierpień':8,
+            wrzesnia:9, 'września':9, wrzesien:9, 'wrzesień':9,
+            pazdziernika:10, 'października':10, pazdziernik:10, 'październik':10,
+            listopada:11, listopad:11, grudnia:12, grudzien:12, 'grudzień':12,
+        };
+        var _PL_WEEKDAYS = ['niedziela','poniedziałek','wtorek','środa','czwartek','piątek','sobota'];
+
+        function _today() { var d = new Date(); d.setHours(0,0,0,0); return d; }
+        function _validDMY(d, m, y) { return m >= 1 && m <= 12 && d >= 1 && d <= 31 && y >= 1 && y <= 9999; }
+        function _fmtDate(d) {
+            return d.getDate() + '.' + (d.getMonth()+1) + '.' + d.getFullYear() + ' (' + _PL_WEEKDAYS[d.getDay()] + ')';
+        }
+        function _fmtDays(n) { return n + ' ' + (Math.abs(n) === 1 ? 'dzień' : 'dni'); }
+        function _isDateUnit(u) {
+            // [a-ząćęłńóśźż] zamiast \w — \w nie obejmuje polskich liter (miesiące, miesięcy).
+            return /^(dni|dnia|dzie[nń]|tydzie[nń]|tygodni[a-ząćęłńóśźż]*|tyg|miesi[a-ząćęłńóśźż]*|lat[a-ząćęłńóśźż]*|rok[a-ząćęłńóśźż]*|roku)$/i.test(u);
+        }
+        function _applyDateUnit(d, n, u, sign) {
+            n = Math.round(n) * sign;
+            u = u.toLowerCase();
+            if (/^tyg|^tydzie/.test(u)) d.setDate(d.getDate() + n*7);
+            else if (/^miesi/.test(u)) d.setMonth(d.getMonth() + n);
+            else if (/^(lat|rok|roku)/.test(u)) d.setFullYear(d.getFullYear() + n);
+            else d.setDate(d.getDate() + n); // dni
+        }
+        // → { d: Date, hasYear: bool } albo null
+        function _parseDateToken(str) {
+            var s = String(str).trim().toLowerCase();
+            if (/^dzi[sś]$|^dzisiaj$/.test(s)) return { d: _today(), hasYear: true };
+            if (s === 'jutro')    { var j = _today(); j.setDate(j.getDate()+1); return { d: j, hasYear: true }; }
+            if (s === 'pojutrze') { var p = _today(); p.setDate(p.getDate()+2); return { d: p, hasYear: true }; }
+            if (s === 'wczoraj')  { var w = _today(); w.setDate(w.getDate()-1); return { d: w, hasYear: true }; }
+            var m = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/); // ISO
+            if (m) { var y=+m[1], mo=+m[2], da=+m[3]; if (_validDMY(da,mo,y)) return { d: new Date(y,mo-1,da), hasYear: true }; return null; }
+            m = s.match(/^(\d{1,2})\.(\d{1,2})(?:\.(\d{2,4}))?$/); // DD.MM(.YYYY)
+            if (m) {
+                var d1=+m[1], m1=+m[2], y1 = m[3] ? +m[3] : _today().getFullYear();
+                if (m[3] && m[3].length === 2) y1 += 2000;
+                if (_validDMY(d1,m1,y1)) return { d: new Date(y1,m1-1,d1), hasYear: !!m[3] };
+                return null;
+            }
+            m = s.match(/^(\d{1,2})\s+([a-ząćęłńóśźż]+)(?:\s+(\d{2,4}))?$/); // DD miesiąc [RRRR]
+            if (m && _PL_MONTHS[m[2]]) {
+                var d2=+m[1], m2=_PL_MONTHS[m[2]], y2 = m[3] ? +m[3] : _today().getFullYear();
+                if (m[3] && m[3].length === 2) y2 += 2000;
+                if (_validDMY(d2,m2,y2)) return { d: new Date(y2,m2-1,d2), hasYear: !!m[3] };
+            }
+            return null;
+        }
+
+        function evalDateExpression(raw) {
+            var s = String(raw || '').trim();
+            if (!s) return null;
+            var low = s.toLowerCase();
+            var m;
+            // „ile dni od A do B"
+            if ((m = low.match(/^ile\s+dni\s+od\s+(.+?)\s+do\s+(.+)$/))) {
+                var a = _parseDateToken(m[1]), b = _parseDateToken(m[2]);
+                if (a && b) { var n = Math.round((b.d - a.d)/86400000); return { text: _fmtDays(n), value: n }; }
+                return null;
+            }
+            // „ile dni do B" (z przeskokiem na przyszły rok, gdy bez roku i data minęła)
+            if ((m = low.match(/^ile\s+dni\s+(?:do|zosta[łl]o\s+do|pozosta[łl]o\s+do)\s+(.+)$/))) {
+                var b2 = _parseDateToken(m[1]);
+                if (b2) {
+                    if (!b2.hasYear && b2.d < _today()) b2.d.setFullYear(b2.d.getFullYear()+1);
+                    var n2 = Math.round((b2.d - _today())/86400000);
+                    return { text: _fmtDays(n2), value: n2 };
+                }
+                return null;
+            }
+            // „za N <jednostka>"
+            if ((m = low.match(/^za\s+([\d.,]+)\s+([a-ząćęłńóśźż]+)\s*$/)) && _isDateUnit(m[2])) {
+                var d3 = _today(); _applyDateUnit(d3, parseFloat(m[1].replace(',','.')), m[2], 1);
+                return { text: _fmtDate(d3), value: null };
+            }
+            // „N <jednostka> temu"
+            if ((m = low.match(/^([\d.,]+)\s+([a-ząćęłńóśźż]+)\s+temu\s*$/)) && _isDateUnit(m[2])) {
+                var d4 = _today(); _applyDateUnit(d4, parseFloat(m[1].replace(',','.')), m[2], -1);
+                return { text: _fmtDate(d4), value: null };
+            }
+            // „dziś / jutro / wczoraj / pojutrze" samodzielnie
+            if ((m = low.match(/^(dzi[sś]|dzisiaj|jutro|pojutrze|wczoraj)\s*$/))) {
+                var d6 = _parseDateToken(m[1]); if (d6) return { text: _fmtDate(d6.d), value: null };
+            }
+            // „<data> + N <jednostka>" / „<data> - N <jednostka>"
+            if ((m = low.match(/^(.+?)\s*([+\-])\s*([\d.,]+)\s+([a-ząćęłńóśźż]+)\s*$/)) && _isDateUnit(m[4])) {
+                var left = _parseDateToken(m[1]);
+                if (left) {
+                    var d5 = left.d; _applyDateUnit(d5, parseFloat(m[3].replace(',','.')), m[4], m[2]==='-'?-1:1);
+                    return { text: _fmtDate(d5), value: null };
+                }
+            }
+            return null;
+        }
+
+        /* ============================================================
+           [EN] Waluty — „12 zł + 20 eur", „20 eur na zł" (kursy NBP, offline z cache)
+           ============================================================ */
+        // Aliasy → kod ISO. Kody z NBP (np. CZK) dochodzą dynamicznie z pobranych kursów.
+        // UWAGA: NIE mapujemy „funt" na GBP — „funt" to już jednostka masy.
+        var _CUR_ALIAS = {
+            'zł': 'PLN', 'zl': 'PLN', 'pln': 'PLN', 'złoty': 'PLN', 'złotych': 'PLN', 'zloty': 'PLN', 'zlotych': 'PLN',
+            '€': 'EUR', 'euro': 'EUR', 'eur': 'EUR',
+            '$': 'USD', 'usd': 'USD', 'dolar': 'USD', 'dolary': 'USD', 'dolarow': 'USD', 'dolarów': 'USD',
+            '£': 'GBP', 'gbp': 'GBP',
+            'chf': 'CHF', 'frank': 'CHF', 'franki': 'CHF',
+        };
+        var FX_TTL_MS = 6 * 3600 * 1000; // 6 h — po tym czasie odśwież w tle
+
+        function _currencyTokenMap() {
+            var map = {};
+            Object.keys(_CUR_ALIAS).forEach(function(k) { map[k] = _CUR_ALIAS[k]; });
+            var rates = STATE.fx.rates || {};
+            Object.keys(rates).forEach(function(code) { map[code.toLowerCase()] = code; });
+            return map;
+        }
+        function _currencyRate(code) {
+            if (code === 'PLN') return 1;
+            var rates = STATE.fx.rates || {};
+            return rates[code] != null ? rates[code] : null; // PLN za 1 jednostkę
+        }
+        function _currencyDisplay(code) { return code === 'PLN' ? 'zł' : code; }
+        function _fxReady() { return STATE.fx.rates && Object.keys(STATE.fx.rates).length > 1; }
+        function _fxFresh() { return STATE.fx.ts && (Date.now() - STATE.fx.ts) < FX_TTL_MS; }
+
+        function _currencyTokenRe() {
+            var map = _currencyTokenMap();
+            return Object.keys(map)
+                .sort(function(a, b) { return b.length - a.length; })
+                .map(function(t) { return t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); })
+                .join('|');
+        }
+        function _inputHasCurrency(raw) {
+            var re = new RegExp('([\\d.,]+)\\s*(' + _currencyTokenRe() + ')(?![a-ząćęłńóśźż0-9])', 'i');
+            return re.test(String(raw || ''));
+        }
+
+        // Zwraca { expr, unit, valueInBase(PLN), hasCurrency, pending } analogicznie do resolveCalcUnits.
+        function resolveCalcCurrency(raw) {
+            var map = _currencyTokenMap();
+            var tokenRe = _currencyTokenRe();
+            if (!tokenRe) return { expr: raw, unit: null, hasCurrency: false, pending: false };
+
+            // 1) Konwersja „EXPR na <waluta>"
+            var convRe = new RegExp('^(.+?)\\s+(?:na|do|in|to|w)\\s+(' + tokenRe + ')(?![a-ząćęłńóśźż0-9])\\s*$', 'i');
+            var cm = raw.match(convRe);
+            if (cm) {
+                var targetCode = map[cm[2].toLowerCase()];
+                var inner = resolveCalcCurrency(cm[1].trim());
+                if (inner.hasCurrency) {
+                    var tRate = _currencyRate(targetCode);
+                    if (inner.pending || !_fxReady() || tRate == null) {
+                        return { expr: raw, unit: null, hasCurrency: true, pending: true };
+                    }
+                    var converted = inner.valueInBase / tRate;
+                    return { expr: String(converted), unit: _currencyDisplay(targetCode), valueInBase: inner.valueInBase, hasCurrency: true, pending: false };
+                }
+            }
+
+            // 2) Sumowanie kwot walutowych → PLN
+            var totalPln = 0, hasCurrency = false, pending = false;
+            var amountRe = new RegExp('([\\d.,]+)\\s*(' + tokenRe + ')(?![a-ząćęłńóśźż0-9])', 'gi');
+            var expr = raw.replace(amountRe, function(m, num, tok) {
+                hasCurrency = true;
+                var code = map[tok.toLowerCase()];
+                var rate = _currencyRate(code);
+                if (!_fxReady() || rate == null) { pending = true; return m; }
+                var pln = parseFloat(num.replace(',', '.')) * rate;
+                totalPln += pln;
+                return String(pln);
+            });
+            if (!hasCurrency) return { expr: raw, unit: null, hasCurrency: false, pending: false };
+            if (pending) return { expr: raw, unit: null, hasCurrency: true, pending: true };
+            return { expr: expr, unit: 'zł', valueInBase: totalPln, hasCurrency: true, pending: false };
+        }
+
+        // Pobranie kursów z NBP (tabela A, kursy średnie). Cache + fallback offline.
+        function loadFxRates() {
+            if (STATE.fx.loading) return;
+            if (typeof fetch !== 'function') { STATE.fx.error = 'no-fetch'; return; }
+            STATE.fx.loading = true; STATE.fx.error = null;
+            fetch('https://api.nbp.pl/api/exchangerates/tables/A?format=json')
+                .then(function(r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+                .then(function(data) {
+                    var table = data && data[0];
+                    if (!table || !table.rates) throw new Error('bad-data');
+                    var rates = { PLN: 1 };
+                    table.rates.forEach(function(x) { rates[x.code] = x.mid; });
+                    STATE.fx.rates = rates;
+                    STATE.fx.ts = Date.now();
+                    STATE.fx.date = table.effectiveDate || null;
+                    STATE.fx.error = null;
+                    try { localStorage.setItem(STORAGE_KEYS.fxRates, JSON.stringify({ rates: rates, ts: STATE.fx.ts, date: STATE.fx.date })); } catch (e) {}
+                })
+                .catch(function(err) { STATE.fx.error = (err && err.message) || 'fetch-error'; })
+                .then(function() { STATE.fx.loading = false; if (typeof liveEval === 'function') liveEval(); });
+        }
+        // Pobierz gdy trzeba: brak kursów lub przeterminowane (i nie trwa już pobieranie).
+        function ensureFxRates() {
+            if (STATE.fx.loading) return;
+            if (_fxReady() && _fxFresh()) return;
+            loadFxRates();
         }
 
         function evalCalcExpression(raw) {
             var original = String(raw || '').trim();
             if (!original) return { value: null, unit: null, error: null };
+            // Najpierw daty/czas — zanim „dni"/„za" trafią do matematyki/jednostek.
+            var dateRes = evalDateExpression(original);
+            if (dateRes) {
+                STATE.calc.lastResult = dateRes.value;
+                STATE.calc.lastUnit = null;
+                return { value: dateRes.value, unit: null, text: dateRes.text, error: null };
+            }
             try {
                 var expr = original;
                 expr = parseNaturalShortcuts(expr);
+                expr = resolveCalcAnswer(expr);
                 expr = resolveCalcConstants(expr, STATE.constants);
+                // Waluty (przed jednostkami): zamienia kwoty walutowe na PLN / robi konwersję.
+                var curRes = resolveCalcCurrency(expr);
+                if (curRes.pending) return { value: null, unit: null, error: null, pendingFx: true };
+                expr = curRes.expr;
                 var unitResult = resolveCalcUnits(expr);
                 expr = unitResult.expr;
-                var unit = unitResult.unit;
+                var unit = curRes.hasCurrency ? curRes.unit : unitResult.unit;
                 expr = expr.replace(/,(?=\d)/g, '.');
                 expr = expr.replace(/×/g, '*').replace(/÷/g, '/').replace(/−/g, '-');
                 expr = expr.replace(/\s+/g, '');
@@ -496,7 +848,9 @@
         }
 
         function formatCalcResult(res) {
-            if (!res || res.value === null) return '';
+            if (!res) return '';
+            if (res.text != null) return res.text; // wynik daty/czasu
+            if (res.value === null) return '';
             if (res.error === '∞') return '∞';
             var str = formatLocaleNumber(res.value, 10);
             if (res.unit) str += ' ' + res.unit;
@@ -513,7 +867,18 @@
 
         function liveEval() {
             var res = evalCalcExpression(calcExpr.value);
-            var display = res.value !== null ? formatCalcResult(res) : (calcExpr.value === '' ? '0' : '');
+            // Waluty: kursów brak/przeterminowane — pobierz i pokaż status zamiast wyniku.
+            if (res.pendingFx) {
+                ensureFxRates();
+                calcResult.textContent = STATE.fx.error && !_fxReady() ? 'Kursy: brak połączenia' : 'Pobieram kursy…';
+                calcResult.classList.remove('small', 'xsmall');
+                calcResult.classList.add('small');
+                return;
+            }
+            // Mamy kursy, ale warto odświeżyć w tle, gdy stare (wynik z cache pokazujemy od razu).
+            if (calcExpr.value && _fxReady() && !_fxFresh() && _inputHasCurrency(calcExpr.value)) ensureFxRates();
+            var hasResult = res.value !== null || res.text != null;
+            var display = hasResult ? formatCalcResult(res) : (calcExpr.value === '' ? '0' : '');
             calcResult.textContent = display;
             calcResult.classList.remove('small', 'xsmall');
             if (display.length > 10) calcResult.classList.add('small');
@@ -583,6 +948,7 @@
                 calcExpr.value = '';
                 STATE.calc.lastResult = null;
                 STATE.calc.lastUnit = null;
+                STATE.calc.ans = null;
                 liveEval();
                 return;
             }
@@ -595,8 +961,16 @@
 
             if (action === '=') {
                 var res = evalCalcExpression(expr);
+                // Wynik daty/czasu (tekst) — dodaj do historii, zostaw wpisane wyrażenie.
+                if (res.text != null && expr.trim()) {
+                    addHistory(expr + ' = ' + res.text);
+                    if (res.value !== null) STATE.calc.ans = res.value;
+                    liveEval();
+                    return;
+                }
                 if (res.value !== null && expr.trim()) {
                     addHistory(expr + ' = ' + formatCalcResult(res));
+                    STATE.calc.ans = res.value; // zapamiętaj jako „ans" do kolejnego wyrażenia
                     calcExpr.value = formatRawNum(res.value);
                     calcExpr.setSelectionRange(calcExpr.value.length, calcExpr.value.length);
                     liveEval();
@@ -656,6 +1030,7 @@
         bindLongPressCopy(calcResult, function() {
             if (STATE.calc.lastResult !== null) return String(STATE.calc.lastResult);
             var res = evalCalcExpression(calcExpr.value);
+            if (res.text != null) return res.text; // sformatowana data
             return res.value !== null ? String(res.value) : calcExpr.value;
         });
 
@@ -726,6 +1101,8 @@
                     // [EN] Reuse history result as current input
                     if (resultPart) {
                         calcExpr.value = normalizeNumberText(resultPart);
+                        var reusedNum = parseFloat(normalizeNumberText(resultPart));
+                        if (isFinite(reusedNum)) STATE.calc.ans = reusedNum;
                         calcExpr.setSelectionRange(calcExpr.value.length, calcExpr.value.length);
                         liveEval();
                         switchTab('calculator');
@@ -4767,6 +5144,76 @@
             });
         }
 
+        function runCalcSmokeTests() {
+            var cases = [
+                // długość (zachowane stare zachowanie — baza mm)
+                { expr: '2 cm + 5 mm', value: 25, unit: 'mm' },
+                { expr: '5 km na mile', value: 3.106856, unit: 'mile', tol: 1e-3 },
+                { expr: "5' + 6\"", value: 1676.4, unit: 'mm' },
+                // masa
+                { expr: '2 kg + 300 g', value: 2300, unit: 'g' },
+                { expr: '5 funtow na kg', value: 2.267962, unit: 'kg', tol: 1e-4 },
+                // czas
+                { expr: '90 min na h', value: 1.5, unit: 'h' },
+                { expr: '2 h + 30 min', value: 9000, unit: 's' },
+                // temperatura (offset)
+                { expr: '20 C na F', value: 68, unit: '°F' },
+                { expr: '100 C na K', value: 373.15, unit: 'K' },
+                { expr: '32 F na C', value: 0, unit: '°C' },
+                // dane (binarnie)
+                { expr: '2 GB na MB', value: 2048, unit: 'MB' },
+                // objętość
+                { expr: '1.5 l na ml', value: 1500, unit: 'ml' },
+                // pole
+                { expr: '2 ha na m2', value: 20000, unit: 'm2' },
+                // kąt
+                { expr: '180 deg na rad', value: Math.PI, unit: 'rad', tol: 1e-6 },
+                // miks kategorii → brak konwersji (nie wybucha, po prostu bez wyniku jednostkowego)
+                { expr: '2 kg + 3 cm', unit: null },
+                // finanse PL (VAT)
+                { expr: 'brutto 1000', value: 1230 },
+                { expr: '1000 brutto', value: 1230 },
+                { expr: 'netto 1230', value: 1000 },
+                { expr: 'vat od 1000', value: 230 },
+                { expr: 'brutto 1000 vat 8%', value: 1080 },
+                { expr: 'vat 8% od 1000', value: 80 },
+                // daty — deterministyczny zakres
+                { expr: 'ile dni od 1.01.2026 do 1.02.2026', value: 31 },
+            ];
+            var results = cases.map(function(test) {
+                try {
+                    var res = evalCalcExpression(test.expr);
+                    var pass = true;
+                    if (test.value != null) pass = pass && Math.abs(res.value - test.value) <= (test.tol || 1e-9);
+                    if (test.hasOwnProperty('unit')) pass = pass && res.unit === test.unit;
+                    return { expr: test.expr, pass: pass, got: res.value, unit: res.unit };
+                } catch (err) {
+                    return { expr: test.expr, pass: false, error: err.message };
+                }
+            });
+            // „ans"/„wynik" — z zapisem i odtworzeniem stanu, by nie zaśmiecić STATE.calc.ans
+            var savedAns = STATE.calc.ans;
+            STATE.calc.ans = null;
+            results.push({ expr: 'ans*2 (bez wyniku)', pass: evalCalcExpression('ans*2').value === null, got: null });
+            STATE.calc.ans = 15;
+            results.push({ expr: 'ans*2 (ans=15)', pass: evalCalcExpression('ans*2').value === 30, got: evalCalcExpression('ans*2').value });
+            results.push({ expr: 'wynik+5 (ans=15)', pass: evalCalcExpression('wynik + 5').value === 20, got: evalCalcExpression('wynik + 5').value });
+            STATE.calc.ans = savedAns;
+            // daty względne — sprawdzamy tylko, że zwracają sformatowaną datę (zależą od „dziś")
+            results.push({ expr: 'za 3 tygodnie (data)', pass: !!evalCalcExpression('za 3 tygodnie').text, got: evalCalcExpression('za 3 tygodnie').text });
+            results.push({ expr: 'jutro (data)', pass: !!evalCalcExpression('jutro').text, got: evalCalcExpression('jutro').text });
+            results.push({ expr: 'ile dni do 1.09 (liczba)', pass: typeof evalCalcExpression('ile dni do 1.09').value === 'number', got: evalCalcExpression('ile dni do 1.09').text });
+            // waluty — z zamockowanymi kursami (zapis/odtworzenie stanu fx)
+            var savedFx = STATE.fx.rates, savedFxTs = STATE.fx.ts;
+            STATE.fx.rates = { PLN: 1, EUR: 4.30, USD: 3.95 }; STATE.fx.ts = Date.now();
+            results.push({ expr: '12 zł + 20 eur', pass: Math.abs(evalCalcExpression('12 zł + 20 eur').value - 98) < 1e-9, got: evalCalcExpression('12 zł + 20 eur').value });
+            results.push({ expr: '20 eur na zł', pass: Math.abs(evalCalcExpression('20 eur na zł').value - 86) < 1e-9, got: evalCalcExpression('20 eur na zł').value });
+            var cUnit = evalCalcExpression('100 zł na eur');
+            results.push({ expr: '100 zł na eur (jednostka)', pass: cUnit.unit === 'EUR' && Math.abs(cUnit.value - 23.255813953) < 1e-6, got: cUnit.value + ' ' + cUnit.unit });
+            STATE.fx.rates = savedFx; STATE.fx.ts = savedFxTs;
+            return results;
+        }
+
         function getHelpCoverageReport() {
             return {
                 engineering: getMissingHelpCapabilities('engineering'),
@@ -4788,6 +5235,10 @@
                 getParserCapabilities: getParserCapabilities,
                 getHelpCoverageReport: getHelpCoverageReport,
                 runParserSmokeTests: runParserSmokeTests,
+                runCalcSmokeTests: runCalcSmokeTests,
+                evalCalcExpression: evalCalcExpression,
+                loadFxRates: loadFxRates,
+                resolveCalcCurrency: resolveCalcCurrency,
             };
         }
 

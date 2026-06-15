@@ -903,6 +903,14 @@
                     <p class="help-command" data-command="15% napiwek na 42"><code>15% napiwek na 42</code> = 48,30</p>
                 </section>
                 <section>
+                    <h4>Finanse — VAT (domyślnie 23%)</h4>
+                    <p class="help-command" data-command="brutto 1000"><code>brutto 1000</code> netto → brutto = 1230</p>
+                    <p class="help-command" data-command="netto 1230"><code>netto 1230</code> brutto → netto = 1000</p>
+                    <p class="help-command" data-command="vat od 1000"><code>vat od 1000</code> sama kwota VAT = 230</p>
+                    <p class="help-command" data-command="brutto 1000 vat 8%"><code>brutto 1000 vat 8%</code> własna stawka = 1080</p>
+                    <p class="help-command" data-command="vat 8% od 1000"><code>vat 8% od 1000</code> = 80</p>
+                </section>
+                <section>
                     <h4>Jednostki długości</h4>
                     <p class="help-command" data-command="120cm na mm"><code>120cm na mm</code> → 1200 mm</p>
                     <p class="help-command" data-command="120cm do mm"><code>120cm do mm</code> to samo (PL)</p>
@@ -914,6 +922,46 @@
                     <p class="help-command" data-command="10ft + 6in na cm"><code>10ft + 6in na cm</code> stopy+cale → cm</p>
                 </section>
                 <section>
+                    <h4>Jednostki masy</h4>
+                    <p class="help-command" data-command="2 kg + 300 g"><code>2 kg + 300 g</code> → 2300 g</p>
+                    <p class="help-command" data-command="500 g na kg"><code>500 g na kg</code> → 0,5 kg</p>
+                    <p class="help-command" data-command="5 funtow na kg"><code>5 funtow na kg</code> funty → ~2,27 kg</p>
+                    <p class="help-command" data-command="3 oz na g"><code>3 oz na g</code> uncje → ~85 g</p>
+                </section>
+                <section>
+                    <h4>Jednostki czasu</h4>
+                    <p class="help-command" data-command="2 h + 30 min"><code>2 h + 30 min</code> → 9000 s</p>
+                    <p class="help-command" data-command="90 min na h"><code>90 min na h</code> → 1,5 h</p>
+                    <p class="help-command" data-command="1 doba na h"><code>1 doba na h</code> → 24 h</p>
+                    <p class="help-command" data-command="2 tydzien na dni"><code>2 tydzien na dni</code> → 14 dni</p>
+                </section>
+                <section>
+                    <h4>Temperatura</h4>
+                    <p>Tylko jawna konwersja <code>X na Y</code> (C / F / K).</p>
+                    <p class="help-command" data-command="20 C na F"><code>20 C na F</code> → 68 °F</p>
+                    <p class="help-command" data-command="100 C na K"><code>100 C na K</code> → 373,15 K</p>
+                    <p class="help-command" data-command="32 F na C"><code>32 F na C</code> → 0 °C</p>
+                </section>
+                <section>
+                    <h4>Dane (binarnie, 1 KB = 1024 B)</h4>
+                    <p class="help-command" data-command="2 GB na MB"><code>2 GB na MB</code> → 2048 MB</p>
+                    <p class="help-command" data-command="1024 MB na GB"><code>1024 MB na GB</code> → 1 GB</p>
+                    <p class="help-command" data-command="500 MB na KB"><code>500 MB na KB</code> → 512 000 KB</p>
+                </section>
+                <section>
+                    <h4>Objętość i pole</h4>
+                    <p class="help-command" data-command="1.5 l na ml"><code>1,5 l na ml</code> → 1500 ml</p>
+                    <p class="help-command" data-command="2 l + 500 ml"><code>2 l + 500 ml</code> → 2500 ml</p>
+                    <p class="help-command" data-command="2 ha na m2"><code>2 ha na m2</code> hektary → 20000 m2</p>
+                    <p class="help-command" data-command="5 m2 na cm2"><code>5 m2 na cm2</code> → 50000 cm2</p>
+                </section>
+                <section>
+                    <h4>Kąty</h4>
+                    <p class="help-command" data-command="180 deg na rad"><code>180 deg na rad</code> → π</p>
+                    <p class="help-command" data-command="1 rad na deg"><code>1 rad na deg</code> → ~57,3°</p>
+                    <p class="help-command" data-command="90 deg na grad"><code>90 deg na grad</code> → 100 grad</p>
+                </section>
+                <section>
                     <h4>Skróty liczbowe</h4>
                     <p class="help-command" data-command="10K * 4.5"><code>10K</code> = 10 000 → wynik 45 000</p>
                     <p class="help-command" data-command="2.5 tys * 12"><code>2,5 tys * 12</code> = 30 000</p>
@@ -922,6 +970,31 @@
                     <p class="help-command" data-command="trzecia 120"><code>trzecia 120</code> = 40</p>
                     <p class="help-command" data-command="proporcja 3 do 5"><code>proporcja 3 do 5</code> = 0,6</p>
                     <p class="help-command" data-command="stosunek 1 do 3"><code>stosunek 1 do 3</code> = 0,333…</p>
+                </section>
+                <section>
+                    <h4>Poprzedni wynik</h4>
+                    <p>Po naciśnięciu <code>=</code> wynik wraca do pola — licz dalej.</p>
+                    <p>Albo użyj słowa <code>ans</code> / <code>wynik</code> w nowym działaniu:</p>
+                    <p class="help-command" data-command="ans * 2"><code>ans * 2</code> podwój poprzedni wynik</p>
+                    <p class="help-command" data-command="wynik + 10"><code>wynik + 10</code> dodaj 10 do poprzedniego</p>
+                </section>
+                <section>
+                    <h4>Daty i czas</h4>
+                    <p class="help-command" data-command="za 3 tygodnie"><code>za 3 tygodnie</code> data od dziś (też: dni, miesiące, lata)</p>
+                    <p class="help-command" data-command="ile dni do 1.09"><code>ile dni do 1.09</code> odliczanie do daty</p>
+                    <p class="help-command" data-command="dziś + 90 dni"><code>dziś + 90 dni</code> przesuń datę</p>
+                    <p class="help-command" data-command="1.09.2026 + 7 dni"><code>1.09.2026 + 7 dni</code> data + dni → nowa data</p>
+                    <p class="help-command" data-command="ile dni od 1.01.2026 do 1.02.2026"><code>ile dni od … do …</code> różnica w dniach</p>
+                    <p class="help-command" data-command="3 dni temu"><code>3 dni temu</code> data w przeszłości</p>
+                </section>
+                <section>
+                    <h4>Waluty (kursy NBP)</h4>
+                    <p>Wymaga internetu przy pierwszym użyciu; potem działa offline z zapamiętanego kursu.</p>
+                    <p class="help-command" data-command="12 zł + 20 eur"><code>12 zł + 20 eur</code> suma w złotówkach</p>
+                    <p class="help-command" data-command="20 eur na zł"><code>20 eur na zł</code> przelicz na PLN</p>
+                    <p class="help-command" data-command="100 zł na eur"><code>100 zł na eur</code> i z powrotem</p>
+                    <p class="help-command" data-command="50 usd na eur"><code>50 usd na eur</code> między walutami (przez PLN)</p>
+                    <p>Skróty: <code>zł</code>/<code>pln</code>, <code>eur</code>/<code>€</code>, <code>usd</code>/<code>$</code>, <code>gbp</code>/<code>£</code>, <code>chf</code> i kody NBP (czk, nok…).</p>
                 </section>
                 <section>
                     <h4>Stałe (z zakładki "Moje Stałe")</h4>
