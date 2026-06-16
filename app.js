@@ -3108,13 +3108,14 @@
                 var coords = parts[0].split(',');
                 var x = parseGraphNumber(coords[0], 0);
                 var y = parseGraphNumber(coords[1] || '0', 0);
-                var label = 'P'; var r = 7;
+                var label = 'P'; var r = 7; var oz = 0;
                 parts.slice(1).forEach(function(p) {
                     var pl = p.toLowerCase();
                     if (/^(label|opis|nazwa)=/.test(pl)) label = p.split('=').slice(1).join('=').trim();
                     if (/^r=/.test(pl)) r = Math.max(2, parseGraphNumber(p.split('=')[1], 7));
+                    if (/^(z|wys|wysoko[sść]c?|wysoko[sść][cć]|h)=/.test(pl)) oz = parseGraphNumber(p.split('=')[1], 0);
                 });
-                return { type: 'punkt', x: x, y: y, label: label, r: r };
+                return { type: 'punkt', x: x, y: y, label: label, r: r, oz: oz };
             }
 
             // --- rect=szerokoscxwysokosc | label=... ---
@@ -3124,14 +3125,15 @@
                 var dims = parts[0].toLowerCase().split('x');
                 var w = parseGraphNumber(dims[0], 100);
                 var h = parseGraphNumber(dims[1] || dims[0], 100);
-                var ox = 0; var oy = 0; var label = '';
+                var ox = 0; var oy = 0; var label = ''; var oz = 0;
                 parts.slice(1).forEach(function(p) {
                     var pl = p.toLowerCase();
                     if (/^(label|opis|nazwa)=/.test(pl)) label = p.split('=').slice(1).join('=').trim();
                     if (/^(ox|x0|od_x)=/.test(pl)) ox = parseGraphNumber(p.split('=')[1], 0);
                     if (/^(oy|y0|od_y)=/.test(pl)) oy = parseGraphNumber(p.split('=')[1], 0);
+                    if (/^(z|wys|wysoko[sść]c?|wysoko[sść][cć]|h)=/.test(pl)) oz = parseGraphNumber(p.split('=')[1], 0);
                 });
-                return { type: 'rect', w: w, h: h, ox: ox, oy: oy, label: label };
+                return { type: 'rect', w: w, h: h, ox: ox, oy: oy, label: label, oz: oz };
             }
 
             // --- siatka=szerokoscxwysokosc | co=dxdy | label=... ---
@@ -3141,7 +3143,7 @@
                 var dims = parts[0].toLowerCase().split('x');
                 var w = parseGraphNumber(dims[0], 100);
                 var h = parseGraphNumber(dims[1] || dims[0], 100);
-                var dx = w; var dy = h; var ox = 0; var oy = 0;
+                var dx = w; var dy = h; var ox = 0; var oy = 0; var oz = 0;
                 var label = 'P'; var r = 7;
                 parts.slice(1).forEach(function(p) {
                     var pl = p.toLowerCase();
@@ -3154,8 +3156,9 @@
                     if (/^(ox|x0)=/.test(pl)) ox = parseGraphNumber(p.split('=')[1], 0);
                     if (/^(oy|y0)=/.test(pl)) oy = parseGraphNumber(p.split('=')[1], 0);
                     if (/^r=/.test(pl)) r = Math.max(2, parseGraphNumber(p.split('=')[1], 7));
+                    if (/^(z|wys|wysoko[sść]c?|wysoko[sść][cć]|h)=/.test(pl)) oz = parseGraphNumber(p.split('=')[1], 0);
                 });
-                return { type: 'siatka', w: w, h: h, dx: dx, dy: dy, ox: ox, oy: oy, label: label, r: r };
+                return { type: 'siatka', w: w, h: h, dx: dx, dy: dy, ox: ox, oy: oy, label: label, r: r, oz: oz };
             }
 
             // --- okrag=R / kolo=R / circle=R [,, ox=... ,, oy=...] ---
@@ -3163,26 +3166,28 @@
                 var body = str.replace(/^[^=]+=/, '').trim();
                 var parts = body.split(',,').map(function(s) { return s.trim(); });
                 var r = Math.abs(parseGraphNumber(parts[0], 50));
-                var ox = 0; var oy = 0; var label = '';
+                var ox = 0; var oy = 0; var label = ''; var oz = 0;
                 parts.slice(1).forEach(function(p) {
                     var pl = p.toLowerCase();
                     if (/^(label|opis|nazwa)=/.test(pl)) label = p.split('=').slice(1).join('=').trim();
                     if (/^(ox|x0|od_x)=/.test(pl)) ox = parseGraphNumber(p.split('=')[1], 0);
                     if (/^(oy|y0|od_y)=/.test(pl)) oy = parseGraphNumber(p.split('=')[1], 0);
+                    if (/^(z|wys|wysoko[sść]c?|wysoko[sść][cć]|h)=/.test(pl)) oz = parseGraphNumber(p.split('=')[1], 0);
                 });
-                return { type: 'okrag', r: r, ox: ox, oy: oy, label: label };
+                return { type: 'okrag', r: r, ox: ox, oy: oy, label: label, oz: oz };
             }
 
             // --- wielokat=N,R (foremny)  LUB  wielokat=x,y/x,y/x,y (nieforemny) ---
             if (/^(wielokat|wielok[aą]t|poly|figura)\s*=/.test(lower)) {
                 var body = str.replace(/^[^=]+=/, '').trim();
                 var parts = body.split(',,').map(function(s) { return s.trim(); });
-                var ox = 0; var oy = 0; var label = '';
+                var ox = 0; var oy = 0; var label = ''; var oz = 0;
                 parts.slice(1).forEach(function(p) {
                     var pl = p.toLowerCase();
                     if (/^(label|opis|nazwa)=/.test(pl)) label = p.split('=').slice(1).join('=').trim();
                     if (/^(ox|x0|od_x)=/.test(pl)) ox = parseGraphNumber(p.split('=')[1], 0);
                     if (/^(oy|y0|od_y)=/.test(pl)) oy = parseGraphNumber(p.split('=')[1], 0);
+                    if (/^(z|wys|wysoko[sść]c?|wysoko[sść][cć]|h)=/.test(pl)) oz = parseGraphNumber(p.split('=')[1], 0);
                 });
 
                 // Nieforemny: lista wierzchołków rozdzielona "/" (każdy jako x,y)
@@ -3192,7 +3197,7 @@
                         return { x: parseGraphNumber(c[0], 0), y: parseGraphNumber(c[1] || '0', 0) };
                     }).filter(function(v) { return isFinite(v.x) && isFinite(v.y); });
                     if (vertices.length >= 2) {
-                        return { type: 'wielokat', vertices: vertices, n: vertices.length, ox: ox, oy: oy, label: label, irregular: true };
+                        return { type: 'wielokat', vertices: vertices, n: vertices.length, ox: ox, oy: oy, label: label, irregular: true, oz: oz };
                     }
                 }
 
@@ -3200,19 +3205,20 @@
                 var mainParts = parts[0].split(',');
                 var n = Math.max(3, Math.round(parseGraphNumber(mainParts[0], 6)));
                 var r = Math.abs(parseGraphNumber(mainParts[1] || '100', 100));
-                return { type: 'wielokat', n: n, r: r, ox: ox, oy: oy, label: label };
+                return { type: 'wielokat', n: n, r: r, ox: ox, oy: oy, label: label, oz: oz };
             }
 
             // --- trojkat=x,y/x,y/x,y — trójkąt z 3 wierzchołków (analiza boków, kątów, pola) ---
             if (/^(trojkat|tr[oó]jk[aą]t|triangle)\s*=/.test(lower)) {
                 var body = str.replace(/^[^=]+=/, '').trim();
                 var parts = body.split(',,').map(function(s) { return s.trim(); });
-                var ox = 0; var oy = 0; var label = '';
+                var ox = 0; var oy = 0; var label = ''; var oz = 0;
                 parts.slice(1).forEach(function(p) {
                     var pl = p.toLowerCase();
                     if (/^(label|opis|nazwa)=/.test(pl)) label = p.split('=').slice(1).join('=').trim();
                     if (/^(ox|x0|od_x)=/.test(pl)) ox = parseGraphNumber(p.split('=')[1], 0);
                     if (/^(oy|y0|od_y)=/.test(pl)) oy = parseGraphNumber(p.split('=')[1], 0);
+                    if (/^(z|wys|wysoko[sść]c?|wysoko[sść][cć]|h)=/.test(pl)) oz = parseGraphNumber(p.split('=')[1], 0);
                 });
                 var verts = parts[0].split('/').map(function(v) {
                     var c = v.trim().split(',');
@@ -3221,19 +3227,20 @@
                 if (verts.length !== 3) {
                     return { type: 'trojkat', error: 'Trójkąt wymaga dokładnie 3 wierzchołków (x,y/x,y/x,y).' };
                 }
-                return { type: 'trojkat', vertices: verts, ox: ox, oy: oy, label: label };
+                return { type: 'trojkat', vertices: verts, ox: ox, oy: oy, label: label, oz: oz };
             }
 
             // --- pitagoras=a,b — trójkąt prostokątny z dwóch przyprostokątnych ---
             if (/^(pitagoras|pythagoras)\s*=/.test(lower)) {
                 var body = str.replace(/^[^=]+=/, '').trim();
                 var parts = body.split(',,').map(function(s) { return s.trim(); });
-                var ox = 0; var oy = 0; var label = '';
+                var ox = 0; var oy = 0; var label = ''; var oz = 0;
                 parts.slice(1).forEach(function(p) {
                     var pl = p.toLowerCase();
                     if (/^(label|opis|nazwa)=/.test(pl)) label = p.split('=').slice(1).join('=').trim();
                     if (/^(ox|x0|od_x)=/.test(pl)) ox = parseGraphNumber(p.split('=')[1], 0);
                     if (/^(oy|y0|od_y)=/.test(pl)) oy = parseGraphNumber(p.split('=')[1], 0);
+                    if (/^(z|wys|wysoko[sść]c?|wysoko[sść][cć]|h)=/.test(pl)) oz = parseGraphNumber(p.split('=')[1], 0);
                 });
                 var legs = parts[0].split(/[,/]/);
                 var a = Math.abs(parseGraphNumber(legs[0], 0));
@@ -3247,7 +3254,7 @@
                     { x: a, y: 0 },
                     { x: 0, y: b },
                 ];
-                return { type: 'trojkat', vertices: verts, ox: ox, oy: oy, label: label, pythagoras: true };
+                return { type: 'trojkat', vertices: verts, ox: ox, oy: oy, label: label, pythagoras: true, oz: oz };
             }
 
             // --- kamera=x,y / widok / fov / pole widzenia — stożek (wycinek) pola widzenia ---
@@ -3259,13 +3266,24 @@
                 var posC = parts[0].split('/')[0].split(',');
                 var ox = parseGraphNumber(posC[0], 0);
                 var oy = parseGraphNumber(posC[1] || '0', 0);
+                // Wysokość montażu można też podać jako 3. składową pozycji: kamera=x,y,z
+                var oz = posC[2] != null ? Math.abs(parseGraphNumber(posC[2], 0)) : 0;
                 var fov = 90, range = 10, label = '', markDist = 0;
                 var dirRad = 0, dirMode = 'kierunek', dirValue = 0, targetTxt = null;
+                var fovV = 0;                 // pionowy FOV (analogicznie do poziomego `kąt`)
+                var tilt = null, tiltMode = 'brak'; // pochylenie osi w dół (°), jawne lub z celu
+                var targetZ = 0, targetHorizDist = null; // do auto-pochylenia z celu
                 parts.slice(1).forEach(function(p) {
                     var pl = p.toLowerCase();
                     var val = p.split('=').slice(1).join('=').trim();
-                    if (/^(k[aą]t|kat|fov|angle)=/.test(pl)) {
+                    if (/^(k[aą]tv|katv|k[aą]t_pion|fovv|fov_v|pion)=/.test(pl)) {
+                        fovV = Math.abs(parseGraphNumber(val, 0));
+                    } else if (/^(k[aą]t|kat|fov|angle)=/.test(pl)) {
                         fov = Math.abs(parseGraphNumber(val, 90));
+                    } else if (/^(pochy[lł]|pochylenie|tilt|sp[aą]d|wd[oó][lł])=/.test(pl)) {
+                        tilt = parseGraphNumber(val, 0); tiltMode = 'jawny';
+                    } else if (/^(z|wys|wysoko[sść]c?|wysoko[sść][cć]|h)=/.test(pl)) {
+                        oz = Math.abs(parseGraphNumber(val, 0));
                     } else if (/^(na|przy|odl|dystans)=/.test(pl)) {
                         markDist = Math.abs(parseGraphNumber(val, 0));
                     } else if (/^(zasi[eę]g|zasieg|range|d[lł]ugo[sś][cć]|r)=/.test(pl)) {
@@ -3273,8 +3291,10 @@
                     } else if (/^(cel|target|patrz)=/.test(pl)) {
                         var c = val.split(',');
                         var cx = parseGraphNumber(c[0], 0), cy = parseGraphNumber(c[1] || '0', 0);
+                        if (c[2] != null && c[2].trim() !== '') targetZ = parseGraphNumber(c[2], 0);
                         dirRad = Math.atan2(cy - oy, cx - ox); dirMode = 'cel';
-                        targetTxt = formatNum(cx) + ', ' + formatNum(cy);
+                        targetHorizDist = Math.hypot(cx - ox, cy - oy);
+                        targetTxt = formatNum(cx) + ', ' + formatNum(cy) + (c[2] != null && c[2].trim() !== '' ? ', ' + formatNum(targetZ) : '');
                     } else if (/^(azymut|bearing|kompas)=/.test(pl)) {
                         dirValue = parseGraphNumber(val, 0);
                         dirRad = (90 - dirValue) * Math.PI / 180; dirMode = 'azymut';
@@ -3288,8 +3308,38 @@
                 if (!(fov > 0)) fov = 90;
                 if (fov > 360) fov = 360;
                 if (!(range > 0)) range = 10;
+
+                // Pochylenie osi w pionie: jawne `pochył` ma pierwszeństwo; w przeciwnym razie
+                // policz je z celu na ziemi (kamera nad celem) — θ = atan(Δh / dystans poziomy).
+                var theta = null; // ° pod poziomem
+                if (tiltMode === 'jawny') {
+                    theta = tilt;
+                } else if (oz > 0 && targetHorizDist != null && targetHorizDist > 1e-9) {
+                    theta = Math.atan2(oz - targetZ, targetHorizDist) * 180 / Math.PI;
+                    tiltMode = 'cel';
+                }
+
+                // Footprint (rzut pola widzenia na ziemię) — gdy kamera jest podniesiona,
+                // patrzy w dół i znamy pionowy FOV. Inaczej zostaje płaski wycinek.
+                var footprint = null;
+                if (oz > 0 && theta != null && theta > 0 && fovV > 0) {
+                    var fovVr = fovV * Math.PI / 180;
+                    var aBottom = theta * Math.PI / 180 + fovVr / 2; // najbardziej stromy promień (bliski brzeg)
+                    var aTop = theta * Math.PI / 180 - fovVr / 2;    // najpłytszy promień (daleki brzeg)
+                    var dNear = aBottom >= Math.PI / 2 ? 0 : oz / Math.tan(aBottom);
+                    if (!(dNear >= 0) || !isFinite(dNear)) dNear = 0;
+                    var dFar, farClamped = false;
+                    if (aTop <= 1e-6) { dFar = range; farClamped = true; }      // brzeg po horyzont
+                    else {
+                        dFar = oz / Math.tan(aTop);
+                        if (dFar > range) { dFar = range; farClamped = true; }    // ucięte do zasięgu sensora
+                    }
+                    footprint = { dNear: dNear, dFar: dFar, farClamped: farClamped };
+                }
+
                 return { type: 'widok', ox: ox, oy: oy, fov: fov, range: range, dir: dirRad,
-                         dirMode: dirMode, dirValue: dirValue, targetTxt: targetTxt, label: label, markDist: markDist };
+                         dirMode: dirMode, dirValue: dirValue, targetTxt: targetTxt, label: label, markDist: markDist,
+                         oz: oz, fovV: fovV, tilt: theta, tiltMode: tiltMode, targetZ: targetZ, footprint: footprint };
             }
 
             return null;
@@ -3384,13 +3434,35 @@
             else if (geo.dirMode === 'azymut') dirTxt = 'azymut ' + formatNum(geo.dirValue) + '°';
             else dirTxt = 'kierunek ' + formatNum(geo.dirValue) + '°';
             var lines = [];
-            lines.push('📷 Pole widzenia ' + formatNum(geo.fov) + '° → ' + dirTxt);
-            lines.push('Montaż: (' + formatNum(geo.ox) + ', ' + formatNum(geo.oy) + '), zasięg ' + formatNum(geo.range));
-            if (geo.fov < 180) {
-                lines.push('Szerokość na wprost (na zasięgu): ' + formatNum(2 * geo.range * Math.tan(rad / 2)));
+            lines.push('📷 Pole widzenia (poziom) ' + formatNum(geo.fov) + '° → ' + dirTxt);
+            var mountTxt = 'Montaż: (' + formatNum(geo.ox) + ', ' + formatNum(geo.oy) + ')';
+            if (geo.oz > 0) mountTxt += ' na wys. ' + formatNum(geo.oz);
+            mountTxt += ', zasięg ' + formatNum(geo.range);
+            lines.push(mountTxt);
+
+            // Tryb przestrzenny: kamera podniesiona, znamy pochylenie i pionowy FOV → trapez na ziemi.
+            if (geo.footprint) {
+                var f = geo.footprint;
+                var pochSrc = geo.tiltMode === 'cel' ? ' (z celu)' : '';
+                lines.push('Pochylenie w dół: ' + formatNum(geo.tilt) + '°' + pochSrc + ', pionowy FOV ' + formatNum(geo.fovV) + '°');
+                lines.push('Pokrycie na ziemi: od ' + formatNum(f.dNear) + ' do ' + formatNum(f.dFar)
+                    + (f.farClamped ? ' (ucięte do zasięgu)' : '') + ' — głębokość ' + formatNum(f.dFar - f.dNear));
+                if (f.dNear > 0) lines.push('Martwa strefa pod kamerą: 0 – ' + formatNum(f.dNear));
+                if (geo.fov < 180) {
+                    lines.push('Szerokość sceny: bliski brzeg ' + formatNum(2 * f.dNear * Math.tan(rad / 2))
+                        + ', daleki brzeg ' + formatNum(2 * f.dFar * Math.tan(rad / 2)));
+                }
+                lines.push('Łuk pokrycia: bliski ' + formatNum(f.dNear * rad) + ', daleki ' + formatNum(f.dFar * rad));
+                lines.push('Pole pokrycia (wycinek pierścienia): ' + formatNum((f.dFar * f.dFar - f.dNear * f.dNear) * rad / 2));
+            } else {
+                if (geo.oz > 0 && (geo.tilt == null || !(geo.tilt > 0)))
+                    lines.push('ℹ️ Podaj pochył= (lub cel= na ziemi) oraz kątv=, by policzyć footprint na ziemi.');
+                if (geo.fov < 180) {
+                    lines.push('Szerokość na wprost (na zasięgu): ' + formatNum(2 * geo.range * Math.tan(rad / 2)));
+                }
+                lines.push('Pole pokrycia: ' + formatNum(0.5 * geo.range * geo.range * rad));
+                lines.push('Łuk na zasięgu: ' + formatNum(geo.range * rad));
             }
-            lines.push('Pole pokrycia: ' + formatNum(0.5 * geo.range * geo.range * rad));
-            lines.push('Łuk na zasięgu: ' + formatNum(geo.range * rad));
             if (geo.markDist > 0 && geo.fov < 180) {
                 lines.push('Na odległości ' + formatNum(geo.markDist) + ': szerokość ' + formatNum(2 * geo.markDist * Math.tan(rad / 2)));
             }
@@ -3473,6 +3545,19 @@
                 // Punkty tylko do dopasowania zakresu (wierzchołek + próbki łuku) — rysowane osobno.
                 var pts = [{ x: geo.ox, y: geo.oy, r: 0, label: '', _hidden: true }];
                 var half = geo.fov * Math.PI / 360;
+                // Tryb przestrzenny — dopasuj zakres do łuku dalekiego brzegu pokrycia.
+                if (geo.footprint) {
+                    var f = geo.footprint;
+                    var a0 = geo.dir - half, a1 = geo.dir + half;
+                    var samples = 10;
+                    for (var i = 0; i <= samples; i++) {
+                        var ang = a0 + (a1 - a0) * i / samples;
+                        pts.push({ x: parseFloat((geo.ox + f.dFar * Math.cos(ang)).toFixed(6)),
+                                   y: parseFloat((geo.oy + f.dFar * Math.sin(ang)).toFixed(6)),
+                                   r: 0, label: '', _hidden: true });
+                    }
+                    return pts;
+                }
                 var steps = 12;
                 for (var i = 0; i <= steps; i++) {
                     var a = geo.dir - half + (2 * half) * i / steps;
@@ -3648,23 +3733,66 @@
                     var apex = graphToScreen(geo.ox, geo.oy, bounds, w, h, pad);
                     var half = geo.fov * Math.PI / 360;
                     var steps = 64;
-                    // Wypełniony wycinek (wierzchołek → łuk → wierzchołek)
-                    ctx.beginPath();
-                    ctx.moveTo(apex.x, apex.y);
-                    for (var i = 0; i <= steps; i++) {
-                        var a = geo.dir - half + (2 * half) * i / steps;
-                        var pd = graphToScreen(geo.ox + geo.range * Math.cos(a), geo.oy + geo.range * Math.sin(a), bounds, w, h, pad);
-                        ctx.lineTo(pd.x, pd.y);
+                    var axisLen = geo.range; // dokąd sięga oś kierunku (na ekranie)
+                    if (geo.footprint) {
+                        // Pokrycie na ziemi jako wycinek pierścienia: łuk daleki (dFar) + łuk
+                        // bliski (dNear, granica martwej strefy) + promieniste boki. Łuki próbkowane
+                        // w danych (skale osi X/Y bywają różne), nie przez ctx.arc.
+                        var f = geo.footprint;
+                        var a0 = geo.dir - half, a1 = geo.dir + half;
+                        var arcSteps = 48;
+                        function gpolar(rad2, ang) {
+                            return graphToScreen(geo.ox + rad2 * Math.cos(ang), geo.oy + rad2 * Math.sin(ang), bounds, w, h, pad);
+                        }
+                        ctx.beginPath();
+                        for (var i = 0; i <= arcSteps; i++) {
+                            var ang = a0 + (a1 - a0) * i / arcSteps;
+                            var p = gpolar(f.dFar, ang);
+                            if (i === 0) ctx.moveTo(p.x, p.y); else ctx.lineTo(p.x, p.y);
+                        }
+                        if (f.dNear > 0) {
+                            for (var i = arcSteps; i >= 0; i--) {
+                                var ang = a0 + (a1 - a0) * i / arcSteps;
+                                var p = gpolar(f.dNear, ang);
+                                ctx.lineTo(p.x, p.y);
+                            }
+                        } else {
+                            ctx.lineTo(apex.x, apex.y);
+                        }
+                        ctx.closePath();
+                        ctx.fillStyle = color + '22';
+                        ctx.fill();
+                        ctx.strokeStyle = color; ctx.lineWidth = 2; ctx.setLineDash([]);
+                        ctx.stroke();
+                        // Martwa strefa pod kamerą — delikatne promieniste linie od kamery do bliskiego łuku.
+                        if (f.dNear > 0) {
+                            ctx.setLineDash([3, 3]); ctx.lineWidth = 1; ctx.strokeStyle = color + '99';
+                            ctx.beginPath();
+                            ctx.moveTo(apex.x, apex.y); var pnL = gpolar(f.dNear, a0); ctx.lineTo(pnL.x, pnL.y);
+                            ctx.moveTo(apex.x, apex.y); var pnR = gpolar(f.dNear, a1); ctx.lineTo(pnR.x, pnR.y);
+                            ctx.stroke();
+                            ctx.setLineDash([]);
+                        }
+                        axisLen = f.dFar;
+                    } else {
+                        // Wypełniony wycinek (wierzchołek → łuk → wierzchołek)
+                        ctx.beginPath();
+                        ctx.moveTo(apex.x, apex.y);
+                        for (var i = 0; i <= steps; i++) {
+                            var a = geo.dir - half + (2 * half) * i / steps;
+                            var pd = graphToScreen(geo.ox + geo.range * Math.cos(a), geo.oy + geo.range * Math.sin(a), bounds, w, h, pad);
+                            ctx.lineTo(pd.x, pd.y);
+                        }
+                        ctx.closePath();
+                        ctx.fillStyle = color + '22';
+                        ctx.fill();
+                        ctx.strokeStyle = color;
+                        ctx.lineWidth = 2;
+                        ctx.setLineDash([]);
+                        ctx.stroke();
                     }
-                    ctx.closePath();
-                    ctx.fillStyle = color + '22';
-                    ctx.fill();
-                    ctx.strokeStyle = color;
-                    ctx.lineWidth = 2;
-                    ctx.setLineDash([]);
-                    ctx.stroke();
                     // Oś kierunku (przerywana)
-                    var axisEnd = graphToScreen(geo.ox + geo.range * Math.cos(geo.dir), geo.oy + geo.range * Math.sin(geo.dir), bounds, w, h, pad);
+                    var axisEnd = graphToScreen(geo.ox + axisLen * Math.cos(geo.dir), geo.oy + axisLen * Math.sin(geo.dir), bounds, w, h, pad);
                     ctx.setLineDash([5, 4]);
                     ctx.lineWidth = 1;
                     ctx.beginPath(); ctx.moveTo(apex.x, apex.y); ctx.lineTo(axisEnd.x, axisEnd.y); ctx.stroke();
@@ -3691,10 +3819,10 @@
                         ctx.fillText(wTxt, mC.x, mC.y);
                     }
                     // Etykieta kąta przy wierzchołku
-                    var midA = graphToScreen(geo.ox + geo.range * 0.34 * Math.cos(geo.dir), geo.oy + geo.range * 0.34 * Math.sin(geo.dir), bounds, w, h, pad);
+                    var midA = graphToScreen(geo.ox + axisLen * 0.34 * Math.cos(geo.dir), geo.oy + axisLen * 0.34 * Math.sin(geo.dir), bounds, w, h, pad);
                     ctx.font = '600 11px ' + getComputedStyle(document.body).fontFamily;
                     ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-                    var angLabel = formatNum(geo.fov) + '°';
+                    var angLabel = formatNum(geo.fov) + '°' + (geo.footprint ? '↔ ' + formatNum(geo.fovV) + '°↕' : '');
                     var twA = ctx.measureText(angLabel).width + 6;
                     ctx.fillStyle = 'rgba(255,255,255,0.85)';
                     ctx.fillRect(midA.x - twA / 2, midA.y - 8, twA, 16);
@@ -3707,7 +3835,9 @@
                     ctx.fillStyle = '#0f172a';
                     ctx.font = '700 10px ' + getComputedStyle(document.body).fontFamily;
                     ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
-                    ctx.fillText(geo.label || '📷', apex.x, apex.y - 9);
+                    var camTxt = geo.label || '📷';
+                    if (geo.oz > 0) camTxt += ' ↑' + formatNum(geo.oz);
+                    ctx.fillText(camTxt, apex.x, apex.y - 9);
                 }
 
                 // Narysuj punkty
@@ -3741,6 +3871,12 @@
                     ctx.fillStyle = '#0f172a';
                     ctx.font = '700 10px ' + getComputedStyle(document.body).fontFamily;
                     ctx.fillText(txt, p.x, p.y - radius - 3);
+                    // Plakietka wysokości (oś z) — figura/punkt nad płaszczyzną rzutu z góry.
+                    if (geo.oz) {
+                        ctx.font = '600 9px ' + getComputedStyle(document.body).fontFamily;
+                        ctx.fillStyle = '#7c3aed';
+                        ctx.fillText('▲z=' + formatNum(geo.oz), p.x, p.y - radius - 14);
+                    }
                     ctx.fillStyle = color;
                 });
             });

@@ -116,10 +116,12 @@
                 title: 'Pole widzenia (kamera / czujnik / reflektor)',
                 items: [
                     { syntax: 'kamera=x,y {PIPE} kąt=K {PIPE} zasięg=Z', command: 'kamera=0,0 {PIPE} kąt=110 {PIPE} zasięg=15', description: 'rysuje stożek (wycinek) widzenia. x,y = miejsce montażu, K = kąt widzenia (°), Z = zasięg. Aliasy: widok=, fov=.' },
-                    { syntax: 'cel=x,y', command: 'kamera=0,0 {PIPE} kąt=110 {PIPE} zasięg=15 {PIPE} cel=10,8', description: 'kierunek przez wycelowanie w PUNKT (np. brama). Najpraktyczniejsze — nie musisz liczyć stopni.' },
+                    { syntax: 'cel=x,y  (lub cel=x,y,z)', command: 'kamera=0,0 {PIPE} kąt=110 {PIPE} zasięg=15 {PIPE} cel=10,8', description: 'kierunek przez wycelowanie w PUNKT (np. brama). Najpraktyczniejsze — nie musisz liczyć stopni. Opcjonalnie 3. liczba = wysokość celu (z): razem z z= kamery wyznacza pochylenie w pionie (np. cel w okno: cel=10,8,2).' },
                     { syntax: 'azymut=A', command: 'kamera=0,0 {PIPE} kąt=90 {PIPE} azymut=135', description: 'kierunek jak na kompasie: 0°=góra (płn.), 90°=prawo, zgodnie z zegarem.' },
                     { syntax: 'kierunek=A', command: 'kamera=0,0 {PIPE} kąt=90 {PIPE} kierunek=45', description: 'kierunek matematyczny: 0°=w prawo (+X), rośnie przeciwnie do zegara.' },
                     { syntax: 'na=D', command: 'kamera=0,0 {PIPE} kąt=110 {PIPE} zasięg=15 {PIPE} na=5', description: 'D = odległość od kamery — rysuje poprzeczną linię granic i podpisuje szerokość pola w tym miejscu.' },
+                    { syntax: 'z=H {PIPE} kątv=V', command: 'kamera=0,0 {PIPE} kąt=105 {PIPE} kątv=60 {PIPE} zasięg=30 {PIPE} z=4 {PIPE} cel=-1.5,10', description: 'kamera na WYSOKOŚCI. z=H = wysokość montażu, kątv=V = kąt widzenia w pionie. Zamiast wycinka koła rysuje realny obszar na ziemi (trapez) z martwą strefą pod kamerą. Aliasy: z=, wys=. Pionowy: kątv=, pion=.' },
+                    { syntax: 'pochył=P', command: 'kamera=0,0 {PIPE} kąt=90 {PIPE} kątv=40 {PIPE} z=4 {PIPE} pochył=30 {PIPE} zasięg=25', description: 'pochylenie osi w dół w stopniach (0=poziomo, 90=prosto w dół). Jeśli pominiesz, a podasz z= i cel= na ziemi — policzę je sam. Aliasy: pochył=, tilt=.' },
                 ],
             },
             {
