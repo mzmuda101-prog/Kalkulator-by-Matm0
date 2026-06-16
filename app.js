@@ -3299,9 +3299,9 @@
                 parts.slice(1).forEach(function(p) {
                     var pl = p.toLowerCase();
                     var val = p.split('=').slice(1).join('=').trim();
-                    if (/^(k[aą]tv|katv|k[aą]t_pion|fovv|fov_v|pion)=/.test(pl)) {
+                    if (/^(k[aą]tz|katz|k[aą]t_pion|k[aą]t_pionowy|kat_pion|kat_pionowy|fovv|fov_v|vfov|pion)=/.test(pl)) {
                         fovV = Math.abs(parseGraphNumber(val, 0));
-                    } else if (/^(k[aą]t|kat|fov|angle)=/.test(pl)) {
+                    } else if (/^(k[aą]t|kat|k[aą]txy|katxy|k[aą]t_poziomy|kat_poziomy|k[aą]t_poz|kat_poz|fov|hfov|fov_h|angle)=/.test(pl)) {
                         fov = Math.abs(parseGraphNumber(val, 90));
                     } else if (/^(pochy[lł]|pochylenie|tilt|sp[aą]d|wd[oó][lł])=/.test(pl)) {
                         tilt = parseGraphNumber(val, 0); tiltMode = 'jawny';
@@ -3478,8 +3478,12 @@
                 lines.push('Łuk pokrycia: bliski ' + formatNum(f.dNear * rad) + ', daleki ' + formatNum(f.dFar * rad));
                 lines.push('Pole pokrycia (wycinek pierścienia): ' + formatNum((f.dFar * f.dFar - f.dNear * f.dNear) * rad / 2));
             } else {
-                if (geo.oz > 0 && (geo.tilt == null || !(geo.tilt > 0)))
-                    lines.push('ℹ️ Podaj pochył= (lub cel= na ziemi) oraz kątv=, by policzyć footprint na ziemi.');
+                if (geo.oz > 0) {
+                    if (!(geo.fovV > 0))
+                        lines.push('ℹ️ Dodaj kąt_pionowy= (lub kątZ=), by zobaczyć martwą strefę i pokrycie na ziemi.');
+                    else
+                        lines.push('ℹ️ Dodaj cel= na ziemi lub pochył=, by policzyć pokrycie na ziemi.');
+                }
                 if (geo.fov < 180) {
                     lines.push('Szerokość na wprost (na zasięgu): ' + formatNum(2 * geo.range * Math.tan(rad / 2)));
                 }

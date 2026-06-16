@@ -120,8 +120,8 @@
                     { syntax: 'azymut=A', command: 'kamera=0,0 {PIPE} kąt=90 {PIPE} azymut=135', description: 'kierunek jak na kompasie: 0°=góra (płn.), 90°=prawo, zgodnie z zegarem.' },
                     { syntax: 'kierunek=A', command: 'kamera=0,0 {PIPE} kąt=90 {PIPE} kierunek=45', description: 'kierunek matematyczny: 0°=w prawo (+X), rośnie przeciwnie do zegara.' },
                     { syntax: 'na=D', command: 'kamera=0,0 {PIPE} kąt=110 {PIPE} zasięg=15 {PIPE} na=5', description: 'D = odległość od kamery — rysuje poprzeczną linię granic i podpisuje szerokość pola w tym miejscu.' },
-                    { syntax: 'z=H {PIPE} kątv=V', command: 'kamera=0,0 {PIPE} kąt=105 {PIPE} kątv=60 {PIPE} zasięg=30 {PIPE} z=4 {PIPE} cel=-1.5,10', description: 'kamera na WYSOKOŚCI. z=H = wysokość montażu, kątv=V = kąt widzenia w pionie. Zamiast wycinka koła rysuje realny obszar na ziemi (trapez) z martwą strefą pod kamerą. Aliasy: z=, wys=. Pionowy: kątv=, pion=.' },
-                    { syntax: 'pochył=P', command: 'kamera=0,0 {PIPE} kąt=90 {PIPE} kątv=40 {PIPE} z=4 {PIPE} pochył=30 {PIPE} zasięg=25', description: 'pochylenie osi w dół w stopniach (0=poziomo, 90=prosto w dół). Jeśli pominiesz, a podasz z= i cel= na ziemi — policzę je sam. Aliasy: pochył=, tilt=.' },
+                    { syntax: 'z=H {PIPE} kąt_pionowy=V', command: 'kamera=0,0 {PIPE} kąt=105 {PIPE} kąt_pionowy=60 {PIPE} zasięg=30 {PIPE} z=4 {PIPE} cel=-1.5,10', description: 'kamera na WYSOKOŚCI. z=H = wysokość montażu, kąt pionowy = kąt widzenia w pionie. Zamiast wycinka koła rysuje realny obszar na ziemi (wycinek pierścienia) z niewypełnioną martwą strefą pod kamerą. Wysokość: z=, wys=. Kąt poziomy: kąt=, kąt_poziomy=, kątXY=, hfov=. Kąt pionowy: kąt_pionowy=, kątZ=, vfov=.' },
+                    { syntax: 'pochył=P', command: 'kamera=0,0 {PIPE} kąt=90 {PIPE} kąt_pionowy=40 {PIPE} z=4 {PIPE} pochył=30 {PIPE} zasięg=25', description: 'pochylenie osi w dół w stopniach (0=poziomo, 90=prosto w dół). Jeśli pominiesz, a podasz z= i cel= na ziemi — policzę je sam. Aliasy: pochył=, tilt=.' },
                 ],
             },
             {
