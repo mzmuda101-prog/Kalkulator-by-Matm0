@@ -2507,7 +2507,6 @@
                 serIdx++;
                 return '<span class="' + cls + '">' + inner + '</span>';
             }).join('');
-            graphCommand.classList.toggle('hl-on', text.length > 0);
             graphCommandHL.scrollTop = graphCommand.scrollTop;
             graphCommandHL.scrollLeft = graphCommand.scrollLeft;
         }
@@ -2816,11 +2815,18 @@
         // za dużym. Przy oddaleniu drugorzędne podpisy są chowane (mniej tłoku).
         var graphLabelScale = 1;
         var showLabelDetail = true;
+        var labelDetailLevel = 1;   // 0 = z daleka (mniej), 1 = normalnie, 2 = z bliska (więcej)
         var graphLastZoomRendered = 1, graphLabelRedrawTimer = null;
         function computeLabelScale() {
             var z = (typeof graphZoomState !== 'undefined' && graphZoomState && graphZoomState.scale) ? graphZoomState.scale : 1;
             graphLabelScale = Math.max(0.62, Math.min(1.7, 1 / z));
-            showLabelDetail = z >= 0.82;
+            var fs = (typeof isGraphFsMode !== 'undefined' && isGraphFsMode);
+            var compact = !fs && (typeof window !== 'undefined') &&
+                ((window.matchMedia && window.matchMedia('(pointer: coarse)').matches) || window.innerWidth < 620);
+            // „Więcej" pokazujemy tylko na pełnym ekranie (jest miejsce). Poza nim: poziom 1
+            // (a na mobilkach/wąsko drugorzędne podpisy dopiero gdy nie ma tłoku). Oddalony = mniej.
+            labelDetailLevel = z < 0.82 ? 0 : (fs ? 2 : 1);
+            showLabelDetail = fs ? true : (compact ? (labelDetailLevel >= 2) : (labelDetailLevel >= 1));
         }
         function lblFont(weight, px) {
             var size = Math.max(8, Math.round(px * graphLabelScale));
@@ -3879,6 +3885,18 @@
                             ctx.moveTo(apex.x, apex.y); ctx.lineTo(sNB.x, sNB.y);
                             ctx.stroke();
                             ctx.setLineDash([]);
+                            // Poziom 2 (z bliska) — podpis martwej strefy na bliskim brzegu.
+                            if (labelDetailLevel >= 2) {
+                                var nm = gs({ x: (f.nA.x + f.nB.x) / 2, y: (f.nA.y + f.nB.y) / 2 });
+                                var dzTxt = 'martwa ' + formatNum(Math.round(f.dNear * 10) / 10);
+                                ctx.font = lblFont('600', 9);
+                                ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+                                var dzw = ctx.measureText(dzTxt).width + 6;
+                                ctx.fillStyle = 'rgba(255,255,255,0.55)';
+                                ctx.fillRect(nm.x - dzw / 2, nm.y - Math.round(7 * graphLabelScale), dzw, Math.round(14 * graphLabelScale));
+                                ctx.fillStyle = color;
+                                ctx.fillText(dzTxt, nm.x, nm.y);
+                            }
                         }
                         axisLen = f.dFar;
                     } else {
@@ -3940,12 +3958,17 @@
                     ctx.beginPath(); ctx.arc(apex.x, apex.y, 6, 0, Math.PI * 2);
                     ctx.fillStyle = color; ctx.fill();
                     ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5; ctx.stroke();
-                    ctx.fillStyle = '#0f172a';
                     ctx.font = lblFont('700', 10);
                     ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
                     var camTxt = geo.label || '📷';
                     if (geo.oz > 0) camTxt += ' ↑' + formatNum(geo.oz);
-                    ctx.fillText(camTxt, apex.x, apex.y - 9 - lblStagger);
+                    var camY = apex.y - 11 - lblStagger;
+                    var camFontPx = Math.max(8, Math.round(10 * graphLabelScale));
+                    var camW = ctx.measureText(camTxt).width + 6;
+                    ctx.fillStyle = 'rgba(255,255,255,0.55)';   // podkładka — oddziela ikonę/tekst od innych etykiet
+                    ctx.fillRect(apex.x - camW / 2, camY - camFontPx - 2, camW, camFontPx + 4);
+                    ctx.fillStyle = '#0f172a';
+                    ctx.fillText(camTxt, apex.x, camY);
 
                     // Znacznik celu — żeby od razu było widać, gdzie kamera celuje (bez zgadywania z siatki).
                     if (geo.targetX != null && geo.targetY != null) {
@@ -4001,6 +4024,14 @@
                         ctx.font = lblFont('600', 9);
                         ctx.fillStyle = '#7c3aed';
                         ctx.fillText('▲z=' + formatNum(geo.oz), p.x, p.y - radius - 14);
+                    }
+                    // Poziom 2 (z bliska) — współrzędne pod punktem (tylko dla pojedynczych punktów).
+                    if (labelDetailLevel >= 2 && geo.type === 'punkt') {
+                        ctx.textBaseline = 'top';
+                        ctx.font = lblFont('600', 8);
+                        ctx.fillStyle = '#64748b';
+                        ctx.fillText('(' + formatNum(pt.x) + ', ' + formatNum(pt.y) + ')', p.x, p.y + radius + 3);
+                        ctx.textBaseline = 'bottom';
                     }
                     ctx.fillStyle = color;
                 });
