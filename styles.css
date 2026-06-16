@@ -681,7 +681,8 @@
             letter-spacing: 0.03em;
         }
         .input-group input,
-        .input-group select {
+        .input-group select,
+        .input-group textarea {
             width: 100%;
             padding: 12px 14px;
             border: 1.5px solid var(--border);
@@ -696,11 +697,23 @@
             min-height: 48px;
         }
         .input-group input:focus,
-        .input-group select:focus {
+        .input-group select:focus,
+        .input-group textarea:focus {
             outline: none;
             border-color: var(--border-focus);
             box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
             background: #fff;
+        }
+        /* Pole komendy — wyższe, z zawijaniem długiego tekstu i scrollem jako fallback */
+        #graphCommand {
+            display: block;
+            min-height: 60px;
+            max-height: 132px;
+            overflow-y: auto;
+            resize: vertical;
+            line-height: 1.45;
+            white-space: pre-wrap;
+            word-break: break-word;
         }
         .input-group input:disabled {
             opacity: 0.55;

@@ -4287,7 +4287,11 @@
 
         graphDrawBtn.addEventListener('click', updateGraph);
         graphCommand.addEventListener('keydown', function(e) {
-            if (e.key === 'Enter') {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                // Otwarte podpowiedzi — Enter wybiera sugestię (obsługuje autouzupełnianie), nie uruchamiaj
+                var ac = document.getElementById('graphCommandAC');
+                if (ac && ac.classList.contains('open')) return;
+                e.preventDefault(); // textarea: nie wstawiaj nowej linii, tylko uruchom
                 updateGraph();
             }
         });
