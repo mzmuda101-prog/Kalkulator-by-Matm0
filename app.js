@@ -3437,14 +3437,22 @@
                     }
                     var nA = groundCorner(-1, -1), nB = groundCorner(1, -1);    // bliski brzeg (dół kadru)
                     var fA = groundCorner(-1, 1), fB = groundCorner(1, 1);      // daleki brzeg (góra kadru)
-                    var farArc = fA.clamped || fB.clamped;                       // łuk tylko gdy ogranicza zasięg
+                    // Daleki brzeg jako wierna krzywa rzutu: próbkujemy górną krawędź kadru (sv=+1)
+                    // w poprzek poziomego FOV i rzutujemy każdy promień na ziemię. Punkty obcięte
+                    // zasięgiem siadają na okręgu zasięgu (łuk), reszta na prawdziwej krzywej rzutu
+                    // (perspektywa wybrzusza brzeg). Jeden łańcuch obsługuje keystone, łuk i mieszane.
+                    var FAR_STEPS = 32;
+                    var farEdge = [];                                            // od fA (sh=-1) do fB (sh=+1)
+                    for (var fe = 0; fe <= FAR_STEPS; fe++) farEdge.push(groundCorner(-1 + 2 * fe / FAR_STEPS, 1));
+                    var farArc = fA.clamped || fB.clamped;                       // czy daleki brzeg dotyka zasięgu
                     var nearWidth = Math.hypot(nB.x - nA.x, nB.y - nA.y);
                     var farWidth = Math.hypot(fB.x - fA.x, fB.y - fA.y);
-                    var poly = [nA, nB, fB, fA], area2 = 0;                      // pole — wzór Gaussa (shoelace)
-                    for (var qi = 0; qi < 4; qi++) { var q1 = poly[qi], q2 = poly[(qi + 1) % 4]; area2 += q1.x * q2.y - q2.x * q1.y; }
+                    // Pole — wzór Gaussa (shoelace) po wiernym wielokącie: bliski brzeg + krzywy daleki.
+                    var poly = [nA, nB].concat(farEdge.slice().reverse()), area2 = 0;
+                    for (var qi = 0; qi < poly.length; qi++) { var q1 = poly[qi], q2 = poly[(qi + 1) % poly.length]; area2 += q1.x * q2.y - q2.x * q1.y; }
 
                     footprint = { dNear: dNear, dFar: dFar, farClamped: farClamped,
-                                  nA: nA, nB: nB, fA: fA, fB: fB, farArc: farArc, range: range,
+                                  nA: nA, nB: nB, fA: fA, fB: fB, farEdge: farEdge, farArc: farArc, range: range,
                                   nearWidth: nearWidth, farWidth: farWidth, area: Math.abs(area2) / 2 };
                 }
 
@@ -3861,16 +3869,15 @@
                         ctx.beginPath();
                         ctx.moveTo(sNA.x, sNA.y);
                         ctx.lineTo(sNB.x, sNB.y);        // bliski brzeg (prosty)
-                        ctx.lineTo(sFB.x, sFB.y);        // bok B (prosty)
-                        if (f.farArc) {                  // daleki brzeg — łuk zasięgu
-                            var arcSteps = 48;
-                            for (var i = 1; i <= arcSteps; i++) {
-                                var ang = f.fB.az + (f.fA.az - f.fB.az) * i / arcSteps;
-                                var pa = graphToScreen(geo.ox + f.range * Math.cos(ang), geo.oy + f.range * Math.sin(ang), bounds, w, h, pad);
-                                ctx.lineTo(pa.x, pa.y);
+                        // bok B + wierny daleki brzeg (krzywa rzutu fB→fA) + bok A; closePath domyka do nA.
+                        if (f.farEdge && f.farEdge.length) {
+                            for (var fi = f.farEdge.length - 1; fi >= 0; fi--) {
+                                var pe = gs(f.farEdge[fi]);
+                                ctx.lineTo(pe.x, pe.y);
                             }
                         } else {
-                            ctx.lineTo(sFA.x, sFA.y);    // daleki brzeg (prosty)
+                            ctx.lineTo(sFB.x, sFB.y);    // bok B (prosty)
+                            ctx.lineTo(sFA.x, sFA.y);    // daleki brzeg (prosty) — awaryjnie
                         }
                         ctx.closePath();                 // bok A z powrotem do bliskiego brzegu
                         ctx.fillStyle = color + '22';
