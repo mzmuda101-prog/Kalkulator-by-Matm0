@@ -1743,7 +1743,7 @@
                     prevLabelEnd[rowIdx] = x + textWidth / 2;
 
                     // [EN] Label background (semi-transparent for readability)
-                    ctx.fillStyle = 'rgba(255, 255, 255, 0.85)';
+                    ctx.fillStyle = 'rgba(255, 255, 255, 0.55)';
                     ctx.fillRect(x - textWidth / 2 - 2, labelY - 10, textWidth + 4, 16);
                     ctx.fillStyle = labelColor;
                     ctx.textAlign = 'center';
@@ -1913,7 +1913,7 @@
                     ctx.lineTo(labelX - 4, y);
                     ctx.stroke();
 
-                    ctx.fillStyle = 'rgba(255, 255, 255, 0.85)';
+                    ctx.fillStyle = 'rgba(255, 255, 255, 0.55)';
                     ctx.fillRect(labelX - 4, labelYCenter - 8, ctx.measureText(labelText + ' ' + unit).width + 10, 16);
                     ctx.fillStyle = labelColor;
                     ctx.textAlign = 'left';
@@ -3669,7 +3669,7 @@
                             var len = Math.hypot(nx.x - pt.x, nx.y - pt.y);
                             var midData = { x: (pt.x + nx.x) / 2, y: (pt.y + nx.y) / 2 };
                             var midScr = graphToScreen(midData.x, midData.y, bounds, w, h, pad);
-                            ctx.fillStyle = 'rgba(255,255,255,0.85)';
+                            ctx.fillStyle = 'rgba(255,255,255,0.55)';
                             var tw = ctx.measureText(formatNum(len)).width + 6;
                             ctx.fillRect(midScr.x - tw / 2, midScr.y - 7, tw, 14);
                             ctx.fillStyle = color;
@@ -3708,7 +3708,7 @@
                         var nScr = P[(i + 1) % 3];
                         var mx = (pScr.x + nScr.x) / 2, my = (pScr.y + nScr.y) / 2;
                         var label = formatNum(analysis.sides[i]);
-                        ctx.fillStyle = 'rgba(255,255,255,0.88)';
+                        ctx.fillStyle = 'rgba(255,255,255,0.55)';
                         var tw = ctx.measureText(label).width + 6;
                         ctx.fillRect(mx - tw / 2, my - 8, tw, 16);
                         ctx.fillStyle = color;
@@ -3723,7 +3723,7 @@
                         var d = Math.hypot(dx, dy) || 1;
                         var lx = vScr.x + (dx / d) * 24, ly = vScr.y + (dy / d) * 24;
                         var txt = (analysis.rightVertex === i ? '90°' : formatNum(analysis.angles[i]) + '°');
-                        ctx.fillStyle = 'rgba(255,255,255,0.88)';
+                        ctx.fillStyle = 'rgba(255,255,255,0.55)';
                         var tw = ctx.measureText(txt).width + 6;
                         ctx.fillRect(lx - tw / 2, ly - 7, tw, 14);
                         ctx.fillStyle = analysis.rightVertex === i ? '#dc2626' : '#475569';
@@ -3843,7 +3843,7 @@
                         ctx.font = '600 10px ' + getComputedStyle(document.body).fontFamily;
                         ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
                         var twW = ctx.measureText(wTxt).width + 6;
-                        ctx.fillStyle = 'rgba(255,255,255,0.85)';
+                        ctx.fillStyle = 'rgba(255,255,255,0.55)';
                         ctx.fillRect(mC.x - twW / 2, mC.y - 8, twW, 16);
                         ctx.fillStyle = color;
                         ctx.fillText(wTxt, mC.x, mC.y);
@@ -3854,7 +3854,7 @@
                     ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
                     var angLabel = formatNum(geo.fov) + '°' + (geo.footprint ? '↔ ' + formatNum(geo.fovV) + '°↕' : '');
                     var twA = ctx.measureText(angLabel).width + 6;
-                    ctx.fillStyle = 'rgba(255,255,255,0.85)';
+                    ctx.fillStyle = 'rgba(255,255,255,0.55)';
                     ctx.fillRect(midA.x - twA / 2, midA.y - 8, twA, 16);
                     ctx.fillStyle = color;
                     ctx.fillText(angLabel, midA.x, midA.y);
