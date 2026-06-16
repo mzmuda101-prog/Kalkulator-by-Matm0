@@ -1410,7 +1410,7 @@
             var h = dims.h;
             ctx.clearRect(0, 0, w, h);
             ctx.fillStyle = '#94a3b8';
-            ctx.font = '600 16px ' + getComputedStyle(document.body).fontFamily;
+            ctx.font = lblFont('600', 16);
             ctx.textAlign = 'center';
             ctx.fillText('⚠️ Nieprawidłowe dane', w / 2, h / 2);
         }
@@ -1460,7 +1460,7 @@
 
             // Etykiety 0 i L pod belką
             ctx.fillStyle = '#94a3b8';
-            ctx.font = '10px ' + getComputedStyle(document.body).fontFamily;
+            ctx.font = lblFont('', 10);
             ctx.textBaseline = 'top'; ctx.textAlign = 'center';
             ctx.fillText('0', PAD_L, axisY + beamH / 2 + 4);
             ctx.fillText(formatNum(L) + ' ' + unit, PAD_L + drawW, axisY + beamH / 2 + 4);
@@ -1516,7 +1516,7 @@
                         ctx.beginPath(); ctx.moveTo(x2 - 2, spacingY); ctx.lineTo(x2 - 7, spacingY - 3); ctx.lineTo(x2 - 7, spacingY + 3); ctx.closePath(); ctx.fill();
                         // Etykieta odstępu
                         ctx.fillStyle = color;
-                        ctx.font = '600 9px ' + getComputedStyle(document.body).fontFamily;
+                        ctx.font = lblFont('600', 9);
                         ctx.textAlign = 'center'; ctx.textBaseline = above ? 'bottom' : 'top';
                         ctx.fillText(formatNum(gap), midX, spacingY + (above ? -2 : 2));
                     }
@@ -1550,7 +1550,7 @@
 
                     // Wartość pozycji pod/nad kółkiem
                     ctx.fillStyle = '#0f172a';
-                    ctx.font = '600 10px ' + getComputedStyle(document.body).fontFamily;
+                    ctx.font = lblFont('600', 10);
                     ctx.textAlign = 'center';
                     ctx.textBaseline = above ? 'bottom' : 'top';
                     ctx.fillText(formatNum(pt.x !== undefined ? pt.x : pt) + ' ' + unit,
@@ -1561,7 +1561,7 @@
                 var legendX = PAD_L + si * 110;
                 ctx.beginPath(); ctx.arc(legendX + 6, 16, 5, 0, Math.PI * 2);
                 ctx.fillStyle = color; ctx.fill();
-                ctx.fillStyle = '#1e293b'; ctx.font = '600 11px ' + getComputedStyle(document.body).fontFamily;
+                ctx.fillStyle = '#1e293b'; ctx.font = lblFont('600', 11);
                 ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
                 ctx.fillText(series.label || ('Seria ' + (si + 1)), legendX + 14, 16);
             });
@@ -1641,7 +1641,7 @@
                     ctx.fillRect(boardLeft, boardTop, msX - boardLeft, boardThickness);
                     // [EN] Margin label
                     ctx.fillStyle = dimColor;
-                    ctx.font = '600 11px ' + getComputedStyle(document.body).fontFamily;
+                    ctx.font = lblFont('600', 11);
                     ctx.textAlign = 'center';
                     ctx.fillText(formatNum(marginStart) + ' ' + unit, boardLeft + (msX - boardLeft) / 2, boardTop - 10);
                     // [EN] Dashed line at margin end
@@ -1659,7 +1659,7 @@
                     ctx.fillStyle = marginColor;
                     ctx.fillRect(meX, boardTop, boardRight - meX, boardThickness);
                     ctx.fillStyle = dimColor;
-                    ctx.font = '600 11px ' + getComputedStyle(document.body).fontFamily;
+                    ctx.font = lblFont('600', 11);
                     ctx.textAlign = 'center';
                     ctx.fillText(formatNum(marginEnd) + ' ' + unit, meX + (boardRight - meX) / 2, boardTop - 10);
                     ctx.setLineDash([4, 3]);
@@ -1686,7 +1686,7 @@
                 drawArrow(ctx, boardRight, dimY, 'right');
                 // [EN] Total length label above dimension line
                 ctx.fillStyle = labelColor;
-                ctx.font = '700 12px ' + getComputedStyle(document.body).fontFamily;
+                ctx.font = lblFont('700', 12);
                 ctx.textAlign = 'center';
                 ctx.fillText(formatNum(totalLength) + ' ' + unit, (boardLeft + boardRight) / 2, dimY - 10);
 
@@ -1728,7 +1728,7 @@
 
                     // [EN] Label text
                     var labelText = formatNum(pos);
-                    ctx.font = '600 11px ' + getComputedStyle(document.body).fontFamily;
+                    ctx.font = lblFont('600', 11);
                     var textWidth = ctx.measureText(labelText + ' ' + unit).width + 8;
 
                     // [EN] Pick best row to avoid overlap
@@ -1803,7 +1803,7 @@
                     ctx.fillStyle = marginColor;
                     ctx.fillRect(boardLeftV, boardTopV, boardThicknessV, msY - boardTopV);
                     ctx.fillStyle = dimColor;
-                    ctx.font = '600 11px ' + getComputedStyle(document.body).fontFamily;
+                    ctx.font = lblFont('600', 11);
                     ctx.textAlign = 'right';
                     ctx.fillText(formatNum(marginStart) + ' ' + unit, boardLeftV - 12, boardTopV + (msY - boardTopV) / 2 + 4);
                     ctx.setLineDash([4, 3]);
@@ -1820,7 +1820,7 @@
                     ctx.fillStyle = marginColor;
                     ctx.fillRect(boardLeftV, meY, boardThicknessV, boardBottomV - meY);
                     ctx.fillStyle = dimColor;
-                    ctx.font = '600 11px ' + getComputedStyle(document.body).fontFamily;
+                    ctx.font = lblFont('600', 11);
                     ctx.textAlign = 'right';
                     ctx.fillText(formatNum(marginEnd) + ' ' + unit, boardLeftV - 12, meY + (boardBottomV - meY) / 2 + 4);
                     ctx.setLineDash([4, 3]);
@@ -1847,7 +1847,7 @@
                 // [EN] Total length label
                 ctx.save();
                 ctx.fillStyle = labelColor;
-                ctx.font = '700 12px ' + getComputedStyle(document.body).fontFamily;
+                ctx.font = lblFont('700', 12);
                 ctx.textAlign = 'left';
                 ctx.translate(dimX + 12, (boardTopV + boardBottomV) / 2);
                 ctx.rotate(0);
@@ -1891,7 +1891,7 @@
 
                     // [EN] Label
                     var labelText = formatNum(pos);
-                    ctx.font = '600 11px ' + getComputedStyle(document.body).fontFamily;
+                    ctx.font = lblFont('600', 11);
                     var textHeight = 14;
                     var labelYCenter = y;
 
@@ -2810,6 +2810,23 @@
         var GRAPH_PAD = 46;
         var GRAPH_LOGICAL_W = 900, GRAPH_LOGICAL_H = 520;
 
+        // [EN] Smart-tekst etykiet wizualizacji: jeden współczynnik skali + flaga szczegółu.
+        // Przy zbliżeniu (zoom CSS) font logiczny maleje → etykiety zostają tej samej, czytelnej
+        // wielkości na ekranie (zoom realnie pomaga czytać tłok). Limity chronią przed za małym/
+        // za dużym. Przy oddaleniu drugorzędne podpisy są chowane (mniej tłoku).
+        var graphLabelScale = 1;
+        var showLabelDetail = true;
+        var graphLastZoomRendered = 1, graphLabelRedrawTimer = null;
+        function computeLabelScale() {
+            var z = (typeof graphZoomState !== 'undefined' && graphZoomState && graphZoomState.scale) ? graphZoomState.scale : 1;
+            graphLabelScale = Math.max(0.62, Math.min(1.7, 1 / z));
+            showLabelDetail = z >= 0.82;
+        }
+        function lblFont(weight, px) {
+            var size = Math.max(8, Math.round(px * graphLabelScale));
+            return (weight ? weight + ' ' : '') + size + 'px ' + getComputedStyle(document.body).fontFamily;
+        }
+
         // [EN] HiDPI/retina: bufor canvasa = logiczny rozmiar × skala (devicePixelRatio
         // z lekkim supersamplingiem), a kontekst skalujemy. Dzięki temu twarde piksele
         // kodu (pad, fonty, grubości linii) pozostają logiczne, a obraz jest ostry —
@@ -2825,6 +2842,7 @@
             var H = Math.round(canvas._logicalH * scale);
             if (canvas.width !== W || canvas.height !== H) { canvas.width = W; canvas.height = H; }
             ctx.setTransform(scale, 0, 0, scale, 0, 0);
+            computeLabelScale();   // skala etykiet aktualna przed każdym malowaniem canvasa
             return { w: canvas._logicalW, h: canvas._logicalH };
         }
 
@@ -2834,6 +2852,7 @@
             var w = dims.w;
             var h = dims.h;
             var pad = GRAPH_PAD;
+            computeLabelScale();
             ctx.clearRect(0, 0, w, h);
             ctx.fillStyle = '#f8fafc';
             ctx.fillRect(0, 0, w, h);
@@ -2846,7 +2865,7 @@
             ctx.lineWidth = 1;
             ctx.strokeStyle = '#e2e8f0';
             ctx.fillStyle = '#64748b';
-            ctx.font = '600 11px ' + getComputedStyle(document.body).fontFamily;
+            ctx.font = lblFont('600', 11);
             ctx.textAlign = 'center';
             ctx.textBaseline = 'top';
 
@@ -2935,7 +2954,7 @@
             ctx.fillStyle = '#dc2626';
             ctx.strokeStyle = '#991b1b';
             ctx.lineWidth = 2;
-            ctx.font = '700 12px ' + getComputedStyle(document.body).fontFamily;
+            ctx.font = lblFont('700', 12);
             ctx.textAlign = 'center';
             ctx.textBaseline = 'bottom';
 
@@ -3698,7 +3717,7 @@
                     ctx.stroke();
                     ctx.setLineDash([]);
                     ctx.fillStyle = color;
-                    ctx.font = '11px ' + getComputedStyle(document.body).fontFamily;
+                    ctx.font = lblFont('', 11);
                     ctx.textAlign = 'center';
                     ctx.textBaseline = 'bottom';
                     ctx.fillText('r=' + formatNum(geo.r), center.x + screenRx / 2, center.y - 4);
@@ -3720,7 +3739,7 @@
                     if (geo.vertices) {
                         var poly = points.slice(0, geo.n);
                         ctx.fillStyle = color;
-                        ctx.font = '600 10px ' + getComputedStyle(document.body).fontFamily;
+                        ctx.font = lblFont('600', 10);
                         ctx.textAlign = 'center';
                         ctx.textBaseline = 'middle';
                         poly.forEach(function(pt, i) {
@@ -3760,7 +3779,7 @@
                     };
 
                     // Długości boków w środkach
-                    ctx.font = '600 11px ' + getComputedStyle(document.body).fontFamily;
+                    ctx.font = lblFont('600', 11);
                     ctx.textAlign = 'center';
                     ctx.textBaseline = 'middle';
                     P.forEach(function(pScr, i) {
@@ -3775,7 +3794,7 @@
                     });
 
                     // Kąty przy wierzchołkach (oraz znacznik kąta prostego)
-                    ctx.font = '600 10px ' + getComputedStyle(document.body).fontFamily;
+                    ctx.font = lblFont('600', 10);
                     P.forEach(function(vScr, i) {
                         // przesuń etykietę kąta do środka trójkąta
                         var dx = centroid.x - vScr.x, dy = centroid.y - vScr.y;
@@ -3806,15 +3825,17 @@
                     ctx.closePath();
                     ctx.stroke();
                     ctx.setLineDash([]);
-                    // Wymiary
-                    ctx.fillStyle = color;
-                    ctx.font = '11px ' + getComputedStyle(document.body).fontFamily;
-                    ctx.textAlign = 'center';
-                    var mid = graphToScreen(geo.ox + geo.w / 2, geo.oy, bounds, w, h, pad);
-                    ctx.fillText(formatNum(geo.w), mid.x, mid.y - 10);
-                    var midL = graphToScreen(geo.ox, geo.oy + geo.h / 2, bounds, w, h, pad);
-                    ctx.textAlign = 'right';
-                    ctx.fillText(formatNum(geo.h), midL.x - 8, midL.y + 4);
+                    // Wymiary — drugorzędne, chowane przy oddaleniu (progresywny szczegół).
+                    if (showLabelDetail) {
+                        ctx.fillStyle = color;
+                        ctx.font = lblFont('', 11);
+                        ctx.textAlign = 'center';
+                        var mid = graphToScreen(geo.ox + geo.w / 2, geo.oy, bounds, w, h, pad);
+                        ctx.fillText(formatNum(geo.w), mid.x, mid.y - 10);
+                        var midL = graphToScreen(geo.ox, geo.oy + geo.h / 2, bounds, w, h, pad);
+                        ctx.textAlign = 'right';
+                        ctx.fillText(formatNum(geo.h), midL.x - 8, midL.y + 4);
+                    }
                 }
 
                 // Narysuj pole widzenia (stożek/wycinek)
@@ -3823,6 +3844,8 @@
                     var half = geo.fov * Math.PI / 360;
                     var steps = 64;
                     var axisLen = geo.range; // dokąd sięga oś kierunku (na ekranie)
+                    // Anty-nakładanie: kolejne serie (kamery) odsuwają etykiety w pionie, by się nie zlewały.
+                    var lblStagger = si * Math.round(13 * graphLabelScale);
                     if (geo.footprint) {
                         // Wierny keystone: bliski brzeg + boki jako proste; daleki brzeg prosty
                         // (gdy ogranicza go pionowy kąt) albo łuk zasięgu (gdy ucina go zasięg).
@@ -3894,7 +3917,7 @@
                         ctx.beginPath(); ctx.moveTo(mL.x, mL.y); ctx.lineTo(mR.x, mR.y); ctx.stroke();
                         ctx.setLineDash([]);
                         var wTxt = formatNum(2 * halfW) + ' @ ' + formatNum(geo.markDist);
-                        ctx.font = '600 10px ' + getComputedStyle(document.body).fontFamily;
+                        ctx.font = lblFont('600', 10);
                         ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
                         var twW = ctx.measureText(wTxt).width + 6;
                         ctx.fillStyle = 'rgba(255,255,255,0.55)';
@@ -3903,8 +3926,9 @@
                         ctx.fillText(wTxt, mC.x, mC.y);
                     }
                     // Etykieta kąta przy wierzchołku
-                    var midA = graphToScreen(geo.ox + axisLen * 0.34 * Math.cos(geo.dir), geo.oy + axisLen * 0.34 * Math.sin(geo.dir), bounds, w, h, pad);
-                    ctx.font = '600 11px ' + getComputedStyle(document.body).fontFamily;
+                    var midA = graphToScreen(geo.ox + axisLen * 0.28 * Math.cos(geo.dir), geo.oy + axisLen * 0.28 * Math.sin(geo.dir), bounds, w, h, pad);
+                    midA.y -= lblStagger;
+                    ctx.font = lblFont('600', 11);
                     ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
                     var angLabel = formatNum(geo.fov) + '°' + (geo.footprint ? '↔ ' + formatNum(geo.fovV) + '°↕' : '');
                     var twA = ctx.measureText(angLabel).width + 6;
@@ -3917,11 +3941,11 @@
                     ctx.fillStyle = color; ctx.fill();
                     ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5; ctx.stroke();
                     ctx.fillStyle = '#0f172a';
-                    ctx.font = '700 10px ' + getComputedStyle(document.body).fontFamily;
+                    ctx.font = lblFont('700', 10);
                     ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
                     var camTxt = geo.label || '📷';
                     if (geo.oz > 0) camTxt += ' ↑' + formatNum(geo.oz);
-                    ctx.fillText(camTxt, apex.x, apex.y - 9);
+                    ctx.fillText(camTxt, apex.x, apex.y - 9 - lblStagger);
 
                     // Znacznik celu — żeby od razu było widać, gdzie kamera celuje (bez zgadywania z siatki).
                     if (geo.targetX != null && geo.targetY != null) {
@@ -3931,13 +3955,13 @@
                         ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5; ctx.stroke();
                         var celTxt = 'cel (' + formatNum(geo.targetX) + ', ' + formatNum(geo.targetY)
                             + (geo.targetZ ? ', ' + formatNum(geo.targetZ) : '') + ')';
-                        ctx.font = '600 10px ' + getComputedStyle(document.body).fontFamily;
+                        ctx.font = lblFont('600', 10);
                         ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
                         var ctw = ctx.measureText(celTxt).width + 6;
                         ctx.fillStyle = 'rgba(255,255,255,0.55)';
-                        ctx.fillRect(tp.x - ctw / 2, tp.y - 20, ctw, 14);
+                        ctx.fillRect(tp.x - ctw / 2, tp.y - 20 - lblStagger, ctw, 14);
                         ctx.fillStyle = color;
-                        ctx.fillText(celTxt, tp.x, tp.y - 8);
+                        ctx.fillText(celTxt, tp.x, tp.y - 8 - lblStagger);
                     }
                 }
 
@@ -3945,7 +3969,7 @@
                 ctx.fillStyle = color;
                 ctx.strokeStyle = color === '#2563eb' ? '#1d4ed8' : color;
                 ctx.lineWidth = 1.5;
-                ctx.font = '700 11px ' + getComputedStyle(document.body).fontFamily;
+                ctx.font = lblFont('700', 11);
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'bottom';
 
@@ -3970,11 +3994,11 @@
                         txt = (pt.label || 'P') + (points.length > 1 ? (idx + 1) : '');
                     }
                     ctx.fillStyle = '#0f172a';
-                    ctx.font = '700 10px ' + getComputedStyle(document.body).fontFamily;
+                    ctx.font = lblFont('700', 10);
                     ctx.fillText(txt, p.x, p.y - radius - 3);
-                    // Plakietka wysokości (oś z) — figura/punkt nad płaszczyzną rzutu z góry.
-                    if (geo.oz) {
-                        ctx.font = '600 9px ' + getComputedStyle(document.body).fontFamily;
+                    // Plakietka wysokości (oś z) — figura/punkt nad płaszczyzną rzutu z góry. Drugorzędna.
+                    if (geo.oz && showLabelDetail) {
+                        ctx.font = lblFont('600', 9);
                         ctx.fillStyle = '#7c3aed';
                         ctx.fillText('▲z=' + formatNum(geo.oz), p.x, p.y - radius - 14);
                     }
@@ -4260,7 +4284,7 @@
                     var ctx = graphCtx;
                     var w = GRAPH_LOGICAL_W; var h = GRAPH_LOGICAL_H;
                     var pad = 46;
-                    ctx.font = '700 12px ' + getComputedStyle(document.body).fontFamily;
+                    ctx.font = lblFont('700', 12);
                     ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
                     pts.forEach(function(pt, idx) {
                         var p = graphToScreen(pt.x, pt.y, bounds, w, h, pad);
@@ -4310,7 +4334,7 @@
                         ctx.fillStyle = color;
                         ctx.beginPath(); ctx.arc(legendX, legendY, 5, 0, Math.PI * 2); ctx.fill();
                         ctx.fillStyle = '#1e293b';
-                        ctx.font = '11px ' + getComputedStyle(document.body).fontFamily;
+                        ctx.font = lblFont('', 11);
                         ctx.textAlign = 'left';
                         ctx.fillText(s.length > 14 ? s.slice(0, 14) + '…' : s, legendX + 9, legendY + 4);
                     });
@@ -4801,6 +4825,15 @@
                             graphZoomState.offsetY.toFixed(2) + 'px) ' +
                 'scale(' + graphZoomState.scale.toFixed(4) + ')';
             if (graphZoomLabel) graphZoomLabel.textContent = Math.round(graphZoomState.scale * 100) + '%';
+            // Smart-tekst: po zmianie zoomu przerysuj, by font ÷ skala dał stały rozmiar etykiet
+            // na ekranie (i progresywny szczegół). Debounce — raz, gdy zoom się ustabilizuje.
+            if (Math.abs(graphZoomState.scale - graphLastZoomRendered) > 0.001) {
+                graphLastZoomRendered = graphZoomState.scale;
+                clearTimeout(graphLabelRedrawTimer);
+                graphLabelRedrawTimer = setTimeout(function() {
+                    if (typeof STATE !== 'undefined' && STATE.activeTab === 'komenda') updateGraph();
+                }, 180);
+            }
         }
 
         if (graphZoomInBtn)   graphZoomInBtn.addEventListener('click',   function() {
