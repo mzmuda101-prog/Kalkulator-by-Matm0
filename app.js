@@ -2798,8 +2798,14 @@
         // Tylko POWIĘKSZA zakres osi o większej skali — nic nie przycina.
         function equalizeGraphAspect() {
             var b = getGraphBounds();
-            var drawW = GRAPH_LOGICAL_W - 2 * GRAPH_PAD;
-            var drawH = GRAPH_LOGICAL_H - 2 * GRAPH_PAD;
+            // [EN] Proporcje liczymy z AKTUALNEGO rozmiaru canvasa (a nie ze starych
+            // GRAPH_LOGICAL_W/H sprzed poprzedniego renderu) — inaczej po zmianie rozmiaru
+            // (portret/fullscreen/obrót) okrąg robi się elipsą, a stożki/prostokąty się rozciągają.
+            var rect = graphCanvas.getBoundingClientRect();
+            var cw = Math.round(rect.width) || GRAPH_LOGICAL_W;
+            var ch = Math.round(rect.height) || GRAPH_LOGICAL_H;
+            var drawW = cw - 2 * GRAPH_PAD;
+            var drawH = ch - 2 * GRAPH_PAD;
             if (drawW <= 0 || drawH <= 0) return;
             var xRange = b.xMax - b.xMin;
             var yRange = b.yMax - b.yMin;
@@ -4535,6 +4541,7 @@
 
                 graphScene = {
                     type: 'graph',
+                    proportional: hasProportional,   // okrąg/wielokąt/trójkąt/FOV — wymaga równej skali osi
                     geos: geosToRender,
                     divisions: divisionsToRender.map(function(item) {
                         return {
@@ -5288,8 +5295,11 @@
            ============================================================ */
         function handleCanvasResize() {
             if (STATE.activeTab !== 'komenda') return;
-            // Zachowaj bieżący widok (zoom/pan) — przerysuj scenę w nowym rozmiarze
-            // canvasa. Bez sceny (lub inżynieria) wracamy do pełnego renderu.
+            // Sceny proporcjonalne (okrąg/FOV/wielokąt/trójkąt) muszą przeliczyć równą skalę
+            // osi pod nowy rozmiar canvasa — pełny re-render (fit+equalize z aktualnymi
+            // wymiarami). Inaczej po obrocie / wejściu w fullscreen proporcje się psują.
+            // Pozostałe sceny zachowują bieżący zoom/pan.
+            if (graphScene && graphScene.proportional) { updateGraph(); return; }
             if (graphScene && graphScene.type !== 'empty') redrawGraphView();
             else updateGraph();
         }
