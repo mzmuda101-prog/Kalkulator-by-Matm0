@@ -3400,8 +3400,9 @@
             }
 
             // --- kamera=x,y / widok / fov / pole widzenia — stożek (wycinek) pola widzenia ---
-            // Kierunek: cel=x,y (patrz w punkt), azymut=A (kompas: 0°=góra, zgodnie z zegarem),
-            // kierunek=A (matematyczny: 0°=prawo, przeciwnie do zegara). Domyślnie 0° (w prawo).
+            // Kierunek: cel=x,y[,z] (patrz w punkt), azymut=A[,V] (kompas: 0°=góra, zgodnie z zegarem),
+            // kierunek=A[,V] (matematyczny: 0°=prawo, przeciwnie do zegara). Domyślnie 0° (w prawo).
+            // Druga liczba V w azymut/kierunek = pion (dodatni = w górę, ujemny = w dół), analogicznie do z w cel.
             if (/^(kamera|widok|fov|pole[_ ]?widzenia|stozek|sto[zż]ek)\s*=/.test(lower)) {
                 var body = str.replace(/^[^=]+=/, '').trim();
                 var parts = body.split(',,').map(function(s) { return s.trim(); });
@@ -3415,6 +3416,7 @@
                 var targetX = null, targetY = null; // punkt celu (do narysowania znacznika „cel")
                 var fovV = 0;                 // pionowy FOV (analogicznie do poziomego `kąt`)
                 var tilt = null, tiltMode = 'brak'; // pochylenie osi w dół (°), jawne lub z celu
+                var dirTilt = null;           // pion z azymut=A,V / kierunek=A,V (down-positive po przeliczeniu z elewacji)
                 var targetZ = 0, targetHorizDist = null; // do auto-pochylenia z celu
                 parts.slice(1).forEach(function(p) {
                     var pl = p.toLowerCase();
@@ -3440,11 +3442,17 @@
                         targetHorizDist = Math.hypot(cx - ox, cy - oy);
                         targetTxt = formatNum(cx) + ', ' + formatNum(cy) + (c[2] != null && c[2].trim() !== '' ? ', ' + formatNum(targetZ) : '');
                     } else if (/^(azymut|bearing|kompas)=/.test(pl)) {
-                        dirValue = parseGraphNumber(val, 0);
+                        // azymut=A lub azymut=A,V — A = kierunek poziomy (kompas), V = pion (dodatni = w górę)
+                        var av = val.split(',');
+                        dirValue = parseGraphNumber(av[0], 0);
                         dirRad = (90 - dirValue) * Math.PI / 180; dirMode = 'azymut';
+                        if (av[1] != null && av[1].trim() !== '') dirTilt = -parseGraphNumber(av[1], 0);
                     } else if (/^(kierunek|dir|kat_kier)=/.test(pl)) {
-                        dirValue = parseGraphNumber(val, 0);
+                        // kierunek=A lub kierunek=A,V — A = kierunek poziomy (matematyczny), V = pion (dodatni = w górę)
+                        var kv = val.split(',');
+                        dirValue = parseGraphNumber(kv[0], 0);
                         dirRad = dirValue * Math.PI / 180; dirMode = 'kierunek';
+                        if (kv[1] != null && kv[1].trim() !== '') dirTilt = -parseGraphNumber(kv[1], 0);
                     } else if (/^(label|opis|nazwa)=/.test(pl)) {
                         label = val;
                     }
@@ -3455,9 +3463,12 @@
 
                 // Pochylenie osi w pionie: jawne `pochył` ma pierwszeństwo; w przeciwnym razie
                 // policz je z celu na ziemi (kamera nad celem) — θ = atan(Δh / dystans poziomy).
+                // Pierwszeństwo: jawny `pochył` > pion z `azymut`/`kierunek` > wyliczony z celu.
                 var theta = null; // ° pod poziomem
                 if (tiltMode === 'jawny') {
                     theta = tilt;
+                } else if (dirTilt != null) {
+                    theta = dirTilt; tiltMode = 'jawny';
                 } else if (oz > 0 && targetHorizDist != null && targetHorizDist > 1e-9) {
                     theta = Math.atan2(oz - targetZ, targetHorizDist) * 180 / Math.PI;
                     tiltMode = 'cel';
@@ -3637,6 +3648,13 @@
                     + ', daleki brzeg ' + formatNum(f.farWidth) + (f.farArc ? ' (łuk zasięgu)' : ''));
                 lines.push('Pole pokrycia: ' + formatNum(f.area));
             } else {
+                // Pion podany (np. azymut=A,V), ale bez rzutu na ziemię — pokaż sam kąt patrzenia.
+                if (geo.tilt != null && Math.abs(geo.tilt) > 1e-9) {
+                    var elev = -geo.tilt; // tilt jest down-positive; elewacja w górę dodatnia
+                    lines.push('Pion: ' + (elev >= 0
+                        ? formatNum(elev) + '° w górę'
+                        : formatNum(-elev) + '° w dół'));
+                }
                 if (geo.oz > 0) {
                     if (!(geo.fovV > 0))
                         lines.push('ℹ️ Dodaj kąt_pionowy= (lub kątZ=), by zobaczyć martwą strefę i pokrycie na ziemi.');
