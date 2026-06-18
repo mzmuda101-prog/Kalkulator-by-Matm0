@@ -418,12 +418,13 @@
            delikatny wjazd w górę. JS wstawia zmienioną końcówkę w świeży <span class="calc-result-new">,
            więc animacja odpala się sama przy wstawieniu elementu. translateY w „em" skaluje z fontem. */
         @keyframes calcCharIn {
-            from { opacity: 0; transform: translateY(0.40em); }
+            from { opacity: 0; transform: translateY(0.65em); }
+            75%  { opacity: 0.85; transform: translateY(-0.08em); }
             to   { opacity: 1; transform: translateY(0); }
         }
         .calc-result-new {
             display: inline-block; /* transform wymaga blokowości */
-            animation: calcCharIn 0.2s cubic-bezier(0.2, 0, 0, 1);
+            animation: calcCharIn 0.2s cubic-bezier(0.2, 0, 0.8, 1);
         }
         @media (prefers-reduced-motion: reduce) {
             .calc-result-new { animation: none; }
