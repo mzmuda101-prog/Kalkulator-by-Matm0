@@ -288,6 +288,9 @@
            [EN] Tab Navigation
            ============================================================ */
         function switchTab(tabName) {
+            // [EN] Gdyby user wskoczył w inną zakładkę zanim tło się dogrzało — domknij resztę
+            // kawałków OD RAZU (flush), żeby zakładka była kompletna; każde zadanie i tak raz.
+            if (tabName !== 'calculator') flushDeferredInit();
             STATE.activeTab = tabName;
             var titles = {
                 calculator: 'Kalkulator — Matm0',
@@ -976,12 +979,43 @@
             if (calcExpr.value && _fxReady() && !_fxFresh() && _inputHasCurrency(calcExpr.value)) ensureFxRates();
             var hasResult = res.value !== null || res.text != null;
             var display = hasResult ? formatCalcResult(res) : (calcExpr.value === '' ? '0' : '');
-            calcResult.textContent = display;
-            calcResult.classList.remove('small', 'xsmall');
-            if (display.length > 10) calcResult.classList.add('small');
-            if (display.length > 14) calcResult.classList.add('xsmall');
+            renderCalcResult(calcResult.textContent, display);
         }
-
+        // *------------ Logika Animacji pojawiania się liczb/wyrażeń/wyniku* ----------------*
+        // [EN] Render wyniku z lekką animacją pojawienia (Samsung-style) TYLKO zmienionej końcówki —
+        // animuje się dodany/zmieniony znak, nie cała linijka. Statyczny wspólny prefiks zostaje
+        // tekstem, a różnica trafia do ŚWIEŻEGO <span> (nowy element sam odpala animację CSS przy
+        // wstawieniu — bez hacka z reflow). Definicja animacji + reduced-motion żyją w styles.css.
+        // textContent czytany gdzie indziej (kopiowanie, „=") nadal zwraca pełny wynik.
+        function renderCalcResult(prev, next) {
+            calcResult.classList.remove('small', 'xsmall');
+            if (next.length > 10) calcResult.classList.add('small');
+            if (next.length > 14) calcResult.classList.add('xsmall');
+            if (next === '' || next === prev) { calcResult.textContent = next; return; }
+            // Animujemy DOKŁADNIE te znaki, które się realnie zmieniły. Diff liczymy na RDZENIU
+            // (po usunięciu separatorów tysięcy — \s obejmuje też nbsp/wąską spację), bo „1 222"↔„12 222"
+            // przesuwa separator i psułby porównanie po pozycjach. Wspólny prefiks rdzeni = część stała;
+            // resztę animujemy. Dzięki temu: cały nowy wynik (45×9→405) animuje się w całości,
+            // dopisanie cyfry (405→4275) animuje tylko zmienioną końcówkę, a pojedyncza cyfra na końcu
+            // (1 222) tylko ją. Skrócenie (backspace) — nic nowego w rdzeniu → bez animacji.
+            var pCore = prev.replace(/\s/g, ''), nCore = next.replace(/\s/g, '');
+            var c = 0, lim = Math.min(pCore.length, nCore.length);
+            while (c < lim && pCore.charAt(c) === nCore.charAt(c)) c++;
+            if (c >= nCore.length) { calcResult.textContent = next; return; }
+            // przelicz c (liczba niezmienionych znaczących znaków) na pozycję w SFORMATOWANYM next
+            var idx = 0, counted = 0;
+            while (idx < next.length && counted < c) {
+                if (!/\s/.test(next.charAt(idx))) counted++;
+                idx++;
+            }
+            while (idx < next.length && /\s/.test(next.charAt(idx))) idx++; // separator → do części stałej
+            calcResult.textContent = next.slice(0, idx);  // statyczna, niezmieniona część
+            var span = document.createElement('span');
+            span.className = 'calc-result-new';
+            span.textContent = next.slice(idx);           // świeży <span> sam odpala animację CSS
+            calcResult.appendChild(span);
+        }
+        // *---------------------------------------------------------------------------------*
         function handleCalcAction(action) {
             var expr = calcExpr.value;
 
@@ -6270,6 +6304,10 @@
             if (graphFsExitEl && graphContainer) graphContainer.appendChild(graphFsExitEl);
 
             loadFromStorage();
+
+            // [EN] FAZA 1 — tylko kalkulator standardowy. Stawiamy go natychmiast, żeby był
+            // interaktywny od razu po otwarciu PWA (osoba „wpadam policzyć i wypadam" nie czeka
+            // na inicjalizację wykresu/Warsztatu/parsera, które są częścią innych zakładek).
             buildCalcButtons();
             calcExpr.addEventListener('input', liveEval);
             calcExpr.addEventListener('keydown', function(e) {
@@ -6278,16 +6316,53 @@
             });
             liveEval();
             renderHistory();
-            updateGraph();
-            renderConstants();
-            renderAllRecentCommands();
-            initAutocomplete(graphCommand, $('#graphCommandAC'));
-            initWarsztat();
 
-            // Inicjalizacja kreatora
-            updateKreatorModeUI();
-            updateKreatorPreview();
-            if (typeof updateGraphCmdBadge === 'function') updateGraphCmdBadge(graphCommand.value.trim());
+            // [EN] FAZA 2 — reszta (wykres, stałe, ostatnie komendy, autouzupełnianie, Warsztat,
+            // kreator, badge). Poza krytyczną ścieżką: w bezczynności, a najpóźniej przy pierwszym
+            // wejściu w inną zakładkę (switchTab woła runDeferredInit). Główny wątek wolny dla kalkulatora.
+            if ('requestIdleCallback' in window) requestIdleCallback(runDeferredInit, { timeout: 400 });
+            else setTimeout(runDeferredInit, 0);
+        }
+
+        // [EN] Faza 2 „po cichu wstaje" w tle, ale POCIĘTA na kawałki — każdy w osobnym oknie
+        // bezczynności (requestIdleCallback), żeby tło rozgrzewało się łagodnie i NIGDY nie zajęło
+        // wątku na tyle długo, by spowolnić odczucie kalkulatora standardowego. Klik w inną zakładkę
+        // domyka resztę natychmiast (flushDeferredInit). _deferredQueue: null=niewystartowane,
+        // []=skończone, [..]=w trakcie sączenia.
+        var _deferredQueue = null;
+        function runDeferredInit() {
+            if (_deferredQueue !== null) return;
+            _deferredQueue = [
+                function () { updateGraph(); },
+                function () { renderConstants(); renderAllRecentCommands(); },
+                function () { initAutocomplete(graphCommand, $('#graphCommandAC')); },
+                function () { initWarsztat(); },
+                function () {
+                    updateKreatorModeUI();
+                    updateKreatorPreview();
+                    if (typeof updateGraphCmdBadge === 'function') updateGraphCmdBadge(graphCommand.value.trim());
+                },
+            ];
+            scheduleDeferredChunk();
+        }
+        function scheduleDeferredChunk() {
+            if (!_deferredQueue || !_deferredQueue.length) return;
+            var run = function () {
+                if (!_deferredQueue || !_deferredQueue.length) return;
+                var task = _deferredQueue.shift();
+                try { task(); } catch (e) {}
+                scheduleDeferredChunk(); // następny kawałek dopiero w kolejnym oknie bezczynności
+            };
+            if ('requestIdleCallback' in window) requestIdleCallback(run, { timeout: 600 });
+            else setTimeout(run, 0);
+        }
+        // [EN] User wszedł w zakładkę zanim tło się dogrzało → dokończ pozostałe kawałki OD RAZU.
+        function flushDeferredInit() {
+            if (_deferredQueue === null) runDeferredInit();
+            while (_deferredQueue && _deferredQueue.length) {
+                var task = _deferredQueue.shift();
+                try { task(); } catch (e) {}
+            }
         }
 
         init();

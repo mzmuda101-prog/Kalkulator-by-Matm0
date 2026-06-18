@@ -17,14 +17,22 @@
             --success: #10b981;
             --success-light: #d1fae5;
             --warning: #f59e0b;
-            --radius-sm: 8px;
-            --radius: 14px;
-            --radius-lg: 20px;
-            --radius-xl: 24px;
-            --shadow-sm: 0 1px 2px rgba(0,0,0,0.05);
-            --shadow: 0 4px 16px rgba(0,0,0,0.06), 0 1px 3px rgba(0,0,0,0.04);
-            --shadow-lg: 0 12px 40px rgba(0,0,0,0.1), 0 4px 12px rgba(0,0,0,0.05);
-            --font: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            /* [EN] Waze-style refresh: zaokrąglona forma. Skala promieni podbita ku „pillom". */
+            --radius-sm: 10px;
+            --radius: 16px;
+            --radius-lg: 22px;
+            --radius-xl: 28px;
+            --radius-pill: 999px;
+            /* [EN] Cienie miększe i głębsze (mniej twardych ramek, więcej elewacji). */
+            --shadow-sm: 0 1px 3px rgba(15,23,42,0.06);
+            --shadow: 0 6px 22px rgba(15,23,42,0.07), 0 2px 6px rgba(15,23,42,0.04);
+            --shadow-lg: 0 18px 48px rgba(15,23,42,0.12), 0 6px 16px rgba(15,23,42,0.06);
+            /* [EN] „Kolorowa" elewacja CTA — przyjazna poświata w kolorze marki (jak Waze). */
+            --shadow-primary: 0 8px 20px rgba(37,99,235,0.30), 0 2px 6px rgba(37,99,235,0.20);
+            --shadow-accent: 0 8px 20px rgba(211,61,118,0.30), 0 2px 6px rgba(211,61,118,0.20);
+            /* [EN] Font zaokrąglony — sygnatura Waze. ui-rounded/SF Pro Rounded na Apple (Mac/iPad)
+               daje przyjazny krój offline, bez pobierania; reszta spada na dotychczasowy stack. */
+            --font: ui-rounded, 'SF Pro Rounded', -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
             --font-mono: 'SF Mono', 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
             --transition: 0.2s cubic-bezier(0.4, 0, 0.2, 1);
             --safe-bottom: env(safe-area-inset-bottom, 0px);
@@ -273,8 +281,8 @@
            ============================================================ */
         .card {
             background: var(--card-bg);
-            border-radius: var(--radius-lg);
-            padding: 20px;
+            border-radius: var(--radius-xl);
+            padding: 22px;
             box-shadow: var(--shadow);
             margin-bottom: 12px;
         }
@@ -351,16 +359,17 @@
            [EN] Standard Calculator
            ============================================================ */
         .calc-display {
-            background: #f8fafc;
-            border-radius: var(--radius);
-            padding: 16px 20px;
-            margin-bottom: 16px;
-            min-height: 80px;
+            background: #f6f8fb;
+            border-radius: var(--radius-lg);
+            padding: 20px 22px;
+            margin-bottom: 18px;
+            min-height: 88px;
             display: flex;
             flex-direction: column;
             justify-content: flex-end;
             align-items: flex-end;
-            border: 1px solid var(--border);
+            border: 1px solid rgba(226,232,240,0.6);
+            box-shadow: inset 0 1px 3px rgba(15,23,42,0.04);
             overflow: hidden;
         }
         .calc-expression {
@@ -403,25 +412,41 @@
         }
         .calc-result.small { font-size: 1.9rem; }
         .calc-result.xsmall { font-size: 1.5rem; }
-
+        
+        /* ****** Animacja pojawienia się znaku w wyniku kalkulacji ****** */
+        /* [EN] Lekkie „pojawienie się" TYLKO dodanego/zmienionego znaku (Samsung-style): fade +
+           delikatny wjazd w górę. JS wstawia zmienioną końcówkę w świeży <span class="calc-result-new">,
+           więc animacja odpala się sama przy wstawieniu elementu. translateY w „em" skaluje z fontem. */
+        @keyframes calcCharIn {
+            from { opacity: 0; transform: translateY(0.40em); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+        .calc-result-new {
+            display: inline-block; /* transform wymaga blokowości */
+            animation: calcCharIn 0.2s cubic-bezier(0.2, 0, 0, 1);
+        }
+        @media (prefers-reduced-motion: reduce) {
+            .calc-result-new { animation: none; }
+        }
+        /* *----------------------------------------------------------- */
         .calc-grid {
             display: grid;
             grid-template-columns: repeat(4, 1fr);
-            gap: 8px;
+            gap: 10px;
         }
         .calc-btn {
             aspect-ratio: 1;
             border: none;
-            border-radius: var(--radius);
+            border-radius: var(--radius-lg);
             font-family: var(--font);
-            font-size: 1.25rem;
-            font-weight: 600;
+            font-size: 1.3rem;
+            font-weight: 700;
             cursor: pointer;
-            transition: all var(--transition);
+            transition: transform var(--transition), background var(--transition), box-shadow var(--transition);
             display: flex;
             align-items: center;
             justify-content: center;
-            min-height: 56px;
+            min-height: 60px;
             -webkit-tap-highlight-color: transparent;
             user-select: none;
             -webkit-user-select: none;
@@ -432,25 +457,26 @@
         .calc-btn.clear {
             background:#D33D76;
             color:#fff;
-            box-shadow: 0 0 10px #a52f5c;
+            box-shadow: var(--shadow-accent);
         }
         .calc-btn:active { transform: scale(0.94); }
         .calc-btn--number {
             background: var(--bg);
             color: var(--text);
+            box-shadow: var(--shadow-sm);
         }
         .calc-btn--number:active { background: #e2e8f0; }
         .calc-btn--operator {
             background: var(--primary-light);
             color: var(--primary);
-            font-size: 1.35rem;
+            font-size: 1.45rem;
         }
         .calc-btn--operator:active { background: #bfdbfe; }
         .calc-btn--equals {
             background: var(--primary);
             color: #fff;
-            font-size: 1.5rem;
-            box-shadow: 0 0 10px var(--primary);
+            font-size: 1.6rem;
+            box-shadow: var(--shadow-primary);
         }
         .calc-btn--equals:active { background: var(--primary-hover); }
         .calc-btn--fn {
