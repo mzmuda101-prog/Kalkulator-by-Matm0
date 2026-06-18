@@ -2164,39 +2164,42 @@
         }
 
         function getParserCapabilities() {
+            // [EN] Katalog zdolności parsera dla gap-detektora ściągi (display-only — NIE wpływa
+            // na właściwe regexy parsera). Każda pozycja ma JEDEN kanoniczny `term`, który musi
+            // istnieć w odchudzonej ściądze (command-definitions.js). Dzięki temu sekcja
+            // „Parser umie więcej" zostaje pusta, dopóki nie dojdzie naprawdę nieudokumentowana
+            // funkcja. Synonimy (step=, every=, kolo=, dia=, kątXY=, hfov=, wys=, tilt= …) wciąż
+            // działają w parserze — po prostu nie zaśmiecają ściągi.
             return {
                 engineering: [
                     { syntax: 'x=120/4', command: 'x=120/4', description: 'podstawowy podzial osi X.', terms: ['x=120/4'] },
-                    { syntax: 'y=120/4', command: 'y=120/4', description: 'podstawowy podzial osi Y.', terms: ['y=120/4'] },
+                    { syntax: 'y=L/N', command: 'y=200/5', description: 'podstawowy podzial osi Y.', terms: ['y=200/5'] },
                     { syntax: '120/4', command: '120/4', description: 'skrot bez nazwy osi.', terms: ['120/4'] },
-                    { syntax: 'co=20 / step=20 / every=20 / odstep=20', command: 'x=120 | co=20', description: 'staly odstep.', terms: ['co=20', 'step=20', 'every=20', 'odstep=20'] },
-                    { syntax: 'co=20;30', command: 'x=120 | co=20;30', description: 'naprzemienny odstep: 20, 30, 20, 30... (dowolnie wiele wartosci po ;).', terms: ['co=20;30', 'naprzemienny', 'alternating'] },
-                    { syntax: '@every:20', command: 'x=120 | @every:20', description: 'staly odstep z prefiksem @.', terms: ['@every:20'] },
-                    { syntax: '@between / @inside / @pole / @center / @srodek', command: 'x=120/4 | @inside', description: 'punkty wewnatrz pola.', terms: ['@between', '@inside', '@pole', '@center', '@srodek'] },
-                    { syntax: '@edges / @krance / @krawedzie', command: 'x=120/4 | @edges', description: 'punkty na krancach.', terms: ['@edges', '@krance', '@krawedzie'] },
-                    { syntax: 'm=10/20 / margin=10/20 / margines=10/20', command: 'x=120/4 | m=10/20', description: 'margines start/koniec.', terms: ['m=10/20', 'margin=10/20', 'margines=10/20'] },
-                    { syntax: '<-10 / ->20', command: 'x=120/4 | <-10 | ->20', description: 'marginesy strzalkami.', terms: ['<-10', '->20'] },
-                    { syntax: 'ms=10 / start=10 / left=10 / dol=10', command: 'x=120/4 | dol=10', description: 'margines poczatkowy.', terms: ['ms=10', 'start=10', 'left=10', 'dol=10'] },
-                    { syntax: 'me=20 / end=20 / right=20 / gora=20', command: 'x=120/4 | gora=20', description: 'margines koncowy.', terms: ['me=20', 'end=20', 'right=20', 'gora=20'] },
-                    { syntax: 'origin=50 / zero=50 / offset=50 / od=50', command: 'x=120/4 | od=50', description: 'przesuniecie poczatku osi.', terms: ['origin=50', 'zero=50', 'offset=50', 'od=50'] },
-                    { syntax: 'axis=x / os=y', command: '120/4 | os=y', description: 'jawny wybor osi.', terms: ['axis=x', 'os=y'] },
-                    { syntax: 'x=30 / y=-2', command: 'y=120/4 | x=30', description: 'przesuniecie serii na drugiej osi.', terms: ['x=30', 'y=-2'] },
-                    { syntax: 'r=5 / dia=5 / fi=5 / ø=5', command: 'x=120/4 | fi=5', description: 'promien punktu.', terms: ['r=5', 'dia=5', 'fi=5', 'ø=5'] },
-                    { syntax: 'u=mm / unit=mm / jednostka=mm', command: 'x=120/4 | jednostka=mm', description: 'jednostka wyniku.', terms: ['u=mm', 'unit=mm', 'jednostka=mm'] },
-                    { syntax: 'label=A / opis=A / nazwa=A', command: 'x=120/4 | nazwa=A', description: 'nazwa serii.', terms: ['label=a', 'opis=a', 'nazwa=a'] },
+                    { syntax: 'co=20', command: 'x=120 | co=20', description: 'staly odstep.', terms: ['co=20'] },
+                    { syntax: 'co=20;30', command: 'x=120 | co=20;30', description: 'naprzemienny odstep: 20, 30, 20, 30...', terms: ['co=20;30'] },
+                    { syntax: '@between / @edges / @centered', command: 'x=120/4 | @edges', description: 'tryby rozmieszczenia punktow.', terms: ['edges'] },
+                    { syntax: 'm=10/20', command: 'x=120/4 | m=10/20', description: 'margines start/koniec.', terms: ['m=10/20'] },
+                    { syntax: '<-10 / ->20', command: 'x=120/4 | <-10 | ->20', description: 'marginesy strzalkami.', terms: ['<-10'] },
+                    { syntax: 'ms=10 / me=20', command: 'x=120/4 | ms=10 | me=20', description: 'margines jednostronny.', terms: ['ms=10'] },
+                    { syntax: 'origin=50', command: 'x=120/4 | origin=50', description: 'przesuniecie poczatku osi.', terms: ['origin=50'] },
+                    { syntax: 'x=30 / y=-2', command: 'y=120/4 | x=30', description: 'przesuniecie serii na drugiej osi.', terms: ['x=30'] },
+                    { syntax: 'r=8', command: 'x=120/4 | r=8', description: 'promien punktu.', terms: ['r=8'] },
+                    { syntax: 'u=mm', command: 'x=120/4 | u=mm', description: 'jednostka wyniku.', terms: ['u=mm'] },
+                    { syntax: 'opis=A', command: 'x=120/4 | opis=A', description: 'nazwa serii.', terms: ['opis='] },
                     { syntax: ';;', command: 'x=120/4 ;; x=120/6 | y=30', description: 'wiele serii.', terms: [';;'] },
                 ],
                 graph: [
-                    { syntax: 'f(x)=x / y=x', command: 'f(x)=x', description: 'funkcja matematyczna.', terms: ['f(x)=x', 'y=x'] },
-                    { syntax: 'sin cos tan sqrt abs log ln exp floor ceil round', command: 'f(x)=sqrt(abs(x))', description: 'obslugiwane funkcje w wykresach.', terms: ['sin', 'cos', 'tan', 'sqrt', 'abs', 'log', 'ln', 'exp', 'floor', 'ceil', 'round'] },
-                    { syntax: 'pi / π / e', command: 'f(x)=sin(pi*x)', description: 'stale matematyczne.', terms: ['pi', 'π', 'e'] },
-                    { syntax: 'podziel 120 na 4', command: 'podziel 120 na 4', description: 'naturalny zapis podzialu.', terms: ['podziel 120 na 4'] },
-                    { syntax: 'od 0 do 120 co 20', command: 'od 0 do 120 co 20', description: 'naturalny zapis stalego odstepu.', terms: ['od 0 do 120 co 20'] },
-                    { syntax: 'punkt=150;200 / p=150;200', command: 'p=150;200 | label=A', description: 'punkt 2D.', terms: ['punkt=150;200', 'p=150;200'] },
-                    { syntax: 'rect=400x300 / prostokat=400x300', command: 'prostokat=400x300', description: 'prostokat 2D.', terms: ['rect=400x300', 'prostokat=400x300'] },
-                    { syntax: 'ox=50 / oy=50 / x0=50 / y0=50 / od_x=50 / od_y=50', command: 'rect=400x300 | x0=50 | y0=50', description: 'przesuniecie geometrii.', terms: ['ox=50', 'oy=50', 'x0=50', 'y0=50', 'od_x=50', 'od_y=50'] },
-                    { syntax: 'siatka=400x300 / grid=400x300', command: 'grid=400x300 | co=100x100', description: 'siatka punktow.', terms: ['siatka=400x300', 'grid=400x300'] },
-                    { syntax: 'co=100x100 / krok=100x100 / co_x=100x100', command: 'siatka=400x300 | krok=100x100', description: 'odstep siatki.', terms: ['co=100x100', 'krok=100x100', 'co_x=100x100'] },
+                    { syntax: 'f(x)=x', command: 'f(x)=x^2', description: 'funkcja matematyczna.', terms: ['f(x)='] },
+                    { syntax: 'sin cos tan sqrt abs log ln exp', command: 'f(x)=sqrt(abs(x))', description: 'obslugiwane funkcje w wykresach.', terms: ['sin cos tan sqrt abs log ln exp'] },
+                    { syntax: 'floor ceil round', command: 'f(x)=floor(x)', description: 'zaokraglenia.', terms: ['floor ceil round'] },
+                    { syntax: 'pi / π / e', command: 'f(x)=sin(pi*x)', description: 'stale matematyczne.', terms: ['pi'] },
+                    { syntax: 'punkt=150;200', command: 'punkt=150;200 | opis=A', description: 'punkt 2D.', terms: ['punkt=150;200'] },
+                    { syntax: 'rect=WxH / prostokat=WxH', command: 'prostokat=400x300', description: 'prostokat 2D.', terms: ['prostokat=400x300'] },
+                    { syntax: 'okrąg=R / circle=R', command: 'okrąg=100', description: 'okrag.', terms: ['okrag=r'] },
+                    { syntax: 'wielokat=N;R', command: 'wielokat=6;100', description: 'wielokat foremny.', terms: ['wielokat=6;100'] },
+                    { syntax: 'ox=50 / oy=50', command: 'rect=200x100 | ox=50 | oy=50', description: 'przesuniecie geometrii.', terms: ['ox=50'] },
+                    { syntax: 'siatka=400x300', command: 'siatka=400x300 | co=100x100', description: 'siatka punktow.', terms: ['siatka=400x300'] },
+                    { syntax: 'kamera=x;y | kąt=K | zasięg=Z', command: 'kamera=0;0 | kąt=110 | zasięg=15', description: 'pole widzenia 2D.', terms: ['kamera=0;0'] },
                     { syntax: ';;', command: 'f(x)=sin(x) ;; punkt=0;0', description: 'wiele serii na wykresie.', terms: [';;'] },
                 ],
             };
@@ -6320,6 +6323,82 @@
             });
         }
 
+        // [EN] Auto-testy WIERNOŚCI rzutu x,y,z → x,y dla kamery na wysokości.
+        // Każdy przypadek ma ZNANY wynik policzony z geometrii (zamknięta forma), więc
+        // udowadnia, że to realna projekcja perspektywiczna, nie schemat. Sprawdzamy też
+        // spójność: tekst (dNear/dFar po osi) vs. rysowany wielokąt (narożniki na canvasie).
+        function runProjectionSmokeTests() {
+            function geoOf(cmd) {
+                var parsed = parseCommandSeries(cmd);
+                if (!parsed.length || parsed[0].type !== 'geometry') throw new Error('nie sparsowano geometrii');
+                return parsed[0].data;
+            }
+            function near(a, b, tol) { return Math.abs(a - b) <= (tol == null ? 1e-6 : tol); }
+            var T = [];
+
+            // A) Zamknięta forma głębokości po osi: oz=10, pochył=45°, pionowy FOV=30°.
+            //    dNear = 10/tan(60°) = 5.773503,  dFar = 10/tan(30°) = 17.320508.
+            T.push(function() {
+                var g = geoOf('kamera=0;0;10 ,, kierunek=0 ,, kąt=60;30 ,, pochył=45 ,, zasięg=100');
+                if (!g.footprint) return { name: 'A: footprint istnieje', pass: false };
+                var f = g.footprint;
+                return { name: 'A: dNear/dFar po osi (zamknięta forma)',
+                    pass: !g.groundVanished && near(f.dNear, 10 / Math.tan(60 * Math.PI / 180), 1e-3)
+                        && near(f.dFar, 10 / Math.tan(30 * Math.PI / 180), 1e-3) && !f.farClamped,
+                    got: 'dNear=' + f.dNear.toFixed(4) + ' dFar=' + f.dFar.toFixed(4) };
+            });
+
+            // B) Daleki brzeg ucięty do zasięgu sensora (zasięg=12 < 17.32).
+            T.push(function() {
+                var g = geoOf('kamera=0;0;10 ,, kierunek=0 ,, kąt=60;30 ,, pochył=45 ,, zasięg=12');
+                var f = g.footprint;
+                return { name: 'B: daleki brzeg ucięty do zasięgu',
+                    pass: !!f && f.farClamped === true && near(f.dFar, 12, 1e-6) && near(f.dNear, 10 / Math.tan(60 * Math.PI / 180), 1e-3),
+                    got: f ? 'dFar=' + f.dFar.toFixed(4) + ' clamp=' + f.farClamped : 'brak footprint' };
+            });
+
+            // C) Kamera patrzy w GÓRĘ (V=45° w górę) → pole nie sięga ziemi: zero pokrycia.
+            T.push(function() {
+                var g = geoOf('kamera=0;0;4 ,, kąt=90;30 ,, kierunek=0;45 ,, zasięg=20');
+                return { name: 'C: patrzy w górę → znika ziemia',
+                    pass: g.groundVanished === true && g.footprint == null,
+                    got: 'groundVanished=' + g.groundVanished + ' footprint=' + (g.footprint ? 'jest' : 'null') };
+            });
+
+            // D) Pochylenie WYLICZONE z celu: kamera 10 m nad ziemią celuje w punkt 10 m dalej
+            //    → θ = atan(10/10) = 45°.
+            T.push(function() {
+                var g = geoOf('kamera=0;0;10 ,, cel=10;0');
+                return { name: 'D: pochył z celu = atan(Δh/dyst) = 45°',
+                    pass: g.tilt != null && near(g.tilt, 45, 1e-6),
+                    got: 'tilt=' + (g.tilt == null ? 'null' : g.tilt.toFixed(4)) };
+            });
+
+            // E) Spójność TEKST vs RYSUNEK + symetria: dla kierunku 0° środek bliskiego brzegu
+            //    (narożniki nA,nB rzutowane pełną projekcją 3D) ma x == dNear z opisu, a y symetryczne.
+            T.push(function() {
+                var g = geoOf('kamera=0;0;10 ,, kierunek=0 ,, kąt=60;30 ,, pochył=45 ,, zasięg=100');
+                var f = g.footprint;
+                var midX = (f.nA.x + f.nB.x) / 2;
+                return { name: 'E: środek rysowanego bliskiego brzegu == dNear (tekst==rysunek)',
+                    pass: near(midX, f.dNear, 1e-3) && near(f.nA.x, f.nB.x, 1e-6)
+                        && near(f.nA.y, -f.nB.y, 1e-6) && f.dFar > f.dNear,
+                    got: 'midX=' + midX.toFixed(4) + ' dNear=' + f.dNear.toFixed(4) + ' nA.y=' + f.nA.y.toFixed(3) };
+            });
+
+            // F) Wariant płaski (bez z=): brak rzutu na ziemię (footprint null), płaski wycinek.
+            T.push(function() {
+                var g = geoOf('kamera=0;0 ,, kierunek=0 ,, kąt=90 ,, zasięg=10');
+                return { name: 'F: bez wysokości → płaski wycinek (footprint null)',
+                    pass: g.footprint == null && near(g.oz, 0) && !g.groundVanished,
+                    got: 'oz=' + g.oz + ' footprint=' + (g.footprint ? 'jest' : 'null') };
+            });
+
+            return T.map(function(fn) {
+                try { return fn(); } catch (err) { return { name: 'wyjątek', pass: false, error: err.message }; }
+            });
+        }
+
         function runCalcSmokeTests() {
             var cases = [
                 // długość (zachowane stare zachowanie — baza mm)
@@ -6417,6 +6496,7 @@
                 getParserCapabilities: getParserCapabilities,
                 getHelpCoverageReport: getHelpCoverageReport,
                 runParserSmokeTests: runParserSmokeTests,
+                runProjectionSmokeTests: runProjectionSmokeTests,
                 runCalcSmokeTests: runCalcSmokeTests,
                 evalCalcExpression: evalCalcExpression,
                 loadFxRates: loadFxRates,
