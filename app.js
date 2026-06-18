@@ -2675,6 +2675,22 @@
         // ,, oraz | parametry) i znak =, żeby od razu było widać rozgraniczniki. Warstwa
         // .cmd-hl leży pod przezroczystą textareą; tekst budujemy jednym przebiegiem regex
         // (bez ponownego skanowania wstawionego HTML).
+        // Podświetla nazwy zdefiniowanych stałych w polu komendy osobnym tokenem .cmd-const,
+        // żeby było widać, że „belka"/„vat" są rozpoznane jako Twoje stałe. Działa na już
+        // zescapowanym tekście serii; granice słowa odporne na polskie znaki (jak w resolverach).
+        function highlightCmdConstants(escSegment) {
+            var cs = STATE.constants;
+            if (!cs || !cs.length) return escSegment;
+            var names = cs.map(function(c) { return c.name; }).filter(Boolean)
+                .sort(function(a, b) { return b.length - a.length; })
+                .map(function(n) { return n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); });
+            if (!names.length) return escSegment;
+            var re = new RegExp('(^|[^\\p{L}\\p{N}_])(' + names.join('|') + ')(?![\\p{L}\\p{N}_])', 'giu');
+            return escSegment.replace(re, function(_m, pre, name) {
+                return pre + '<span class="cmd-const">' + name + '</span>';
+            });
+        }
+
         function refreshCmdHL() {
             if (!graphCommandHL || !graphCommand) return;
             var text = graphCommand.value;
@@ -2684,7 +2700,9 @@
             var serIdx = 0;
             graphCommandHL.innerHTML = parts.map(function(part) {
                 if (part === ';;') return '<span class="sep-series">;;</span>';
-                var inner = part.replace(/(,,|\|)/g, '<span class="sep">$1</span>');
+                // najpierw stałe (na czystym tekście), potem separatory — kolejność chroni przed
+                // wstrzykiwaniem znaczników w już wstawione <span>.
+                var inner = highlightCmdConstants(part).replace(/(,,|\|)/g, '<span class="sep">$1</span>');
                 var cls = 'ser' + (serIdx % 6) + (hasMulti ? ' band' : '');
                 serIdx++;
                 return '<span class="' + cls + '">' + inner + '</span>';

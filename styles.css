@@ -817,6 +817,12 @@
         .cmd-hl .ser3 .sep { background: rgba(217, 119, 6, 0.20); } .cmd-hl .ser3.band { background: rgba(217, 119, 6, 0.08); }
         .cmd-hl .ser4 .sep { background: rgba(124, 58, 237, 0.18); } .cmd-hl .ser4.band { background: rgba(124, 58, 237, 0.08); }
         .cmd-hl .ser5 .sep { background: rgba(8, 145, 178, 0.18); } .cmd-hl .ser5.band { background: rgba(8, 145, 178, 0.08); }
+        /* Twoja stała rozpoznana w komendzie — różowy „podkreślnik" (akcent marki), czytelny
+           niezależnie od koloru serii. Sam box-shadow/tło → bez zmiany szerokości (overlay się nie rozjedzie). */
+        .cmd-hl .cmd-const {
+            background: rgba(211, 61, 118, 0.10);
+            box-shadow: inset 0 -0.18em 0 rgba(211, 61, 118, 0.55);
+        }
         .input-group input:disabled {
             opacity: 0.55;
             cursor: not-allowed;
@@ -1874,11 +1880,40 @@
         }
 
         @media (min-width: 1024px) {
-            .panels { max-width: 700px; padding: 20px 24px; }
+            /* Szeroki ekran: poszerzamy obszar, ale tylko sekcje, które na tym zyskują.
+               Kalkulator/Warsztat/Stałe na razie wyśrodkowane (osobne kroki rozszerzą je później). */
+            .panels { max-width: 1200px; padding: 20px 24px; }
+            #panel-calculator, #panel-warsztat, #panel-constants {
+                max-width: 640px;
+                margin-left: auto;
+                margin-right: auto;
+            }
             .calc-btn { font-size: 1.5rem; min-height: 68px; }
             .calc-result { font-size: 3.5rem; }
             .card { padding: 24px; }
             .app-header h1 { font-size: 1.5rem; }
+
+            /* ── Komenda: sterowanie (lewo) | duży, lepki wykres (prawo) ──
+               UWAGA: tylko gdy .active — inaczej ID-specyficzność nadpisałaby
+               `.panel { display:none }` i panel byłby widoczny pod innymi zakładkami. */
+            #panel-komenda.active {
+                display: grid;
+                grid-template-columns: minmax(340px, 440px) 1fr;
+                gap: 18px;
+                align-items: start;
+            }
+            #panel-komenda > .komenda-graph-card {
+                grid-column: 2;
+                grid-row: 1 / span 50;       /* prawa kolumna na całą wysokość treści */
+                position: sticky;
+                top: 8px;
+                margin-bottom: 0;
+                align-self: stretch;
+            }
+            /* Wykres wyższy na desktopie — pełniejsze wykorzystanie pionu. */
+            #panel-komenda .komenda-graph-card .graph-container {
+                min-height: 60vh;
+            }
         }
 
         /* ============================================================
