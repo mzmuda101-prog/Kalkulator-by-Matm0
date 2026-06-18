@@ -506,7 +506,13 @@
             constants.forEach(function(c) {
                 if (!c.name) return;
                 var escaped = c.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-                result = result.replace(new RegExp('\\b' + escaped + '\\b', 'gi'), String(c.value));
+                // [EN] Granice słowa ODPORNE NA POLSKIE ZNAKI. `\b` opiera się na [A-Za-z0-9_],
+                // więc ucinał nazwy z diakrytykami (np. „kwartał" — końcowe \b nie łapało po „ł”,
+                // przez co stała się nie podstawiała i wynik nie wychodził). Zamiast tego ręczne
+                // granice na klasie liter/cyfr Unicode (\p{L}\p{N}_, flaga u). Lewą granicę łapiemy
+                // w grupie (bez lookbehind = szersza zgodność przeglądarek), prawą lookaheadem.
+                var re = new RegExp('(^|[^\\p{L}\\p{N}_])(' + escaped + ')(?![\\p{L}\\p{N}_])', 'giu');
+                result = result.replace(re, function(_m, pre) { return pre + String(c.value); });
             });
             return result;
         }
