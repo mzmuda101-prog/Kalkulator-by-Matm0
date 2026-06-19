@@ -898,16 +898,18 @@
                     <p class="help-command" data-command="1560 - vat 8%"><code>1560 - vat 8%</code> usuń VAT 8% (÷1,08) ≈ 1444,44</p>
                     <p class="help-command" data-command="vat od 1000"><code>vat od 1000</code> sama kwota podatku = 230</p>
                     <p class="help-command" data-command="vat 8% od 1000"><code>vat 8% od 1000</code> = 80</p>
-                    <p>„minus VAT" to <strong>÷1,23</strong> (nie −23%) — bo VAT liczy się od netta. Gołe <code>vat</code> bez operatora/„od" nic nie liczy.</p>
+                    <p>„minus VAT" to <strong>÷1,23</strong> (nie −23%) — bo VAT liczy się od netta. Samo słowo <code>vat</code> (bez <code>+</code>/<code>−</code> albo „od") nic nie policzy.</p>
                 </section>
                 <section>
                     <h4>Moje Stałe — własne nazwy (zakładka 📊)</h4>
-                    <p>Definiujesz w <strong>📊 Moje Stałe</strong>, używasz nazwą w działaniach (działają polskie znaki, np. <code>kwartał</code>).</p>
-                    <p><code>rabat</code> = <code>8%</code> → <code>100 - rabat</code> = 92 (stała może być procentem; podstawia się dosłownie)</p>
-                    <p><code>cena</code> = <code>4,80</code> + jednostka <code>zł</code> → <code>cena * 12</code> = 57,6 zł (jednostka stałej zostaje); <code>dł</code> = <code>120</code> <code>cm</code> → <code>dł na m</code> = 1,2 m</p>
-                    <p>Wartość może być wyrażeniem: <code>5+5*2</code>, a nawet wyrywkiem komendy: <code>belka</code> = <code>x=120/4 ,, @edges</code> (użyj w zakładce Komenda).</p>
-                    <p><strong>Operacja</strong> (niedokończone równanie zaczynające się od <code>× ÷ * / + ^</code>) podstawia się <strong>dosłownie</strong>, dopełniając wyrażenie: <code>marża</code> = <code>×5+2</code> → <code>100 marża</code> = 502; <code>narzut</code> = <code>×1,23</code> → <code>100 narzut</code> = 123.</p>
-                    <p><strong>Funkcja</strong> (wartość zawiera zmienną <code>x</code>): <code>f</code> = <code>50-(20x+5)</code> → wywołaj podając <code>x</code>: <code>f(3)</code>, <code>f 3</code> albo <code>3 f</code> = −15 (argument może być stałą, np. <code>f cena</code>). Operand z <strong>obu</strong> stron (<code>5 f 3</code>) celowo nie liczy — użyj nawiasów. W <strong>komendach</strong> ta sama stała podstawia ciało: <code>g(x)=f</code> rysuje <code>50-(20x+5)</code>.</p>
+                    <p>Definiujesz w <strong>📊 Moje Stałe</strong>, potem używasz nazwą wprost w działaniu (działają polskie znaki, np. <code>kwartał</code>).</p>
+                    <p class="help-command" data-command="10 * DESKA"><code>10 * DESKA</code> — gdy DESKA = 4,5 → 45. Wartość może być liczbą, procentem (<code>rabat</code> = <code>8%</code> → <code>100 - rabat</code> = 92) lub wyrażeniem (<code>5+5*2</code>).</p>
+                    <p><strong>Z jednostką:</strong> <code>cena</code> = <code>4,80 zł</code> → <code>cena * 12</code> = 57,6 zł (jednostka zostaje); <code>dł</code> = <code>120 cm</code> → <code>dł na m</code> = 1,2 m.</p>
+                    <p><strong>Operacja</strong> — wartość zaczyna się od operatora (<code>× ÷ * / + ^</code>) i dopełnia wyrażenie: <code>marża</code> = <code>×5+2</code> → <code>100 marża</code> = 502.</p>
+                    <p><strong>Funkcja</strong> — gdy wartość stałej zawiera <code>x</code>, stała staje się wzorem, w który podstawiasz liczbę. Przykład: stała o wartości <code>50-(20x+5)</code>. Poniżej <code>stała</code> oznacza nazwę, którą jej nadałeś:</p>
+                    <p><code>stała(3)</code> — w nawiasach (najpewniejsze): podstawia <code>x = 3</code> → −15. W nawiasach podasz liczbę albo <strong>inną stałą</strong>: <code>stała(cena)</code>.</p>
+                    <p><code>stała 3</code> lub <code>3 stała</code> — krótko, bez nawiasów, gdy liczba jest tylko z jednej strony.</p>
+                    <p>Operand z <strong>obu</strong> stron (<code>5 stała 3</code>) celowo nie liczy — wtedy użyj nawiasów <code>stała(3)</code>.</p>
                 </section>
                 <section>
                     <h4>Jednostki długości</h4>
@@ -961,7 +963,7 @@
                     <p class="help-command" data-command="90 deg na grad"><code>90 deg na grad</code> → 100 grad</p>
                 </section>
                 <section>
-                    <h4>Skróty liczbowe</h4>
+                    <h4>Skróty: tysiące, ułamki, proporcje</h4>
                     <p class="help-command" data-command="10K * 4.5"><code>10K</code> = 10 000 → wynik 45 000</p>
                     <p class="help-command" data-command="2.5 tys * 12"><code>2,5 tys * 12</code> = 30 000</p>
                     <p class="help-command" data-command="1.5 mln / 12"><code>1,5 mln / 12</code> = 125 000</p>
@@ -1000,15 +1002,6 @@
                     <p class="help-command" data-command="100 zł na eur"><code>100 zł na eur</code> i z powrotem</p>
                     <p class="help-command" data-command="50 usd na eur"><code>50 usd na eur</code> między walutami (przez PLN)</p>
                     <p>Skróty: <code>zł</code>/<code>pln</code>, <code>eur</code>/<code>€</code>, <code>usd</code>/<code>$</code>, <code>gbp</code>/<code>£</code>, <code>chf</code> i kody NBP (czk, nok…).</p>
-                </section>
-                <section>
-                    <h4>Stałe (z zakładki "Moje Stałe")</h4>
-                    <p>Wpisz nazwę stałej bezpośrednio w wyrażeniu.</p>
-                    <p class="help-command" data-command="10*DESKA"><code>10 * DESKA</code> jeśli DESKA = 4,5 → 45</p>
-                    <p class="help-command" data-command="CENA * 1.23"><code>CENA * 1,23</code> cena brutto z VAT 23%</p>
-                    <p><strong>Operacja</strong> — wartość od operatora (<code>×5+2</code>): podstawia się dosłownie, <code>100 marża</code> = 502.</p>
-                    <p><strong>Z jednostką</strong> — <code>cena</code> = <code>4,80 zł</code> → <code>cena * 12</code> = 57,6 zł (jednostka zostaje).</p>
-                    <p><strong>Funkcja</strong> — wartość ze zmienną <code>x</code> (<code>50-(20x+5)</code>): wywołaj <code>f(3)</code> / <code>f 3</code> / <code>3 f</code> = −15. W komendach podstawia ciało (<code>g(x)=f</code>).</p>
                 </section>
             </div>
             <div class="help-section" data-help="engineering">
@@ -1357,6 +1350,18 @@
                         <code>x(d)=300/4 | y=-2 ;; punkt=150;0</code>
                         punkty na belce + dodatkowy punkt
                     </p>
+                </section>
+
+                <section>
+                    <h4>🧩 Moje Stałe w komendach</h4>
+                    <p>Nazwa stałej (z zakładki <strong>📊 Moje Stałe</strong>) podstawia w komendzie swoją wartość <strong>dosłownie</strong>, jako fragment komendy.</p>
+                    <p class="help-command" data-command="belka">
+                        <code>belka</code> = <code>x=120/4 ,, @edges</code> → wpisz <code>belka</code>, rozwinie się w pełną komendę
+                    </p>
+                    <p class="help-command" data-command="f(x)=wzor">
+                        <code>wzor</code> = <code>50-(20x+5)</code> (stała-funkcja) → <code>f(x)=wzor</code> rysuje <code>50-(20x+5)</code> (<code>x</code> = zmienna wykresu)
+                    </p>
+                    <p>Uwaga: w kalkulatorze ta sama stała <em>wywołuje się</em> (<code>wzor(3)</code> = liczba); w komendzie <em>podstawia wzór</em> do rysowania.</p>
                 </section>
 
             </div>

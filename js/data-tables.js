@@ -11,7 +11,7 @@
     var UNIT_CATEGORIES = {
         length: { base: 'mm', units: {
             mm: 1, cm: 10, dm: 100, m: 1000, km: 1000000,
-            'in': 25.4, inch: 25.4, inches: 25.4, cal: 25.4, cale: 25.4,
+            'in': 25.4, inch: 25.4, inches: 25.4, cal: 25.4, cale: 25.4, cali: 25.4,
             ft: 304.8, feet: 304.8, foot: 304.8, stopa: 304.8, stopy: 304.8,
             yd: 914.4, yard: 914.4, yards: 914.4, jard: 914.4, jardy: 914.4,
             mila: 1609344, mile: 1609344, mil: 1609344,

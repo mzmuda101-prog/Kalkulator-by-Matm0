@@ -6765,6 +6765,7 @@
                 { expr: '2 cm + 5 mm', value: 25, unit: 'mm' },
                 { expr: '5 km na mile', value: 3.106856, unit: 'mile', tol: 1e-3 },
                 { expr: "5' + 6\"", value: 1676.4, unit: 'mm' },
+                { expr: '6 cali na mm', value: 152.4, unit: 'mm' },   // PL formy cala: cal/cale/cali
                 // masa
                 { expr: '2 kg + 300 g', value: 2300, unit: 'g' },
                 { expr: '5 funtow na kg', value: 2.267962, unit: 'kg', tol: 1e-4 },
