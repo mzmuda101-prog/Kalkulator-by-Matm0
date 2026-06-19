@@ -514,37 +514,37 @@
             // narzut / marża / markup
             raw = raw.replace(/([\d.,]+)%\s+(?:narzut[u]?|mar[zż][ae]?|markup)\s+(?:na|od|do|on)?\s*([\d.,]+)/gi,
                 function(_, p, b) { return '(' + b.replace(',', '.') + '*(1+' + p.replace(',', '.') + '/100))'; });
-            // --- Finanse PL: brutto / netto / VAT (domyślny VAT 23%, opcjonalna własna stawka) ---
-            // Kolejność: brutto/netto najpierw, by „skonsumowały" swoje końcowe „vat N%",
-            // zanim ogólna reguła VAT spróbuje je złapać.
+            // --- Finanse PL: brutto / netto / VAT (domyślna stawka 23%, własna ze znakiem „%" na końcu).
+            // „vat" znaczy POPRAWNĄ matematycznie operację, NIE alias 23% (patrz: minus VAT z brutta to
+            // ÷1,23, nie ×0,77). Formy:
+            //   • „brutto K" = K×(1+stawka),   „netto K" = K÷(1+stawka)   [stawka domyślnie 23%]
+            //   • „K - vat"  = usuń VAT (÷),   „K + vat" = dodaj VAT (×)   → „1560 - vat" = 1268,29
+            //   • „vat od K" = sama kwota podatku = K×stawka              → „vat od 1000" = 230
+            // Stawkę własną podajesz „%" na końcu: „brutto 1000 8%", „1560 - vat 8%", „vat 8% od 1000".
+            // Gołe „vat" (alias 23%) USUNIĘTE — eliminuje dwuznaczne „1500 vat". (Użytkownik może i tak
+            // zdefiniować własną stałą o nazwie „vat" — rozwija się wcześniej i ją nadpisze.)
             function _vatRate(r) { var v = r != null ? parseFloat(String(r).replace(',', '.')) : 23; return isFinite(v) && v >= 0 ? v : 23; }
-            // brutto = netto + VAT. „brutto 1000", „brutto 1000 vat 8%", „1000 brutto"
-            raw = raw.replace(/\bbrutto\s+([\d.,]+)(?:\s+(?:z\s+)?vat\s+([\d.,]+)%?)?/gi,
+            // brutto = netto + VAT (×). „brutto 1000", „brutto 1000 8%", „1000 brutto"
+            raw = raw.replace(/\bbrutto\s+([\d.,]+)(?:\s+([\d.,]+)\s*%)?/gi,
                 function(_, x, r) { return '(' + x.replace(',', '.') + '*(1+' + _vatRate(r) + '/100))'; });
-            raw = raw.replace(/([\d.,]+)\s+brutto\b(?:\s+(?:z\s+)?vat\s+([\d.,]+)%?)?/gi,
+            raw = raw.replace(/([\d.,]+)\s+brutto\b(?:\s+([\d.,]+)\s*%)?/gi,
                 function(_, x, r) { return '(' + x.replace(',', '.') + '*(1+' + _vatRate(r) + '/100))'; });
-            // netto = brutto − VAT. „netto 1230", „netto 1080 vat 8%", „1230 netto"
-            raw = raw.replace(/\bnetto\s+([\d.,]+)(?:\s+(?:z\s+)?vat\s+([\d.,]+)%?)?/gi,
+            // netto = brutto − VAT (÷). „netto 1230", „netto 1230 8%", „1230 netto"
+            raw = raw.replace(/\bnetto\s+([\d.,]+)(?:\s+([\d.,]+)\s*%)?/gi,
                 function(_, x, r) { return '(' + x.replace(',', '.') + '/(1+' + _vatRate(r) + '/100))'; });
-            raw = raw.replace(/([\d.,]+)\s+netto\b(?:\s+(?:z\s+)?vat\s+([\d.,]+)%?)?/gi,
+            raw = raw.replace(/([\d.,]+)\s+netto\b(?:\s+([\d.,]+)\s*%)?/gi,
                 function(_, x, r) { return '(' + x.replace(',', '.') + '/(1+' + _vatRate(r) + '/100))'; });
-            // VAT jako procent od POPRZEDZAJĄCEJ bazy. „50 - vat 20%" = 50 − 20% z 50 = 40,
-            // „50 + vat 20%" = 60. Forma inline analogiczna do Samsung-style „A ± B%" (linia niżej),
-            // ale stawkę bierzemy z „vat N%". MUSI iść przed ogólną regułą „vat <kwota>", bo inaczej
-            // ta złapałaby „vat 20" jako kwotę. Nie koliduje z „vat 20% od 1000" — tam nie ma
-            // poprzedzającej formy „liczba ±", baza jest jawna przez „od".
-            raw = raw.replace(/([\d.,]+)\s*([+\-])\s*vat\s+([\d.,]+)%/gi,
+            // „K ± vat [r%]" — operator. „-" USUWA VAT (÷1+stawka), „+" DODAJE VAT (×1+stawka).
+            // „1560 - vat" = 1560/1,23 = 1268,29; „1000 + vat 8%" = 1080. MUSI iść przed „vat od K".
+            raw = raw.replace(/([\d.,]+)\s*([+\-])\s*vat(?:\s+([\d.,]+)\s*%)?/gi,
                 function(_, a, op, r) {
                     a = a.replace(',', '.');
-                    return a + op + '(' + a + '*' + _vatRate(r) + '/100)';
+                    var f = '(1+' + _vatRate(r) + '/100)';
+                    return '(' + a + (op === '-' ? '/' : '*') + f + ')';
                 });
-            // sama kwota VAT od netto. „vat od 1000", „vat 1000", „vat 8% od 1000"
-            raw = raw.replace(/\bvat\s+(?:([\d.,]+)%\s+)?(?:od\s+|z\s+)?([\d.,]+)/gi,
+            // Sama kwota podatku: „vat od 1000" = 230, „vat 8% od 1000" = 80. Wymaga słowa „od".
+            raw = raw.replace(/\bvat(?:\s+([\d.,]+)\s*%)?\s+od\s+([\d.,]+)/gi,
                 function(_, r, x) { return '(' + x.replace(',', '.') + '*' + _vatRate(r) + '/100)'; });
-            // Gołe „vat" (nieskonsumowane przez wzorce „vat <kwota>" i bez własnej stałej usera —
-            // stałe rozwijane są wcześniej) = domyślna stawka 23%. Dzięki temu „100 - vat" działa
-            // intuicyjnie jak „100 - 23%" (reguła „A ± B%" niżej dokończy resztę).
-            raw = raw.replace(/\bvat\b/gi, '23%');
 
             // "dodaj X% do Y"
             raw = raw.replace(/dodaj\s+([\d.,]+)%\s+do\s+([\d.,]+)/gi,
@@ -6712,16 +6712,21 @@
                 { expr: '180 deg na rad', value: Math.PI, unit: 'rad', tol: 1e-6 },
                 // miks kategorii → brak konwersji (nie wybucha, po prostu bez wyniku jednostkowego)
                 { expr: '2 kg + 3 cm', unit: null },
-                // finanse PL (VAT)
-                { expr: 'brutto 1000', value: 1230 },
+                // finanse PL (VAT) — „vat" = poprawna operacja (÷/×1,23), nie alias 23%
+                { expr: 'brutto 1000', value: 1230 },              // netto→brutto ×1,23
                 { expr: '1000 brutto', value: 1230 },
-                { expr: 'netto 1230', value: 1000 },
-                { expr: 'vat od 1000', value: 230 },
-                { expr: 'brutto 1000 vat 8%', value: 1080 },
+                { expr: 'brutto 1000 8%', value: 1080 },           // własna stawka 8%
+                { expr: 'netto 1230', value: 1000 },               // brutto→netto ÷1,23
+                { expr: '1230 netto', value: 1000 },
+                { expr: 'netto 1230 8%', value: 1230 / 1.08, tol: 1e-6 },
+                { expr: '1560 - vat', value: 1560 / 1.23, tol: 1e-6 }, // usuń VAT z brutta = 1268,29
+                { expr: '100 - vat', value: 100 / 1.23, tol: 1e-6 },   // = 81,30 (nie 77!)
+                { expr: '50 - vat 20%', value: 50 / 1.2, tol: 1e-6 },  // ÷1,20 = 41,67
+                { expr: '1000 + vat', value: 1230 },               // dodaj VAT = ×1,23
+                { expr: '50 + vat 20%', value: 60 },               // ×1,20
+                { expr: '1000 + vat 8%', value: 1080 },
+                { expr: 'vat od 1000', value: 230 },               // sama kwota podatku
                 { expr: 'vat 8% od 1000', value: 80 },
-                { expr: '50 - vat 20%', value: 40 },     // VAT 20% z bazy 50 = 10, odjęte
-                { expr: '50 + vat 20%', value: 60 },     // VAT 20% z bazy 50 = 10, dodane
-                { expr: '100 - vat', value: 77 },        // wbudowany 23% nietknięty
                 // daty — deterministyczny zakres
                 { expr: 'ile dni od 1.01.2026 do 1.02.2026', value: 31 },
             ];

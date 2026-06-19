@@ -888,19 +888,22 @@
                     <p class="help-command" data-command="15% napiwek na 42"><code>15% napiwek na 42</code> = 48,30</p>
                 </section>
                 <section>
-                    <h4>Finanse — VAT (domyślnie 23%)</h4>
-                    <p class="help-command" data-command="brutto 1000"><code>brutto 1000</code> netto → brutto = 1230</p>
-                    <p class="help-command" data-command="netto 1230"><code>netto 1230</code> brutto → netto = 1000</p>
-                    <p class="help-command" data-command="vat od 1000"><code>vat od 1000</code> sama kwota VAT = 230</p>
-                    <p class="help-command" data-command="brutto 1000 vat 8%"><code>brutto 1000 vat 8%</code> własna stawka = 1080</p>
+                    <h4>Finanse — VAT (domyślnie 23%, własna stawka z <code>%</code> na końcu)</h4>
+                    <p class="help-command" data-command="brutto 1000"><code>brutto 1000</code> netto → brutto (×1,23) = 1230</p>
+                    <p class="help-command" data-command="netto 1230"><code>netto 1230</code> brutto → netto (÷1,23) = 1000</p>
+                    <p class="help-command" data-command="brutto 1000 8%"><code>brutto 1000 8%</code> własna stawka = 1080</p>
+                    <p class="help-command" data-command="netto 1230 8%"><code>netto 1230 8%</code> własna stawka ≈ 1138,89</p>
+                    <p class="help-command" data-command="1560 - vat"><code>1560 - vat</code> usuń VAT z brutta (÷1,23) ≈ 1268,29</p>
+                    <p class="help-command" data-command="1000 + vat"><code>1000 + vat</code> dodaj VAT do netta (×1,23) = 1230</p>
+                    <p class="help-command" data-command="1560 - vat 8%"><code>1560 - vat 8%</code> usuń VAT 8% (÷1,08) ≈ 1444,44</p>
+                    <p class="help-command" data-command="vat od 1000"><code>vat od 1000</code> sama kwota podatku = 230</p>
                     <p class="help-command" data-command="vat 8% od 1000"><code>vat 8% od 1000</code> = 80</p>
-                    <p class="help-command" data-command="100 - vat"><code>100 - vat</code> intuicyjnie jak <code>100 - 23%</code> = 77</p>
-                    <p class="help-command" data-command="50 - vat 20%"><code>50 - vat 20%</code> własna stawka od bazy: 50 − 20% z 50 = 40</p>
+                    <p>„minus VAT" to <strong>÷1,23</strong> (nie −23%) — bo VAT liczy się od netta. Gołe <code>vat</code> bez operatora/„od" nic nie liczy.</p>
                 </section>
                 <section>
                     <h4>Moje Stałe — własne nazwy (zakładka 📊)</h4>
                     <p>Definiujesz w <strong>📊 Moje Stałe</strong>, używasz nazwą w działaniach (działają polskie znaki, np. <code>kwartał</code>).</p>
-                    <p><code>vat</code> = <code>23%</code> → <code>100 - vat</code> = 77 (wbudowane; możesz nadpisać własną stawką)</p>
+                    <p><code>rabat</code> = <code>8%</code> → <code>100 - rabat</code> = 92 (stała może być procentem; podstawia się dosłownie)</p>
                     <p><code>cena</code> = <code>4,80</code> + jednostka <code>zł</code> → <code>cena * 12</code> = 57,6 zł (jednostka stałej zostaje); <code>dł</code> = <code>120</code> <code>cm</code> → <code>dł na m</code> = 1,2 m</p>
                     <p>Wartość może być wyrażeniem: <code>5+5*2</code>, a nawet wyrywkiem komendy: <code>belka</code> = <code>x=120/4 ,, @edges</code> (użyj w zakładce Komenda).</p>
                     <p><strong>Operacja</strong> (niedokończone równanie zaczynające się od <code>× ÷ * / + ^</code>) podstawia się <strong>dosłownie</strong>, dopełniając wyrażenie: <code>marża</code> = <code>×5+2</code> → <code>100 marża</code> = 502; <code>narzut</code> = <code>×1,23</code> → <code>100 narzut</code> = 123.</p>
