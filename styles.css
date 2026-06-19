@@ -456,6 +456,36 @@
         .calc-expression:focus {
             color: var(--text);
         }
+        /* Placeholder-marquee: gdy podpowiedź pola nie mieści się na wąsko (jest ucinana),
+           przewija się ping-pongiem (w prawo i z powrotem), by dało się ją całą odczytać.
+           Nakładka nad inputem — natywny placeholder ukrywamy, gdy JS ją włączy. */
+        .calc-expr-wrap { position: relative; width: 100%; }
+        .calc-expr-wrap.has-ph .calc-expression::placeholder { color: transparent; }
+        .calc-ph {
+            position: absolute;
+            inset: 0;
+            display: none;
+            align-items: center;
+            justify-content: flex-end;
+            overflow: hidden;
+            pointer-events: none;
+            font-size: 1.25rem;
+            font-family: var(--font-mono);
+            color: var(--text-muted);
+            opacity: 0.75;
+        }
+        .calc-ph.is-visible { display: flex; }
+        .calc-ph > span { white-space: nowrap; flex: 0 0 auto; will-change: transform; }
+        .calc-ph.is-scrolling > span { animation: phMarquee 7s ease-in-out infinite; }
+        @keyframes phMarquee {
+            0%, 14%  { transform: translateX(0); }
+            50%, 64% { transform: translateX(var(--ph-shift, 0)); }
+            100%     { transform: translateX(0); }
+        }
+        @media (prefers-reduced-motion: reduce) {
+            /* bez animacji — pokaż początek podpowiedzi (informacyjny), nie końcówkę */
+            .calc-ph.is-scrolling > span { animation: none; transform: translateX(var(--ph-shift, 0)); }
+        }
         .calc-result {
             font-size: 2.5rem;
             font-weight: 700;

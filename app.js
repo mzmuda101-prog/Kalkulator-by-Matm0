@@ -337,6 +337,9 @@
             if (tabName === 'constants') {
                 renderConstants();
             }
+            if (tabName === 'calculator') {
+                setTimeout(updatePlaceholderMarquee, 0); // panel widoczny → poprawny pomiar szerokości
+            }
         }
 
         tabBtns.forEach(function(btn) {
@@ -1123,7 +1126,38 @@
             try { input.setSelectionRange(start + text.length, start + text.length); } catch(e) {}
         }
 
+        // Placeholder-marquee pola wyrażenia: gdy podpowiedź nie mieści się (wąski ekran),
+        // przewijamy ją ping-pongiem (CSS), by dała się odczytać w całości. Pokazujemy TYLKO
+        // gdy pole puste; szerokość przewinięcia (--ph-shift) liczymy z realnego przepełnienia.
+        var _calcPh = null, _calcPhInner = null;
+        function updatePlaceholderMarquee() {
+            if (!_calcPh) return;
+            var empty = !calcExpr.value;
+            _calcPh.classList.toggle('is-visible', empty);
+            if (!empty) { _calcPh.classList.remove('is-scrolling'); return; }
+            var over = _calcPhInner.offsetWidth - _calcPh.clientWidth;
+            if (over > 2) {
+                _calcPh.style.setProperty('--ph-shift', over + 'px');
+                _calcPh.classList.add('is-scrolling');
+            } else {
+                _calcPh.classList.remove('is-scrolling');
+                _calcPh.style.removeProperty('--ph-shift');
+            }
+        }
+        function setupPlaceholderMarquee() {
+            _calcPh = document.getElementById('calcPh');
+            if (!_calcPh || !calcExpr) return;
+            _calcPhInner = _calcPh.firstElementChild;
+            if (calcExpr.parentElement) calcExpr.parentElement.classList.add('has-ph');
+            window.addEventListener('resize', updatePlaceholderMarquee);
+            window.addEventListener('orientationchange', updatePlaceholderMarquee);
+            if (document.fonts && document.fonts.ready) document.fonts.ready.then(updatePlaceholderMarquee).catch(function(){});
+            updatePlaceholderMarquee();
+            setTimeout(updatePlaceholderMarquee, 300); // po ustaleniu layoutu/fontów
+        }
+
         function liveEval() {
+            updatePlaceholderMarquee();
             // Wyrażenia z samych liczb całkowitych i +,−,×,() liczymy BigInt-em (dokładnie,
             // dowolna długość) — NIE obcinamy ich. Pozostałe (ułamki/dzielenie/funkcje) idą
             // przez float: tam liczba > 16 cyfr przekracza dokładność JS, więc tniemy nadmiar.
@@ -6599,6 +6633,7 @@
                 if (e.key === 'Enter' || e.key === '=') { e.preventDefault(); handleCalcAction('='); }
                 if (e.key === 'Escape') { handleCalcAction('AC'); }
             });
+            setupPlaceholderMarquee();
             liveEval();
             renderHistory();
 

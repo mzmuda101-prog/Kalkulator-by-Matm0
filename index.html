@@ -72,9 +72,12 @@
         <section id="panel-calculator" class="panel active" role="tabpanel">
             <div class="card">
                 <div class="calc-display">
-                    <input class="calc-expression" id="calcExpr" type="text"
-                        autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
-                        inputmode="text" aria-label="Wyrażenie kalkulatora" placeholder="Wpisz wyrażenie…">
+                    <div class="calc-expr-wrap">
+                        <input class="calc-expression" id="calcExpr" type="text"
+                            autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
+                            inputmode="text" aria-label="Wyrażenie kalkulatora" placeholder="Lub wpisz wyrażenie ręcznie…">
+                        <span class="calc-ph" id="calcPh" aria-hidden="true"><span>Lub wpisz wyrażenie ręcznie…</span></span>
+                    </div>
                     <div class="calc-result" id="calcResult" aria-live="polite">0</div>
                 </div>
                 <div class="calc-grid" id="calcGrid">
