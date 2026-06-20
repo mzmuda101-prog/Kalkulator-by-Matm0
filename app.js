@@ -1186,6 +1186,13 @@
                 // Stałe NAJPIERW — ich wartości mogą zawierać „%", „vat", frazy naturalne, które
                 // dopiero kolejne etapy (parseNaturalShortcuts) zamienią na właściwą matematykę.
                 expr = resolveCalcConstants(expr, STATE.constants);
+                // Waluty NAJPIERW (zaraz po stałych, PRZED parserem naturalnym): zamieniamy kwoty
+                // walutowe na liczby (wartość w PLN / konwersja „na X") i zapamiętujemy docelową
+                // jednostkę. Dzięki temu finanse/procenty/matematyka komponują się z walutą — token
+                // waluty już nie blokuje reguł typu „brutto 12 zł", „12 pln - vat", „20% z 100 zł".
+                var curRes = resolveCalcCurrency(expr);
+                if (curRes.pending) return { value: null, unit: null, error: null, pendingFx: true };
+                expr = curRes.expr;
                 expr = parseNaturalShortcuts(expr);
                 expr = resolveCalcAnswer(expr);
                 // Duże liczby całkowite (+, −, ×): licz dokładnie BigInt-em, ale TYLKO gdy
@@ -1202,10 +1209,6 @@
                                  big: true, bigStr: bigStr, text: groupBigIntStr(bigStr) };
                     }
                 }
-                // Waluty (przed jednostkami): zamienia kwoty walutowe na PLN / robi konwersję.
-                var curRes = resolveCalcCurrency(expr);
-                if (curRes.pending) return { value: null, unit: null, error: null, pendingFx: true };
-                expr = curRes.expr;
                 var unitResult = resolveCalcUnits(expr);
                 expr = unitResult.expr;
                 // Miks WALUTY z jednostką FIZYCZNĄ (np. „12 gb − 12 zł") nie ma sensu — nie liczymy
@@ -7209,6 +7212,24 @@
             ['12 gb - 12 zł', '12 zł + 5 kg', '12 zł / 2 kg'].forEach(function(ex) {
                 var r = evalCalcExpression(ex);
                 results.push({ expr: ex + ' (miks waluta+jednostka: NIE liczy)', pass: r.value === null && r.unit === null, got: r.value + ' ' + r.unit });
+            });
+            // Waluta KOMPONUJE się z finansami/procentami (waluta liczona PRZED parserem naturalnym).
+            var compCases = [
+                { expr: '12pln - vat', value: 12 / 1.23, unit: 'zł' },     // VAT z kwoty walutowej (glued token)
+                { expr: 'brutto 12pln', value: 12 * 1.23, unit: 'zł' },    // brutto + glued token
+                { expr: 'brutto 12 zł', value: 12 * 1.23, unit: 'zł' },    // brutto + token ze spacją
+                { expr: 'netto 1230 zł', value: 1000, unit: 'zł' },        // netto na kwocie walutowej
+                { expr: '1000 zł + vat', value: 1000 * 1.23, unit: 'zł' }, // dodaj VAT do kwoty walutowej
+                { expr: '100 usd - vat', value: (100 * 3.95) / 1.23, unit: 'zł' }, // obca waluta: VAT po przeliczeniu na PLN
+                { expr: '20% z 100 zł', value: 20, unit: 'zł' },           // procent z kwoty walutowej
+                { expr: 'połowa 100 zł', value: 50, unit: 'zł' },          // ułamek z kwoty walutowej
+            ];
+            compCases.forEach(function(t) {
+                var r = evalCalcExpression(t.expr);
+                var pass = t.value === null
+                    ? (r.value === null)
+                    : (r.unit === t.unit && Math.abs(r.value - t.value) < 1e-6);
+                results.push({ expr: t.expr + ' (waluta+operacja)', pass: pass, got: r.value + ' ' + r.unit });
             });
             // Kurs krzyżowy (para bez PLN) — przez pivot PLN: 100 USD → EUR = 100*3,95/4,30.
             var cross = evalCalcExpression('100 usd na eur');
