@@ -968,6 +968,16 @@
                     <p class="help-command" data-command="90 deg na grad"><code>90 deg na grad</code> → 100 grad</p>
                 </section>
                 <section>
+                    <h4>Prędkość (oś: m/s)</h4>
+                    <p class="help-command" data-command="100 km/h na m/s"><code>100 km/h na m/s</code> → ~27,78 m/s</p>
+                    <p class="help-command" data-command="10 m/s na km/h"><code>10 m/s na km/h</code> → 36 km/h</p>
+                    <p class="help-command" data-command="60 mph na km/h"><code>60 mph na km/h</code> mile/h → ~96,56 km/h</p>
+                    <p class="help-command" data-command="10 knots na km/h"><code>10 knots na km/h</code> węzły → 18,52 km/h</p>
+                    <p class="help-command" data-command="1 km/s na km/h"><code>1 km/s na km/h</code> → 3600 km/h</p>
+                    <p>Aliasy: <code>kph</code>=km/h, <code>kn</code>/<code>kt</code>/<code>węzeł</code>=knots, <code>ft/s</code>, <code>m/h</code>, <code>cm/s</code>.</p>
+                    <p>W ⚙️ <strong>Ustawieniach</strong> ustawisz domyślną jednostkę (prędkość, długość, masa, objętość) — gołe sumy pokażą się w niej; „X na Y" zawsze wygrywa.</p>
+                </section>
+                <section>
                     <h4>Skróty: tysiące, ułamki, proporcje</h4>
                     <p class="help-command" data-command="10K * 4.5"><code>10K</code> = 10 000 → wynik 45 000</p>
                     <p class="help-command" data-command="2.5 tys * 12"><code>2,5 tys * 12</code> = 30 000</p>
@@ -1390,6 +1400,16 @@
                 <label for="settingDefaultCurrency">Domyślna waluta</label>
                 <p class="settings-hint">Gołe sumy walutowe (np. „20 eur + 10 usd") pokazują wynik w tej walucie.</p>
                 <select id="settingDefaultCurrency"></select>
+            </div>
+            <div class="settings-field">
+                <label>Domyślne jednostki</label>
+                <p class="settings-hint">Gołe sumy (np. „2 m/s + 5 km/h", „5 m + 200 cm") pokazują wynik w tej jednostce. Jawna konwersja „X na Y" zawsze wygrywa.</p>
+                <div class="settings-units" id="settingDefaultUnits">
+                    <label class="settings-unit"><span>Prędkość</span><select id="settingUnitSpeed" data-unit-cat="speed"></select></label>
+                    <label class="settings-unit"><span>Długość</span><select id="settingUnitLength" data-unit-cat="length"></select></label>
+                    <label class="settings-unit"><span>Masa</span><select id="settingUnitMass" data-unit-cat="mass"></select></label>
+                    <label class="settings-unit"><span>Objętość</span><select id="settingUnitVolume" data-unit-cat="volume"></select></label>
+                </div>
             </div>
             <div class="settings-field">
                 <label>Silnik kursów walut</label>

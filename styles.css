@@ -1816,6 +1816,18 @@
             appearance: none;
         }
         .settings-field select:focus { outline: none; border-color: var(--border-focus); }
+        .settings-units {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 10px 12px;
+        }
+        .settings-unit { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+        .settings-unit > span {
+            font-size: 0.8rem;
+            font-weight: 600;
+            color: var(--text-muted);
+        }
+        @media (max-width: 360px) { .settings-units { grid-template-columns: 1fr; } }
         .settings-radios { display: flex; flex-direction: column; gap: 8px; }
         .settings-radio {
             display: flex;

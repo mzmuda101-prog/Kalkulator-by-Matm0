@@ -51,7 +51,10 @@
             //   defaultCurrency — kod ISO waluty, do której zwijają się gołe sumy walutowe.
             //   fxEngine — 'auto' (NBP priorytet, Frankfurter dla reszty+backup) | 'nbp' | 'frankfurter'.
             //   fxBackup — dla trybów 'nbp'/'frankfurter': gdy główny silnik padnie, dobierz z drugiego.
-            settings: { defaultCurrency: 'PLN', fxEngine: 'auto', fxBackup: true },
+            //   defaultUnits — domyślna jednostka WYŚWIETLANIA per kategoria fizyczna (np. speed→'km/h').
+            //     '' = jednostka bazowa (jak dotąd). Dotyczy tylko gołych sum; jawne „X na Y" wygrywa.
+            settings: { defaultCurrency: 'PLN', fxEngine: 'auto', fxBackup: true,
+                        defaultUnits: { speed: '', length: '', mass: '', volume: '' } },
             // Komenda tab (merged Engineering + Graph)
             eng: { unit: 'cm', axis: 'X', mode: 'between' }, // used by drawEngineeringCanvas
             graph: {
@@ -106,6 +109,7 @@
         const settingsBackdrop = $('#settingsBackdrop');
         const settingsClose = $('#settingsClose');
         const settingDefaultCurrency = $('#settingDefaultCurrency');
+        const settingUnitSelects = Array.prototype.slice.call(document.querySelectorAll('#settingDefaultUnits select[data-unit-cat]'));
         const settingFxBackup = $('#settingFxBackup');
         const settingFxBackupRow = $('#settingFxBackupRow');
         const settingsFxStatus = $('#settingsFxStatus');
@@ -202,6 +206,11 @@
                         if (stObj.defaultCurrency) STATE.settings.defaultCurrency = String(stObj.defaultCurrency).toUpperCase();
                         if (stObj.fxEngine) STATE.settings.fxEngine = stObj.fxEngine;
                         if (typeof stObj.fxBackup === 'boolean') STATE.settings.fxBackup = stObj.fxBackup;
+                        if (stObj.defaultUnits && typeof stObj.defaultUnits === 'object') {
+                            Object.keys(STATE.settings.defaultUnits).forEach(function(cat) {
+                                if (typeof stObj.defaultUnits[cat] === 'string') STATE.settings.defaultUnits[cat] = stObj.defaultUnits[cat];
+                            });
+                        }
                     }
                 }
             } catch (e) {
@@ -824,7 +833,25 @@
             // Miks kategorii (kg + cm) nie ma sensu → zwróć surowiec bez wyniku jednostkowego.
             if (mixed) return { expr: raw, unit: null, cat: null, valueInBase: 0 };
 
-            return { expr: expr, unit: hasUnits ? baseUnit : null, cat: cat, valueInBase: totalBase };
+            if (!hasUnits) return { expr: expr, unit: null, cat: null, valueInBase: 0 };
+            // Domyślna jednostka wyświetlania (ustawienia) — dotyczy TYLKO gołych sum (tu);
+            // jawna konwersja „X na Y" wraca wcześniej, więc zawsze wygrywa. displayFactor mówi
+            // evalCalcExpression, przez ile podzielić wartość bazową, by pokazać w preferowanej.
+            var pref = _preferredDisplayUnit(cat);
+            if (pref) return { expr: expr, unit: pref.label, cat: cat, valueInBase: totalBase, displayFactor: pref.factor };
+            return { expr: expr, unit: baseUnit, cat: cat, valueInBase: totalBase };
+        }
+
+        // Preferowana jednostka WYŚWIETLANIA dla kategorii (z ustawień). Generyczne — działa dla
+        // dowolnej kategorii z CALC_UNITS; UI wystawia tylko część. Zwraca { label, factor } albo null.
+        function _preferredDisplayUnit(cat) {
+            var du = (STATE.settings && STATE.settings.defaultUnits) || {};
+            var name = du[cat];
+            if (!name) return null;
+            var key = String(name).toLowerCase();
+            var def = CALC_UNITS[key];
+            if (!def || def.cat !== cat) return null; // nieznana/niepasująca → ignoruj (bezpiecznie)
+            return { label: CALC_UNIT_DISPLAY[key] || name, factor: def.factor };
         }
 
         /* ============================================================
@@ -1230,6 +1257,9 @@
                 if (!expr) return { value: null, unit: null, error: null };
                 var fn = compileGraphExpression(expr);
                 var value = fn(0);
+                // Wartość policzona jest w jednostkach BAZOWYCH (expr ma podstawione bazy). Jeśli
+                // resolveCalcUnits wskazał preferowaną jednostkę wyświetlania, przelicz wartość.
+                if (!curRes.hasCurrency && unitResult.displayFactor) value = value / unitResult.displayFactor;
                 if (!isFinite(value)) return { value: Infinity, unit: unit, error: '∞' };
                 // Dokładne liczby całkowite do MAX_SAFE_INTEGER (16 cyfr) zostaw bez
                 // zaokrąglania; tylko ułamki/duże floaty tnij do 15 cyfr znaczących,
@@ -5772,6 +5802,37 @@
             settingDefaultCurrency.value = STATE.settings.defaultCurrency;
         }
 
+        // Wypełnia selecty domyślnych jednostek z CALC_UNIT_CATEGORIES (DRY — bez listy w HTML).
+        // Pierwsza opcja = „Bazowa (auto)" (''); dalej po jednej pozycji na DISTINCT współczynnik
+        // (aliasy typu kn/kt/węzły zwijają się do jednej). Sama baza pomijana (jest jako „auto").
+        function buildUnitOptions() {
+            if (!settingUnitSelects.length) return;
+            settingUnitSelects.forEach(function(sel) {
+                var cat = sel.getAttribute('data-unit-cat');
+                var def = CALC_UNIT_CATEGORIES[cat];
+                if (!def) return;
+                sel.innerHTML = '';
+                var base = document.createElement('option');
+                base.value = '';
+                base.textContent = 'Bazowa: ' + def.base + ' (auto)';
+                sel.appendChild(base);
+                var baseKey = String(def.base).toLowerCase();
+                var seenFactor = {};
+                Object.keys(def.units).forEach(function(u) {
+                    var f = def.units[u];
+                    if (seenFactor[f]) return;        // zwiń aliasy o tym samym współczynniku
+                    seenFactor[f] = 1;
+                    var key = u.toLowerCase();
+                    if (key === baseKey) return;       // baza już jest jako „auto"
+                    var opt = document.createElement('option');
+                    opt.value = key;
+                    opt.textContent = CALC_UNIT_DISPLAY[key] || u;
+                    sel.appendChild(opt);
+                });
+                sel.value = (STATE.settings.defaultUnits && STATE.settings.defaultUnits[cat]) || '';
+            });
+        }
+
         function updateFxStatusLine() {
             if (!settingsFxStatus) return;
             var msg;
@@ -5792,6 +5853,7 @@
 
         function openSettings() {
             buildCurrencyOptions();
+            buildUnitOptions();
             // Zaznacz aktualny silnik.
             var radios = document.querySelectorAll('#settingFxEngine input[name="fxEngine"]');
             radios.forEach(function(r) { r.checked = (r.value === STATE.settings.fxEngine); });
@@ -5831,6 +5893,16 @@
                 updateFxStatusLine();
             });
         }
+
+        settingUnitSelects.forEach(function(sel) {
+            sel.addEventListener('change', function() {
+                var cat = sel.getAttribute('data-unit-cat');
+                if (!STATE.settings.defaultUnits) STATE.settings.defaultUnits = {};
+                STATE.settings.defaultUnits[cat] = sel.value; // '' = bazowa (auto)
+                saveSettings();
+                if (typeof liveEval === 'function') liveEval();
+            });
+        });
 
         var fxEngineRadios = document.querySelectorAll('#settingFxEngine input[name="fxEngine"]');
         fxEngineRadios.forEach(function(radio) {
@@ -7129,8 +7201,22 @@
                 { expr: '2 ha na m2', value: 20000, unit: 'm2' },
                 // kąt
                 { expr: '180 deg na rad', value: Math.PI, unit: 'rad', tol: 1e-6 },
+                // prędkość (oś m/s) — tokeny ze slashem łapane jako jeden token
+                { expr: '100 km/h na m/s', value: 27.777778, unit: 'm/s', tol: 1e-5 },
+                { expr: '10 m/s na km/h', value: 36, unit: 'km/h', tol: 1e-6 },
+                { expr: '1 km/s na km/h', value: 3600, unit: 'km/h', tol: 1e-6 },
+                { expr: '1 km/h na m/h', value: 1000, unit: 'm/h', tol: 1e-6 },
+                { expr: '60 mph na km/h', value: 96.56064, unit: 'km/h', tol: 1e-4 },
+                { expr: '100 kph na m/s', value: 27.777778, unit: 'm/s', tol: 1e-5 }, // alias kph=km/h
+                { expr: '10 knots na km/h', value: 18.52, unit: 'km/h', tol: 1e-6 },
+                { expr: '1 węzeł na km/h', value: 1.852, unit: 'km/h', tol: 1e-6 },
+                { expr: '10 kn na m/s', value: 5.144444, unit: 'm/s', tol: 1e-5 },
+                { expr: '1 ft/s na cm/s', value: 30.48, unit: 'cm/s', tol: 1e-6 },
+                { expr: '36 km/h', value: 10, unit: 'm/s', tol: 1e-9 },               // sumowanie → baza m/s
+                { expr: '2 mil na km', value: 3.218688, unit: 'km', tol: 1e-6 },      // regresja: „mil" dalej = mile (długość)
                 // miks kategorii → brak konwersji (nie wybucha, po prostu bez wyniku jednostkowego)
                 { expr: '2 kg + 3 cm', unit: null },
+                { expr: '36 km/h + 5 kg', unit: null },                               // prędkość + masa → miks
                 // finanse PL (VAT) — „vat" = poprawna operacja (÷/×1,23), nie alias 23%
                 { expr: 'brutto 1000', value: 1230 },              // netto→brutto ×1,23
                 { expr: '1000 brutto', value: 1230 },
@@ -7160,6 +7246,33 @@
                     return { expr: test.expr, pass: false, error: err.message };
                 }
             });
+            // Domyślne jednostki wyświetlania (ustawienia) — gołe sumy zwijają się do preferowanej;
+            // jawne „X na Y" wygrywa. Zapis/odtworzenie stanu, by nie wpłynąć na inne testy.
+            var savedDU = STATE.settings.defaultUnits;
+            STATE.settings.defaultUnits = { speed: 'km/h', length: 'm', mass: 'kg', volume: 'l' };
+            var duCases = [
+                { expr: '36 km/h', value: 36, unit: 'km/h' },          // baza m/s → preferowana km/h (był 10 m/s)
+                { expr: '2 m/s + 5 km/h', value: 12.2, unit: 'km/h', tol: 1e-6 }, // (2*3,6)+5
+                { expr: '10 m/s na km/h', value: 36, unit: 'km/h' },   // jawne „na" wygrywa (i tak km/h)
+                { expr: '100 km/h na m/s', value: 27.777778, unit: 'm/s', tol: 1e-5 }, // jawne „na" → m/s mimo domyślnej km/h
+                { expr: '5 m + 200 cm', value: 7, unit: 'm' },         // 7000 mm → 7 m (baza była mm)
+                { expr: '2 kg + 300 g', value: 2.3, unit: 'kg' },      // 2300 g → 2,3 kg
+                { expr: '500 ml + 1 l', value: 1.5, unit: 'l' },       // 1500 ml → 1,5 l
+            ];
+            duCases.forEach(function(t) {
+                var r = evalCalcExpression(t.expr);
+                var pass = r.unit === t.unit && Math.abs(r.value - t.value) <= (t.tol || 1e-9);
+                results.push({ expr: t.expr + ' (domyślna jednostka)', pass: pass, got: r.value + ' ' + r.unit });
+            });
+            // Pusta domyślna (auto) = zachowanie bazowe.
+            STATE.settings.defaultUnits = { speed: '', length: '', mass: '', volume: '' };
+            var rAuto = evalCalcExpression('36 km/h');
+            results.push({ expr: '36 km/h @auto (baza)', pass: rAuto.unit === 'm/s' && Math.abs(rAuto.value - 10) < 1e-9, got: rAuto.value + ' ' + rAuto.unit });
+            // Niepasująca jednostka w ustawieniu (np. speed='kg') → ignorowana, baza.
+            STATE.settings.defaultUnits = { speed: 'kg', length: '', mass: '', volume: '' };
+            var rBad = evalCalcExpression('36 km/h');
+            results.push({ expr: "36 km/h @speed='kg' (ignoruje)", pass: rBad.unit === 'm/s' && Math.abs(rBad.value - 10) < 1e-9, got: rBad.value + ' ' + rBad.unit });
+            STATE.settings.defaultUnits = savedDU;
             // „ans"/„wynik" — z zapisem i odtworzeniem stanu, by nie zaśmiecić STATE.calc.ans
             var savedAns = STATE.calc.ans;
             STATE.calc.ans = null;

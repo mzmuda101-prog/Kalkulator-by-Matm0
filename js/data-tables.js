@@ -48,6 +48,22 @@
             rad: 180 / Math.PI, radian: 180 / Math.PI, radiany: 180 / Math.PI,
             grad: 0.9, gon: 0.9,
         } },
+        // Prędkość = długość ÷ czas → jednostka „złożona". Skala liniowa (bez offsetu),
+        // więc mieści się w modelu współczynników. Oś bazowa: m/s. Nazwy ze slashem
+        // (km/h, m/s…) parser łapie jako JEDEN token dzięki sortowaniu „najdłuższe najpierw”.
+        speed: { base: 'm/s', units: {
+            'm/s': 1, mps: 1,
+            'km/h': 1000 / 3600, 'km/godz': 1000 / 3600, kph: 1000 / 3600, kmh: 1000 / 3600,
+            'km/s': 1000,
+            'm/h': 1 / 3600, 'm/godz': 1 / 3600,
+            'cm/s': 0.01, 'mm/s': 0.001,
+            mph: 0.44704, 'mil/h': 0.44704,                       // mila/h
+            'ft/s': 0.3048, 'stopa/s': 0.3048,                    // stopa/s
+            kn: 1852 / 3600, kt: 1852 / 3600, kts: 1852 / 3600,   // węzeł = mila morska/h
+            knot: 1852 / 3600, knots: 1852 / 3600,
+            'węzeł': 1852 / 3600, 'węzły': 1852 / 3600, 'węzłów': 1852 / 3600,
+            wezel: 1852 / 3600, wezly: 1852 / 3600, wezlow: 1852 / 3600,
+        } },
     };
 
     // Polskie nazwy miesięcy (mianownik + dopełniacz, z/bez diakrytyków) → numer.
