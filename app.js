@@ -1085,6 +1085,11 @@
                 expr = curRes.expr;
                 var unitResult = resolveCalcUnits(expr);
                 expr = unitResult.expr;
+                // Miks WALUTY z jednostką FIZYCZNĄ (np. „12 gb − 12 zł") nie ma sensu — nie liczymy
+                // na siłę (analogicznie do miksu niezgodnych jednostek, który już daje brak wyniku).
+                if (curRes.hasCurrency && unitResult.unit !== null) {
+                    return { value: null, unit: null, error: null };
+                }
                 var unit = curRes.hasCurrency ? curRes.unit : unitResult.unit;
                 expr = expr.replace(/,(?=\d)/g, '.');
                 expr = expr.replace(/×/g, '*').replace(/÷/g, '/').replace(/−/g, '-');
@@ -6961,6 +6966,11 @@
             results.push({ expr: '20 eur na zł', pass: Math.abs(evalCalcExpression('20 eur na zł').value - 86) < 1e-9, got: evalCalcExpression('20 eur na zł').value });
             var cUnit = evalCalcExpression('100 zł na eur');
             results.push({ expr: '100 zł na eur (jednostka)', pass: cUnit.unit === 'EUR' && Math.abs(cUnit.value - 23.255813953) < 1e-6, got: cUnit.value + ' ' + cUnit.unit });
+            // Miks waluty z jednostką fizyczną — NIE liczymy na siłę (value i unit = null).
+            ['12 gb - 12 zł', '12 zł + 5 kg', '12 zł / 2 kg'].forEach(function(ex) {
+                var r = evalCalcExpression(ex);
+                results.push({ expr: ex + ' (miks waluta+jednostka: NIE liczy)', pass: r.value === null && r.unit === null, got: r.value + ' ' + r.unit });
+            });
             STATE.fx.rates = savedFx; STATE.fx.ts = savedFxTs;
             return results;
         }
