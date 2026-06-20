@@ -35,6 +35,8 @@
             <div class="header-actions">
                 <button class="install-btn" id="installAppBtn" type="button" aria-label="Zainstaluj aplikację"
                     title="Zainstaluj aplikację" hidden>📲</button>
+                <button class="settings-btn" id="settingsBtn" type="button"
+                    aria-label="Ustawienia" title="Ustawienia">⚙️</button>
                 <button class="cache-refresh-btn" id="cacheRefreshBtn" type="button"
                     aria-label="Odśwież cache aplikacji" title="Odśwież cache">
                     <img src="assets/img/logo-refresh.png" width="28" height="28" alt="" aria-hidden="true"
@@ -998,13 +1000,14 @@
                     <p class="help-command" data-command="3 dni temu"><code>3 dni temu</code> data w przeszłości</p>
                 </section>
                 <section>
-                    <h4>Waluty (kursy NBP)</h4>
+                    <h4>Waluty (NBP + Frankfurter)</h4>
                     <p>Wymaga internetu przy pierwszym użyciu; potem działa offline z zapamiętanego kursu.</p>
-                    <p class="help-command" data-command="12 zł + 20 eur"><code>12 zł + 20 eur</code> suma w złotówkach</p>
+                    <p class="help-command" data-command="12 zł + 20 eur"><code>12 zł + 20 eur</code> suma w walucie domyślnej</p>
                     <p class="help-command" data-command="20 eur na zł"><code>20 eur na zł</code> przelicz na PLN</p>
                     <p class="help-command" data-command="100 zł na eur"><code>100 zł na eur</code> i z powrotem</p>
                     <p class="help-command" data-command="50 usd na eur"><code>50 usd na eur</code> między walutami (przez PLN)</p>
                     <p>Skróty: <code>zł</code>/<code>pln</code>, <code>eur</code>/<code>€</code>, <code>usd</code>/<code>$</code>, <code>gbp</code>/<code>£</code>, <code>chf</code> i kody NBP (czk, nok…).</p>
+                    <p>W <strong>⚙️ Ustawieniach</strong> wybierzesz <strong>walutę domyślną</strong> (do której zwijają się gołe sumy) oraz <strong>silnik kursów</strong>: automatyczny (NBP dla par z PLN, Frankfurter dla reszty i jako backup), tylko NBP, albo Frankfurter (EBC).</p>
                 </section>
             </div>
             <div class="help-section" data-help="engineering">
@@ -1370,6 +1373,48 @@
             </div>
         </div>
     </aside>
+
+    <!-- ============================================================
+    [EN] Settings Modal
+    ============================================================ -->
+    <div class="settings-backdrop" id="settingsBackdrop" aria-hidden="true"></div>
+    <div class="settings-modal" id="settingsModal" role="dialog" aria-modal="true"
+        aria-labelledby="settingsTitle" aria-hidden="true">
+        <div class="settings-head">
+            <h3 id="settingsTitle">⚙️ Ustawienia</h3>
+            <button class="settings-close" id="settingsClose" type="button" aria-label="Zamknij">✕</button>
+        </div>
+        <div class="settings-body">
+            <div class="settings-field">
+                <label for="settingDefaultCurrency">Domyślna waluta</label>
+                <p class="settings-hint">Gołe sumy walutowe (np. „20 eur + 10 usd") pokazują wynik w tej walucie.</p>
+                <select id="settingDefaultCurrency"></select>
+            </div>
+            <div class="settings-field">
+                <label>Silnik kursów walut</label>
+                <p class="settings-hint">Skąd brać kursy. NBP = oficjalny kurs PL; Frankfurter = dane EBC.</p>
+                <div class="settings-radios" id="settingFxEngine">
+                    <label class="settings-radio">
+                        <input type="radio" name="fxEngine" value="auto">
+                        <span><strong>Automatyczny</strong><br><small>NBP dla par z PLN, Frankfurter dla reszty i jako backup</small></span>
+                    </label>
+                    <label class="settings-radio">
+                        <input type="radio" name="fxEngine" value="nbp">
+                        <span><strong>Tylko NBP</strong><br><small>Oficjalny polski kurs (tabela A)</small></span>
+                    </label>
+                    <label class="settings-radio">
+                        <input type="radio" name="fxEngine" value="frankfurter">
+                        <span><strong>Tylko Frankfurter (EBC)</strong><br><small>Dzienne kursy referencyjne EBC</small></span>
+                    </label>
+                </div>
+                <label class="settings-check" id="settingFxBackupRow">
+                    <input type="checkbox" id="settingFxBackup">
+                    <span><strong>Zapasowe źródło kursów</strong><br><small>Gdy wybrany silnik zawiedzie, dobierz kursy z drugiego (NBP ↔ Frankfurter).</small></span>
+                </label>
+            </div>
+            <p class="settings-fxstatus" id="settingsFxStatus"></p>
+        </div>
+    </div>
 
     <!-- ============================================================
     [EN] Toast Notification

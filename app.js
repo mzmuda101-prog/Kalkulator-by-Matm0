@@ -44,8 +44,14 @@
                 lastUnit: null,
                 ans: null, // ostatni ZATWIERDZONY wynik (=) — dla słowa „ans"/„wynik"
             },
-            // Kursy walut (NBP, opcjonalnie online — działa offline z cache)
-            fx: { rates: null, ts: null, date: null, loading: false, error: null },
+            // Kursy walut (NBP + Frankfurter, opcjonalnie online — działa offline z cache)
+            // source: 'nbp' | 'frankfurter' | 'merge' | 'cache' — co dostarczyło aktualne kursy.
+            fx: { rates: null, ts: null, date: null, loading: false, error: null, source: null },
+            // Ustawienia użytkownika (waluta domyślna, silnik kursów). Trwałe w localStorage.
+            //   defaultCurrency — kod ISO waluty, do której zwijają się gołe sumy walutowe.
+            //   fxEngine — 'auto' (NBP priorytet, Frankfurter dla reszty+backup) | 'nbp' | 'frankfurter'.
+            //   fxBackup — dla trybów 'nbp'/'frankfurter': gdy główny silnik padnie, dobierz z drugiego.
+            settings: { defaultCurrency: 'PLN', fxEngine: 'auto', fxBackup: true },
             // Komenda tab (merged Engineering + Graph)
             eng: { unit: 'cm', axis: 'X', mode: 'between' }, // used by drawEngineeringCanvas
             graph: {
@@ -93,6 +99,16 @@
         const cacheRefreshBtn = $('#cacheRefreshBtn');
         const installAppBtn = $('#installAppBtn');
         const orientationBtn = $('#orientationBtn');
+
+        // Settings modal
+        const settingsBtn = $('#settingsBtn');
+        const settingsModal = $('#settingsModal');
+        const settingsBackdrop = $('#settingsBackdrop');
+        const settingsClose = $('#settingsClose');
+        const settingDefaultCurrency = $('#settingDefaultCurrency');
+        const settingFxBackup = $('#settingFxBackup');
+        const settingFxBackupRow = $('#settingFxBackupRow');
+        const settingsFxStatus = $('#settingsFxStatus');
 
         // Kreator (form fields in Komenda tab)
         const engLength = $('#engLength');
@@ -150,6 +166,7 @@
             constants: 'matm0_calc_constants',
             recentCommands: 'matm0_recent_commands',
             fxRates: 'matm0_fx_rates',
+            settings: 'matm0_settings',
         };
 
         function loadFromStorage() {
@@ -169,7 +186,16 @@
                 const fx = localStorage.getItem(STORAGE_KEYS.fxRates);
                 if (fx) {
                     const fxObj = JSON.parse(fx);
-                    if (fxObj && fxObj.rates) { STATE.fx.rates = fxObj.rates; STATE.fx.ts = fxObj.ts; STATE.fx.date = fxObj.date; }
+                    if (fxObj && fxObj.rates) { STATE.fx.rates = fxObj.rates; STATE.fx.ts = fxObj.ts; STATE.fx.date = fxObj.date; STATE.fx.source = fxObj.source || 'cache'; }
+                }
+                const st = localStorage.getItem(STORAGE_KEYS.settings);
+                if (st) {
+                    const stObj = JSON.parse(st);
+                    if (stObj && typeof stObj === 'object') {
+                        if (stObj.defaultCurrency) STATE.settings.defaultCurrency = String(stObj.defaultCurrency).toUpperCase();
+                        if (stObj.fxEngine) STATE.settings.fxEngine = stObj.fxEngine;
+                        if (typeof stObj.fxBackup === 'boolean') STATE.settings.fxBackup = stObj.fxBackup;
+                    }
                 }
             } catch (e) {
                 STATE.history = [];
@@ -197,6 +223,12 @@
         function saveRecentCommands() {
             try {
                 localStorage.setItem(STORAGE_KEYS.recentCommands, JSON.stringify(STATE.recentCommands));
+            } catch (e) {}
+        }
+
+        function saveSettings() {
+            try {
+                localStorage.setItem(STORAGE_KEYS.settings, JSON.stringify(STATE.settings));
             } catch (e) {}
         }
 
@@ -275,6 +307,7 @@
             '#orientationBtn',    /* przycisk orientacji ekranu */
             '#cacheRefreshBtn',   /* przycisk odświeżania cache */
             '#installAppBtn',     /* przycisk instalacji PWA */
+            '#settingsBtn',       /* przycisk ustawień */
             '.no-haptic',         /* klasa-parasol — dodaj ją w HTML do dowolnego buttona */
         ];
 
@@ -956,29 +989,119 @@
             });
             if (!hasCurrency) return { expr: raw, unit: null, hasCurrency: false, pending: false };
             if (pending) return { expr: raw, unit: null, hasCurrency: true, pending: true };
+            // Gołe sumy walutowe zwijają się do waluty DOMYŚLNEJ (ustawienia). PLN zostaje
+            // wewnętrzną osią (valueInBase), a wynik dzielimy przez kurs waluty docelowej.
+            var def = (STATE.settings && STATE.settings.defaultCurrency) || 'PLN';
+            if (def !== 'PLN') {
+                var dRate = _currencyRate(def);
+                if (dRate == null) return { expr: raw, unit: null, hasCurrency: true, pending: true };
+                return { expr: '(' + expr + ')/' + dRate, unit: _currencyDisplay(def), valueInBase: totalPln, hasCurrency: true, pending: false };
+            }
             return { expr: expr, unit: 'zł', valueInBase: totalPln, hasCurrency: true, pending: false };
         }
 
-        // Pobranie kursów z NBP (tabela A, kursy średnie). Cache + fallback offline.
+        // ── Dwa silniki kursów ──────────────────────────────────────────
+        // Oba normalizują do tej SAMEJ osi co reszta kodu: rates[CODE] = ile PLN
+        // za 1 jednostkę waluty (PLN:1). Dzięki temu resolveCalcCurrency jest wspólne.
+        //
+        //   • NBP (api.nbp.pl, tabela A, kursy średnie) — oficjalny polski kurs.
+        //   • Frankfurter (api.frankfurter.app, dane EBC) — szeroki, „europejski".
+        //
+        // Tryb (STATE.settings.fxEngine):
+        //   'auto'        → NBP priorytet dla par z PLN; Frankfurter dopełnia braki
+        //                   i jest siatką bezpieczeństwa (merge, NBP wygrywa kolizje).
+        //   'nbp'         → tylko NBP.
+        //   'frankfurter' → Frankfurter priorytet, NBP jako backup (jak w pomyśle z wycinka).
+
+        // NBP → { rates, date }. rates[CODE] = PLN za 1 jednostkę.
+        function _fetchNbp() {
+            return fetch('https://api.nbp.pl/api/exchangerates/tables/A?format=json')
+                .then(function(r) { if (!r.ok) throw new Error('NBP HTTP ' + r.status); return r.json(); })
+                .then(function(data) {
+                    var table = data && data[0];
+                    if (!table || !table.rates) throw new Error('NBP bad-data');
+                    var rates = { PLN: 1 };
+                    table.rates.forEach(function(x) { rates[x.code] = x.mid; });
+                    return { rates: rates, date: table.effectiveDate || null };
+                });
+        }
+        // Frankfurter → { rates, date }. API zwraca „X za 1 PLN", więc odwracamy na „PLN za 1 X".
+        // Kanoniczny host to api.frankfurter.dev (stary api.frankfurter.app bywa niedostępny/bez CORS).
+        function _fetchFrankfurter() {
+            return fetch('https://api.frankfurter.dev/v1/latest?base=PLN')
+                .then(function(r) { if (!r.ok) throw new Error('FR HTTP ' + r.status); return r.json(); })
+                .then(function(data) {
+                    if (!data || !data.rates) throw new Error('FR bad-data');
+                    var rates = { PLN: 1 };
+                    Object.keys(data.rates).forEach(function(code) {
+                        var v = data.rates[code];
+                        if (v > 0) rates[code] = 1 / v; // PLN za 1 jednostkę
+                    });
+                    return { rates: rates, date: data.date || null };
+                });
+        }
+
+        function _commitFxRates(rates, date, source) {
+            STATE.fx.rates = rates;
+            STATE.fx.ts = Date.now();
+            STATE.fx.date = date || null;
+            STATE.fx.source = source;
+            STATE.fx.error = null;
+            try { localStorage.setItem(STORAGE_KEYS.fxRates, JSON.stringify({ rates: rates, ts: STATE.fx.ts, date: STATE.fx.date, source: source })); } catch (e) {}
+        }
+
+        // Pobranie kursów wg wybranego silnika. Cache + fallback offline.
         function loadFxRates() {
             if (STATE.fx.loading) return;
             if (typeof fetch !== 'function') { STATE.fx.error = 'no-fetch'; return; }
             STATE.fx.loading = true; STATE.fx.error = null;
-            fetch('https://api.nbp.pl/api/exchangerates/tables/A?format=json')
-                .then(function(r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
-                .then(function(data) {
-                    var table = data && data[0];
-                    if (!table || !table.rates) throw new Error('bad-data');
-                    var rates = { PLN: 1 };
-                    table.rates.forEach(function(x) { rates[x.code] = x.mid; });
-                    STATE.fx.rates = rates;
-                    STATE.fx.ts = Date.now();
-                    STATE.fx.date = table.effectiveDate || null;
-                    STATE.fx.error = null;
-                    try { localStorage.setItem(STORAGE_KEYS.fxRates, JSON.stringify({ rates: rates, ts: STATE.fx.ts, date: STATE.fx.date })); } catch (e) {}
-                })
-                .catch(function(err) { STATE.fx.error = (err && err.message) || 'fetch-error'; })
-                .then(function() { STATE.fx.loading = false; if (typeof liveEval === 'function') liveEval(); });
+            var mode = (STATE.settings && STATE.settings.fxEngine) || 'auto';
+
+            function done() {
+                STATE.fx.loading = false;
+                if (typeof liveEval === 'function') liveEval();
+                try { document.dispatchEvent(new CustomEvent('matm0-fx-updated')); } catch (e) {}
+            }
+            function fail(err) { STATE.fx.error = (err && err.message) || 'fetch-error'; }
+
+            var backup = !(STATE.settings && STATE.settings.fxBackup === false); // domyślnie wł.
+            var job;
+            if (mode === 'nbp') {
+                // NBP główny; gdy padnie i backup wł. — dobierz z Frankfurtera.
+                job = _fetchNbp().then(function(n) { _commitFxRates(n.rates, n.date, 'nbp'); });
+                if (backup) job = job.catch(function() { return _fetchFrankfurter().then(function(f) { _commitFxRates(f.rates, f.date, 'frankfurter'); }); });
+            } else if (mode === 'frankfurter') {
+                // Frankfurter główny; gdy padnie i backup wł. — NBP jako koło ratunkowe.
+                job = _fetchFrankfurter().then(function(f) { _commitFxRates(f.rates, f.date, 'frankfurter'); });
+                if (backup) job = job.catch(function() { return _fetchNbp().then(function(n) { _commitFxRates(n.rates, n.date, 'nbp'); }); });
+            } else {
+                // auto: oba równolegle, NBP wygrywa kolizje, Frankfurter dopełnia braki.
+                job = Promise.allSettled([_fetchNbp(), _fetchFrankfurter()]).then(function(res) {
+                    var nbp = res[0].status === 'fulfilled' ? res[0].value : null;
+                    var fr  = res[1].status === 'fulfilled' ? res[1].value : null;
+                    if (!nbp && !fr) throw new Error('both-failed');
+                    if (nbp && fr) {
+                        var merged = {};
+                        Object.keys(fr.rates).forEach(function(c) { merged[c] = fr.rates[c]; });
+                        Object.keys(nbp.rates).forEach(function(c) { merged[c] = nbp.rates[c]; }); // NBP nadpisuje
+                        _commitFxRates(merged, nbp.date || fr.date, 'merge');
+                    } else if (nbp) {
+                        _commitFxRates(nbp.rates, nbp.date, 'nbp');
+                    } else {
+                        _commitFxRates(fr.rates, fr.date, 'frankfurter');
+                    }
+                });
+            }
+            job.catch(fail).then(done);
+        }
+
+        // Etykieta źródła kursów do UI (status, modal).
+        function fxSourceLabel(src) {
+            if (src === 'nbp') return 'NBP';
+            if (src === 'frankfurter') return 'Frankfurter (EBC)';
+            if (src === 'merge') return 'NBP + Frankfurter';
+            if (src === 'cache') return 'cache (offline)';
+            return '—';
         }
         // Pobierz gdy trzeba: brak kursów lub przeterminowane (i nie trwa już pobieranie).
         function ensureFxRates() {
@@ -5559,6 +5682,122 @@
         }
 
         /* ============================================================
+           [EN] Settings Modal — domyślna waluta + silnik kursów
+           ============================================================ */
+        // Lista podpowiadana w selectcie: zawsze popularne + cokolwiek mamy w kursach.
+        var COMMON_CURRENCIES = ['PLN', 'EUR', 'USD', 'GBP', 'CHF', 'CZK', 'NOK', 'SEK', 'DKK', 'JPY', 'CAD', 'AUD', 'UAH', 'HUF'];
+
+        function buildCurrencyOptions() {
+            if (!settingDefaultCurrency) return;
+            var seen = {};
+            var codes = [];
+            function add(c) { c = String(c).toUpperCase(); if (!seen[c]) { seen[c] = 1; codes.push(c); } }
+            COMMON_CURRENCIES.forEach(add);
+            var rates = STATE.fx.rates || {};
+            Object.keys(rates).forEach(add);
+            add(STATE.settings.defaultCurrency); // gdyby ktoś miał egzotyk z poza listy
+            // PLN na górze, reszta alfabetycznie.
+            codes.sort(function(a, b) {
+                if (a === 'PLN') return -1; if (b === 'PLN') return 1;
+                return a < b ? -1 : a > b ? 1 : 0;
+            });
+            settingDefaultCurrency.innerHTML = '';
+            codes.forEach(function(c) {
+                var opt = document.createElement('option');
+                opt.value = c;
+                opt.textContent = c === 'PLN' ? 'PLN — zł (domyślnie)' : c;
+                settingDefaultCurrency.appendChild(opt);
+            });
+            settingDefaultCurrency.value = STATE.settings.defaultCurrency;
+        }
+
+        function updateFxStatusLine() {
+            if (!settingsFxStatus) return;
+            var msg;
+            if (STATE.fx.loading) msg = 'Pobieram kursy…';
+            else if (!_fxReady()) msg = STATE.fx.error ? 'Kursy: brak połączenia (offline)' : 'Kursy jeszcze niepobrane';
+            else msg = 'Źródło kursów: ' + fxSourceLabel(STATE.fx.source) + (STATE.fx.date ? ' · ' + STATE.fx.date : '');
+            settingsFxStatus.textContent = msg;
+        }
+
+        // Checkbox zapasowego źródła: w trybie 'auto' backup jest wbudowany (merge), więc N/A.
+        function syncFxBackupRow() {
+            if (!settingFxBackup) return;
+            settingFxBackup.checked = STATE.settings.fxBackup !== false;
+            var isAuto = STATE.settings.fxEngine === 'auto';
+            settingFxBackup.disabled = isAuto;
+            if (settingFxBackupRow) settingFxBackupRow.classList.toggle('is-na', isAuto);
+        }
+
+        function openSettings() {
+            buildCurrencyOptions();
+            // Zaznacz aktualny silnik.
+            var radios = document.querySelectorAll('#settingFxEngine input[name="fxEngine"]');
+            radios.forEach(function(r) { r.checked = (r.value === STATE.settings.fxEngine); });
+            syncFxBackupRow();
+            updateFxStatusLine();
+            document.body.classList.add('settings-open');
+            settingsModal.setAttribute('aria-hidden', 'false');
+            settingsBackdrop.setAttribute('aria-hidden', 'false');
+            // Kursy mogą być stare/niepobrane — odśwież w tle, by status był aktualny.
+            ensureFxRates();
+        }
+        function closeSettings() {
+            document.body.classList.remove('settings-open');
+            settingsModal.setAttribute('aria-hidden', 'true');
+            settingsBackdrop.setAttribute('aria-hidden', 'true');
+        }
+
+        if (settingsBtn) settingsBtn.addEventListener('click', openSettings);
+        if (settingsClose) settingsClose.addEventListener('click', closeSettings);
+        if (settingsBackdrop) settingsBackdrop.addEventListener('click', closeSettings);
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape' && document.body.classList.contains('settings-open')) closeSettings();
+        });
+
+        if (settingDefaultCurrency) {
+            settingDefaultCurrency.addEventListener('change', function() {
+                STATE.settings.defaultCurrency = settingDefaultCurrency.value.toUpperCase();
+                saveSettings();
+                // Domyślna waluta inna niż PLN może wymagać kursu, którego jeszcze nie mamy.
+                ensureFxRates();
+                if (typeof liveEval === 'function') liveEval();
+                updateFxStatusLine();
+            });
+        }
+
+        var fxEngineRadios = document.querySelectorAll('#settingFxEngine input[name="fxEngine"]');
+        fxEngineRadios.forEach(function(radio) {
+            radio.addEventListener('change', function() {
+                if (!radio.checked) return;
+                STATE.settings.fxEngine = radio.value;
+                saveSettings();
+                syncFxBackupRow();
+                // Zmiana silnika = wymuś świeże pobranie z nowego źródła.
+                STATE.fx.ts = null;
+                updateFxStatusLine();
+                loadFxRates();
+                showToast('🌍 Silnik kursów: ' + radio.value.toUpperCase(), '');
+            });
+        });
+
+        if (settingFxBackup) {
+            settingFxBackup.addEventListener('change', function() {
+                STATE.settings.fxBackup = settingFxBackup.checked;
+                saveSettings();
+                // Zmiana zapasu może zmienić wynik tylko gdy główny silnik akurat pada —
+                // odśwież, by stan był aktualny przy następnej próbie.
+                STATE.fx.ts = null;
+                loadFxRates();
+            });
+        }
+
+        // Po zakończeniu pobierania kursów odśwież status, jeśli modal otwarty.
+        document.addEventListener('matm0-fx-updated', function() {
+            if (document.body.classList.contains('settings-open')) { buildCurrencyOptions(); updateFxStatusLine(); }
+        });
+
+        /* ============================================================
            [EN] PWA — Install Prompt (deferred)
            ============================================================ */
         var deferredPrompt = null;
@@ -6971,6 +7210,25 @@
                 var r = evalCalcExpression(ex);
                 results.push({ expr: ex + ' (miks waluta+jednostka: NIE liczy)', pass: r.value === null && r.unit === null, got: r.value + ' ' + r.unit });
             });
+            // Kurs krzyżowy (para bez PLN) — przez pivot PLN: 100 USD → EUR = 100*3,95/4,30.
+            var cross = evalCalcExpression('100 usd na eur');
+            results.push({ expr: '100 usd na eur (cross)', pass: cross.unit === 'EUR' && Math.abs(cross.value - (100 * 3.95 / 4.30)) < 1e-6, got: cross.value + ' ' + cross.unit });
+            // Domyślna waluta — gołe sumy zwijają się do ustawionej waluty (nie PLN).
+            var savedDef = STATE.settings.defaultCurrency;
+            STATE.settings.defaultCurrency = 'EUR';
+            var dc1 = evalCalcExpression('20 eur + 10 eur'); // 30 EUR (129 PLN / 4,30)
+            results.push({ expr: '20 eur + 10 eur @EUR (domyślna)', pass: dc1.unit === 'EUR' && Math.abs(dc1.value - 30) < 1e-6, got: dc1.value + ' ' + dc1.unit });
+            var dc2 = evalCalcExpression('43 zł'); // 43 PLN / 4,30 = 10 EUR
+            results.push({ expr: '43 zł @EUR (domyślna)', pass: dc2.unit === 'EUR' && Math.abs(dc2.value - 10) < 1e-6, got: dc2.value + ' ' + dc2.unit });
+            var dc3 = evalCalcExpression('20 eur na zł'); // jawny cel „na zł" WYGRYWA nad domyślną
+            results.push({ expr: '20 eur na zł @EUR (jawny cel wygrywa)', pass: dc3.unit === 'zł' && Math.abs(dc3.value - 86) < 1e-9, got: dc3.value + ' ' + dc3.unit });
+            STATE.settings.defaultCurrency = 'PLN';
+            var dc4 = evalCalcExpression('12 zł + 20 eur'); // z powrotem zł
+            results.push({ expr: '12 zł + 20 eur @PLN (domyślna)', pass: dc4.unit === 'zł' && Math.abs(dc4.value - 98) < 1e-9, got: dc4.value + ' ' + dc4.unit });
+            STATE.settings.defaultCurrency = savedDef;
+            // Etykiety źródeł kursów.
+            results.push({ expr: 'fxSourceLabel(merge)', pass: fxSourceLabel('merge') === 'NBP + Frankfurter', got: fxSourceLabel('merge') });
+            results.push({ expr: 'fxSourceLabel(frankfurter)', pass: fxSourceLabel('frankfurter') === 'Frankfurter (EBC)', got: fxSourceLabel('frankfurter') });
             STATE.fx.rates = savedFx; STATE.fx.ts = savedFxTs;
             return results;
         }
