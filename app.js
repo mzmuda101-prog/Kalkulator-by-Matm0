@@ -1317,15 +1317,32 @@
             if (!_calcPh || !calcExpr) return;
             _calcPhInner = _calcPh.firstElementChild;
             if (calcExpr.parentElement) calcExpr.parentElement.classList.add('has-ph');
-            window.addEventListener('resize', updatePlaceholderMarquee);
-            window.addEventListener('orientationchange', updatePlaceholderMarquee);
-            if (document.fonts && document.fonts.ready) document.fonts.ready.then(updatePlaceholderMarquee).catch(function(){});
+            // Zmiana szerokości zmienia zawijanie → przelicz też auto-wysokość pola.
+            var onResize = function() { updatePlaceholderMarquee(); autoGrowExpr(); };
+            window.addEventListener('resize', onResize);
+            window.addEventListener('orientationchange', onResize);
+            if (document.fonts && document.fonts.ready) document.fonts.ready.then(onResize).catch(function(){});
             updatePlaceholderMarquee();
-            setTimeout(updatePlaceholderMarquee, 300); // po ustaleniu layoutu/fontów
+            autoGrowExpr();
+            setTimeout(onResize, 300); // po ustaleniu layoutu/fontów
+        }
+
+        // Auto-wysokość pola wyrażenia (textarea): rośnie z treścią, by długie wyrażenie ZAWIJAŁO
+        // się w pionie zamiast przewijać poziomo. Kontener .calc-display ma overflow:hidden i trzyma
+        // treść u dołu, więc gdy miejsca brak (rozwinięty nagłówek) ucina się GÓRA (najstarszy fragment),
+        // a najnowszy wpisywany tekst zostaje widoczny tuż nad wynikiem. [[project_kalkulator_phone_calc_layout]]
+        function autoGrowExpr() {
+            if (!calcExpr) return;
+            // Pusty: zostaw min-height (1 linia) — natywny placeholder jest długi i zawijałby się,
+            // sztucznie pogrubiając puste pole; podpowiedź i tak rysuje nakładka .calc-ph.
+            if (!calcExpr.value) { calcExpr.style.height = ''; return; }
+            calcExpr.style.height = 'auto';
+            calcExpr.style.height = calcExpr.scrollHeight + 'px';
         }
 
         function liveEval() {
             updatePlaceholderMarquee();
+            autoGrowExpr();
             // Wyrażenia z samych liczb całkowitych i +,−,×,() liczymy BigInt-em (dokładnie,
             // dowolna długość) — NIE obcinamy ich. Pozostałe (ułamki/dzielenie/funkcje) idą
             // przez float: tam liczba > 16 cyfr przekracza dokładność JS, więc tniemy nadmiar.

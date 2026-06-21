@@ -437,11 +437,12 @@
             font-size: 1.25rem;
             color: var(--text-secondary);
             font-family: var(--font-mono);
+            line-height: 1.3;
             min-height: 28px;
             text-align: right;
             width: 100%;
             transition: opacity 0.15s;
-            /* input reset */
+            /* input/textarea reset */
             background: transparent;
             border: none;
             outline: none;
@@ -450,6 +451,14 @@
             -webkit-appearance: none;
             appearance: none;
             caret-color: var(--primary);
+            /* textarea: zawijanie zamiast poziomego przewijania (wykorzystuje powiększony
+               wyświetlacz). Wysokość auto-rośnie z JS (autoGrowExpr); brak uchwytu/scrolla. */
+            display: block;
+            resize: none;
+            overflow: hidden;
+            white-space: pre-wrap;
+            overflow-wrap: anywhere;
+            word-break: break-all;
         }
         .calc-expression::placeholder {
             color: var(--text-muted);
@@ -2124,8 +2133,9 @@
 
         /* ============================================================
            [EN] Kalkulator — dopasowanie do ekranu telefonu (bez scrolla)
-           Panel wypełnia dostępną wysokość, a siatka przycisków rozciąga się
-           na resztę miejsca — nie trzeba przewijać, żeby dosięgnąć przyciski.
+           Panel wypełnia dostępną wysokość. WOLNE MIEJSCE (np. po zwinięciu
+           górnej belki) pochłania WYŚWIETLACZ — klawisze trzymają naturalny,
+           kwadratowy rozmiar i już się nie powiększają (są dość duże).
            ============================================================ */
         @media (max-width: 639px) {
             #panel-calculator.active {
@@ -2140,23 +2150,22 @@
                 min-height: 0;
                 margin-bottom: 0;
             }
-            /* Wyświetlacz: kompaktowa, stała wysokość */
+            /* Wyświetlacz rośnie i zabiera całą wolną przestrzeń; liczby trzymają się dołu
+               (calc-display ma justify-content:flex-end). */
             #panel-calculator .calc-display {
-                flex: 0 0 auto;
+                flex: 1 1 auto;
                 min-height: 64px;
                 margin-bottom: 12px;
             }
-            /* Siatka przycisków zajmuje całą pozostałą przestrzeń */
+            /* Siatka przycisków: naturalna wysokość, NIE rozciąga się na wolne miejsce. */
             #panel-calculator .calc-grid {
-                flex: 1 1 auto;
-                min-height: 0;
-                grid-template-rows: repeat(5, minmax(0, 1fr));
+                flex: 0 0 auto;
             }
-            /* Przyciski wypełniają komórki zamiast mieć stałą wysokość */
+            /* Klawisze kwadratowe (rozmiar wyznacza szerokość, nie wolna wysokość) — jak baza. */
             #panel-calculator .calc-btn {
-                aspect-ratio: auto;
-                min-height: 0;
-                height: 100%;
+                aspect-ratio: 1;
+                height: auto;
+                min-height: 56px;
             }
             #panel-calculator .calc-tools {
                 flex: 0 0 auto;
