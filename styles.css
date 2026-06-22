@@ -1679,6 +1679,15 @@
             display: flex;
             gap: 6px;
         }
+        #constUnitDimRow {
+            display: contents;
+            align-items:flex-start;
+            gap:8px;
+            margin-top:10px;
+            font-size:.82rem;
+            line-height:1.4;
+            cursor:pointer
+        }
         .quick-calc {
             display: flex;
             gap: 8px;
