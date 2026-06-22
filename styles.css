@@ -1964,10 +1964,13 @@
             margin-left: 2px;
             padding-left: 8px;
         }
-        /* Tryb fold: zwiń wyrażenie do wyniku; klik w wiersz (fokus) odsłania input do edycji. */
-        .np-editor.np-fold .np-row.np-has:not(:focus-within) .np-line { display: none; }
-        .np-editor.np-fold .np-row.np-has:not(:focus-within) .np-label { display: inline-block; max-width: 60%; }
-        .np-editor.np-fold .np-row.np-has:not(:focus-within) .np-res { margin-left: 8px; }
+        /* Tryb fold: zwiń wyrażenie do wyniku; tap/klik w wiersz odsłania input do edycji.
+           UWAGA: `.np-editing` (dodawana przy tapie) MUSI odsłonić pole ZANIM je sfokusujemy — nie da się
+           sfokusować elementu `display:none`, więc samo `:focus-within` nie wystarcza (był bug: trzeba było
+           przytrzymać palcem zamiast tapnąć). [[project_kalkulator_notepad_planning]] */
+        .np-editor.np-fold .np-row.np-has:not(:focus-within):not(.np-editing) .np-line { display: none; }
+        .np-editor.np-fold .np-row.np-has:not(:focus-within):not(.np-editing) .np-label { display: inline-block; max-width: 60%; }
+        .np-editor.np-fold .np-row.np-has:not(:focus-within):not(.np-editing) .np-res { margin-left: 8px; }
         .np-tooltip {
             position: fixed;
             z-index: 700;

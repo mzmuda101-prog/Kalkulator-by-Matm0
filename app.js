@@ -6110,7 +6110,11 @@
         }
         // Podstaw zmienne w wyrażeniu. fmtFn=null → „(wartość)" do liczenia; podany → sformatowana
         // liczba do dymka. Granice słowa odporne na polskie znaki (jak resolveCalcConstants).
-        function _npSubVars(expr, vars, fmtFn) {
+        // units (opc.) → mapa jednostek zmiennych. Gdy zmienna niesie ROZPOZNANĄ jednostkę (waluta lub
+        // CALC_UNIT; temperatura jest poza CALC_UNITS, więc pominięta), doklejamy ją przy podstawianiu —
+        // dzięki temu wynik zachowuje walutę/jednostkę: „Nocleg: 500 zł" → „nocleg+5*12" = 560 zł, a w
+        // dymku „500 zł + …". [[project_kalkulator_notepad_planning]]
+        function _npSubVars(expr, vars, fmtFn, units) {
             var keys = Object.keys(vars);
             if (!keys.length) return expr;
             keys.sort(function(a, b) { return b.length - a.length; }); // dłuższe najpierw
@@ -6118,7 +6122,11 @@
             keys.forEach(function(k) {
                 var esc = k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
                 var re = new RegExp('(^|[^\\p{L}\\p{N}_])(' + esc + ')(?![\\p{L}\\p{N}_])', 'giu');
-                out = out.replace(re, function(_m, pre) { return pre + (fmtFn ? fmtFn(vars[k]) : '(' + vars[k] + ')'); });
+                var u = units && units[k] ? _knownConstUnit(units[k]) : null; // tylko ROZPOZNANA jednostka
+                out = out.replace(re, function(_m, pre) {
+                    if (fmtFn) return pre + fmtFn(vars[k]) + (u ? ' ' + u : '');
+                    return pre + '(' + vars[k] + (u ? ' ' + u : '') + ')';
+                });
             });
             return out;
         }
@@ -6155,6 +6163,7 @@
             var items = [];     // wartości surowych pozycji (do rozpisania „razem" w dymku)
             var autoMode = (STATE.settings && STATE.settings.notepadAutoUnit) || 'safe';
             var vars = Object.assign({}, _npGlobals); // globalne (@nazwa) widoczne w KAŻDEJ notatce
+            var varUnits = {};   // jednostka skojarzona ze zmienną (np. „Nocleg: 500 zł" → nocleg niesie „zł")
             var varNames = {};   // zbiór nazw zmiennych — wykluczamy je z auto-jednostek
             Object.keys(_npGlobals).forEach(function(k) { varNames[k] = 1; });
             lines.forEach(function(l) {
@@ -6186,7 +6195,7 @@
                 var evalStr = exprPart.replace(/\b(razem|suma|total)\b/giu, function() {
                     usedTotal = true; return '(' + runningSum + ')';
                 });
-                evalStr = _npSubVars(evalStr, vars); // podstaw etykiety-zmienne (z linii powyżej)
+                evalStr = _npSubVars(evalStr, vars, null, varUnits); // podstaw etykiety-zmienne (z linii powyżej, z jednostką)
                 if (autoMode === 'full') evalStr = _npStripProse(evalStr); // zdejmij zbłąkane słowa
                 var res = null;
                 try { res = evalCalcExpression(evalStr); } catch (e) { res = null; }
@@ -6199,15 +6208,15 @@
                     } else {
                         // rozpisz „razem" i zmienne na liczby (do dymka)
                         var disp = exprPart.replace(/\b(razem|suma|total)\b/giu, _npFmt(runningSum));
-                        info.resolved = _npSubVars(disp, vars, _npFmt);
+                        info.resolved = _npSubVars(disp, vars, _npFmt, varUnits);
                     }
                     if (typeof res.value === 'number' && isFinite(res.value)) {
                         info.value = res.value;
                         // „razem" i definicje globalne (@nazwa) NIE są pozycjami do sumowania
                         if (usedTotal || gName) { if (usedTotal) info.isTotal = true; }
                         else { runningSum += res.value; items.push(res.value); info.isItem = true; }
-                        if (gName) { vars[gName] = res.value; }            // zmienna globalna (też lokalnie poniżej)
-                        else { var vn2 = lm ? _npVarName(lm[1].trim()) : null; if (vn2) vars[vn2] = res.value; }
+                        if (gName) { vars[gName] = res.value; varUnits[gName] = res.unit || null; } // zmienna globalna (też lokalnie poniżej)
+                        else { var vn2 = lm ? _npVarName(lm[1].trim()) : null; if (vn2) { vars[vn2] = res.value; varUnits[vn2] = res.unit || null; } }
                     } else if (usedTotal) { info.isTotal = true; }
                 }
                 out.push(info);
@@ -6586,15 +6595,28 @@
             // Utrata fokusu: chip wraca do flow → pole WĘŻSZE → tekst może zawinąć się na więcej linii.
             // Bez przeliczenia wysokość zostałaby z szerszego stanu i ucięłaby ostatnią linię (overflow:hidden).
             npEditor.addEventListener('focusout', function(e) {
-                if (e.target.classList && e.target.classList.contains('np-line')) _npAutoGrow(e.target);
+                if (e.target.classList && e.target.classList.contains('np-line')) {
+                    _npAutoGrow(e.target);
+                    var r = e.target.closest('.np-row'); // zdejmij bridge edycji → wiersz znów się zwija (fold)
+                    if (r) r.classList.remove('np-editing');
+                }
             });
             npEditor.addEventListener('keydown', npRowKeydown);
             npEditor.addEventListener('click', function(e) {
                 var chip = e.target.closest('.np-res');
                 if (chip) { e.stopPropagation(); if (_npTipChip === chip) npHideTip(); else npShowTip(chip); return; }
                 npHideTip();
-                var row = e.target.closest('.np-row'); // klik w wiersz (tryb fold) → edycja
-                if (row) { var inp = row.querySelector('.np-line'); if (inp && document.activeElement !== inp) inp.focus(); return; }
+                var row = e.target.closest('.np-row'); // klik/tap w wiersz (tryb fold) → edycja
+                if (row) {
+                    var inp = row.querySelector('.np-line');
+                    if (inp && document.activeElement !== inp) {
+                        row.classList.add('np-editing'); // odsłoń ZANIM sfokusujesz (display:none blokuje focus)
+                        _npAutoGrow(inp);
+                        inp.focus();
+                        var L = inp.value.length; try { inp.setSelectionRange(L, L); } catch (e2) {}
+                    }
+                    return;
+                }
                 // Klik w PUSTE miejsce edytora (pod ostatnią linią) → kursor w ostatniej linii, jak w
                 // Apple Notes; gdy ostatnia linia niepusta, dorzuć świeżą poniżej. [[project_kalkulator_notepad_planning]]
                 if (e.target === npEditor) {
