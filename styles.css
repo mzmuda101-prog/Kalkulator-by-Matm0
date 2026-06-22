@@ -1888,7 +1888,7 @@
         }
         .np-row {
             display: flex;
-            align-items: center;
+            align-items: flex-end;   /* chip wyniku przy OSTATNIEJ linii zawiniętego wiersza */
             gap: 8px;
             padding: 0 10px;
             min-height: 2rem;        /* dotykowy cel; 1rem × line-height 2 */
@@ -1906,7 +1906,17 @@
             background: transparent;
             color: var(--text);
             padding: 0;
+            margin: 0;
             -webkit-tap-highlight-color: transparent;
+            /* textarea zamiast input: zawija długie linie i auto-rośnie (wysokość liczy JS) */
+            display: block;
+            box-sizing: border-box;
+            width: 100%;
+            height: auto;
+            resize: none;
+            overflow: hidden;
+            white-space: pre-wrap;
+            overflow-wrap: anywhere;
         }
         .np-label {
             display: none;            /* widoczna tylko w trybie fold (zamiast inputu) */
@@ -1918,21 +1928,31 @@
         .np-res {
             flex: 0 0 auto;
             margin-left: auto;        /* wynik na KOŃCU linii (model A) */
+            margin-bottom: 0.25rem;   /* dosuń liczbę do tekstu ostatniej linii (line-height 2) */
             border: none;
-            background: var(--primary-light, rgba(37, 99, 235, 0.1));
+            background: transparent;  /* sama liczba, BEZ prostokąta; tło dopiero na hover/tap */
             color: var(--primary);
             font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
             font-size: 0.95rem;
-            font-weight: 600;
-            padding: 1px 9px;
+            font-weight: 700;
+            padding: 1px 6px;
             border-radius: 999px;
             cursor: pointer;
             white-space: nowrap;
+            transition: background 0.12s ease;
             -webkit-tap-highlight-color: transparent;
         }
-        .np-res:hover, .np-res:focus-visible { filter: brightness(0.95); }
+        .np-res:hover, .np-res:focus-visible { background: var(--primary-light, rgba(37, 99, 235, 0.12)); }
+        /* „razem"/„suma" zostają wyróżnione pełnym kafelkiem — to podsumowanie, nie zwykła pozycja. */
         .np-row.np-total .np-res { background: var(--primary); color: #fff; }
         .np-row:not(.np-has) .np-res { display: none; }
+        /* Zawinięty wiersz (jedna pozycja na kilku liniach) — subtelna lewa listwa, by odróżnić
+           zawijanie od osobnego „Entera" (każdy Enter = nowy wiersz, bez listwy). */
+        .np-row.np-wrapped {
+            border-left: 2px solid var(--primary-light, rgba(37, 99, 235, 0.25));
+            margin-left: 2px;
+            padding-left: 8px;
+        }
         /* Tryb fold: zwiń wyrażenie do wyniku; klik w wiersz (fokus) odsłania input do edycji. */
         .np-editor.np-fold .np-row.np-has:not(:focus-within) .np-line { display: none; }
         .np-editor.np-fold .np-row.np-has:not(:focus-within) .np-label { display: inline-block; max-width: 60%; }

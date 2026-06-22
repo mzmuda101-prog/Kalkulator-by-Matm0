@@ -1,4 +1,4 @@
-# Kalkulator by Matm0
+# Smart Kalkulator
 
 PWA do codziennych i technicznych obliczen: standardowy kalkulator, podzialy inzynierskie, wykresy, prosta geometria 2D i wlasne stale.
 

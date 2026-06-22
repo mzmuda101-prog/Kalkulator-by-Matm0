@@ -1,5 +1,5 @@
 /* ============================================================
-   [EN] Service Worker — offline cache for Kalkulator by Matm0
+   [EN] Service Worker — offline cache for Smart Kalkulator
    Caching strategy: Stale-While-Revalidate (instant z cache + odświeżenie w tle)
    Wersja: JEDNO źródło prawdy w version.js (APP_VERSION).
    ============================================================ */

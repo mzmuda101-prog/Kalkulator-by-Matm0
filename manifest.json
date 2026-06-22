@@ -1,6 +1,6 @@
 {
-  "name": "Kalkulator by Matm0",
-  "short_name": "Matm0 Calc",
+  "name": "Smart Kalkulator",
+  "short_name": "Smart Kalkulator",
   "id": "./index.html",
   "description": "Szwajcarski scyzoryk do obliczeń codziennych i technicznych",
   "start_url": "./index.html",

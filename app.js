@@ -406,12 +406,12 @@
             if (tabName !== 'calculator') flushDeferredInit();
             STATE.activeTab = tabName;
             var titles = {
-                calculator: 'Kalkulator — Matm0',
-                komenda:    'Komenda — Matm0',
-                warsztat:   'Warsztat — Matm0',
-                constants:  'Moje Stałe — Matm0',
+                calculator: 'Kalkulator — Smart Kalkulator',
+                komenda:    'Komenda — Smart Kalkulator',
+                warsztat:   'Warsztat — Smart Kalkulator',
+                constants:  'Moje Stałe — Smart Kalkulator',
             };
-            document.title = titles[tabName] || 'Kalkulator by Matm0';
+            document.title = titles[tabName] || 'Smart Kalkulator';
             tabBtns.forEach(function(btn) {
                 var isActive = btn.getAttribute('data-tab') === tabName;
                 btn.classList.toggle('active', isActive);
@@ -6215,14 +6215,34 @@
             if (!npEditor) return '';
             return Array.prototype.map.call(npEditor.querySelectorAll('.np-line'), function(inp) { return inp.value; }).join('\n');
         }
+        // Wiersz = <textarea rows=1> (NIE <input>): zawija długie linie zamiast je ucinać i — kluczowe
+        // na telefonach — daje na klawiaturze realny klawisz „Enter/↵", a nie „Dalej" (który w <input>
+        // przeskakuje fokus i blokował pisanie w kolejnych liniach). Wysokość auto-rośnie do treści.
+        function _npAutoGrow(el) {
+            if (!el) return;
+            el.style.height = 'auto';
+            el.style.height = el.scrollHeight + 'px';
+            // Odróżnij ZAWINIĘTY wiersz (jedna pozycja na kilku liniach) od osobnych „enterów":
+            // wieloliniowy wiersz dostaje subtelną lewą listwę, żeby było widać, że to wciąż JEDNA linia.
+            var row = el.closest && el.closest('.np-row');
+            if (row) {
+                var lh = parseFloat(getComputedStyle(el).lineHeight) || 32;
+                row.classList.toggle('np-wrapped', el.scrollHeight > lh * 1.4);
+            }
+        }
+        function _npGrowAll() {
+            if (!npEditor) return;
+            Array.prototype.forEach.call(npEditor.querySelectorAll('.np-line'), _npAutoGrow);
+        }
         function _npMakeRow(text) {
             var row = document.createElement('div');
             row.className = 'np-row';
-            var input = document.createElement('input');
-            input.type = 'text';
+            var input = document.createElement('textarea');
             input.className = 'np-line';
+            input.rows = 1;
             input.value = text || '';
             input.autocapitalize = 'off'; input.autocomplete = 'off'; input.spellcheck = false;
+            input.setAttribute('enterkeyhint', 'enter'); // mobilna klawiatura: „↵" zamiast „Dalej"
             input.setAttribute('aria-label', 'Linia notatnika');
             var label = document.createElement('span'); // widoczna tylko w trybie fold (zamiast inputu)
             label.className = 'np-label';
@@ -6267,6 +6287,27 @@
             var first = npEditor.querySelector('.np-line');
             if (first) first.placeholder = 'Pisz… np. „Nocleg: 3 * 180", potem „razem"   (Enter = nowa linia)';
             npRecompute();
+            _npGrowAll();
+        }
+        // Rozbij wartość zawierającą „\n" na osobne wiersze. Potrzebne na telefonach: część klawiatur
+        // (Android) wstawia znak nowej linii zamiast wywołać keydown „Enter" — łapiemy to w „input"
+        // i dzielimy wiersz tak samo, jakby naciśnięto Enter. [[project_kalkulator_notepad_planning]]
+        function _npSplitNewlines(el) {
+            var row = el.closest('.np-row');
+            if (!row) return;
+            var parts = el.value.split('\n');
+            el.value = parts[0];
+            var ref = row.nextSibling, lastNew = null;
+            for (var i = 1; i < parts.length; i++) {
+                var nr = _npMakeRow(parts[i]);
+                if (ref) npEditor.insertBefore(nr, ref); else npEditor.appendChild(nr);
+                lastNew = nr;
+            }
+            _npCommit();
+            _npGrowAll();
+            var focusRow = lastNew || row;
+            var fi = focusRow.querySelector('.np-line');
+            if (fi) { fi.focus(); fi.setSelectionRange(0, 0); }
         }
         // ── Wiele notatek ─────────────────────────────────────────────
         function _npNewId() { return 'n' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
@@ -6434,7 +6475,9 @@
                 if (row.nextSibling) npEditor.insertBefore(newRow, row.nextSibling);
                 else npEditor.appendChild(newRow);
                 _npCommit();
+                _npAutoGrow(input);
                 var ni = newRow.querySelector('.np-line');
+                _npAutoGrow(ni);
                 ni.focus(); ni.setSelectionRange(0, 0);
             } else if (e.key === 'Backspace' && input.selectionStart === 0 && input.selectionEnd === 0) {
                 var prev = row.previousElementSibling;
@@ -6445,10 +6488,17 @@
                     pinp.value = pinp.value + input.value;
                     npEditor.removeChild(row);
                     _npCommit();
+                    _npAutoGrow(pinp);
                     pinp.focus(); pinp.setSelectionRange(at, at);
                 }
             } else if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
-                var sib = e.key === 'ArrowUp' ? row.previousElementSibling : row.nextElementSibling;
+                // W wieloliniowym wierszu strzałki przesuwają kursor w jego obrębie; do sąsiedniego
+                // wiersza skaczemy dopiero z brzegu pola (góra: kursor na początku, dół: na końcu).
+                var goUp = e.key === 'ArrowUp';
+                var atStart = input.selectionStart === 0 && input.selectionEnd === 0;
+                var atEnd = input.selectionStart === input.value.length && input.selectionEnd === input.value.length;
+                if ((goUp && !atStart) || (!goUp && !atEnd)) return;
+                var sib = goUp ? row.previousElementSibling : row.nextElementSibling;
                 if (sib) {
                     e.preventDefault();
                     var s = sib.querySelector('.np-line');
@@ -6509,7 +6559,15 @@
         }
         if (npEditor) {
             npEditor.addEventListener('input', function(e) {
-                if (e.target.classList && e.target.classList.contains('np-line')) _npCommit();
+                var el = e.target;
+                if (!el.classList || !el.classList.contains('np-line')) return;
+                if (el.value.indexOf('\n') !== -1) { _npSplitNewlines(el); return; } // „Enter/Dalej" na mobile
+                _npAutoGrow(el);
+                _npCommit();
+            });
+            // Fokus (klik/tab/programowo) na wierszu → dopasuj wysokość (np. po odsłonięciu z trybu fold).
+            npEditor.addEventListener('focusin', function(e) {
+                if (e.target.classList && e.target.classList.contains('np-line')) _npAutoGrow(e.target);
             });
             npEditor.addEventListener('keydown', npRowKeydown);
             npEditor.addEventListener('click', function(e) {
@@ -7962,7 +8020,7 @@
                 { expr: '100 narzut',  value: 123 },      // 100*1,23
                 { expr: '50 bonus',    value: 60 },       // 50+10
                 { expr: '200 ćwiartka', value: 50 },      // 200/4
-                { expr: '100 marpct',  value: 500.02 },   // 100×5 + 2% = 500 + 0,02
+                { expr: '100 marpct',  value: 510 },      // 100×5 + 2% = 500 + 2%·500 (procent OD bazy)
                 { expr: '100 ujemna',  value: 95 },       // 100 -5 — „-5" to LICZBA, podstawiana dosłownie
                 { expr: '2*wyr15',     value: 30 },       // 2*(5+5*2) — wyrażenie wciąż w nawiasie
             ];
