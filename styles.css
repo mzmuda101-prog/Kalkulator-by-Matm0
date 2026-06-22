@@ -1778,13 +1778,94 @@
             flex: 0 0 auto;
         }
         .np-head h3 { margin: 0; font-size: 1.15rem; }
+        .np-head .np-title {
+            flex: 1 1 auto;
+            min-width: 0;
+            text-align: center;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            margin: 0 4px;
+        }
+        .np-head-btn {
+            flex: 0 0 auto;
+            border: none;
+            background: transparent;
+            color: var(--text-muted);
+            font-size: 1.25rem;
+            line-height: 1;
+            cursor: pointer;
+            padding: 4px 8px;
+            border-radius: var(--radius-sm);
+            -webkit-tap-highlight-color: transparent;
+        }
+        .np-head-btn:active { background: var(--primary-light); color: var(--primary); }
         .np-body {
+            position: relative;       /* kotwica dla panelu listy notatek */
             flex: 1 1 auto;
             display: flex;
             flex-direction: column;
             min-height: 0;
             padding: 12px 14px calc(12px + var(--safe-bottom));
         }
+        /* ── Panel listy notatek (slajd nad edytorem) ── */
+        .np-list-panel {
+            position: absolute;
+            inset: 0;
+            background: var(--card-bg);
+            display: flex;
+            flex-direction: column;
+            transform: translateX(-100%);
+            opacity: 0;
+            pointer-events: none;
+            transition: transform 0.22s cubic-bezier(0.2, 0.8, 0.2, 1), opacity 0.18s ease;
+            z-index: 5;
+        }
+        .np-list-panel.open { transform: none; opacity: 1; pointer-events: auto; }
+        .np-list-head {
+            flex: 0 0 auto;
+            font-weight: 600;
+            font-size: 0.95rem;
+            color: var(--text-muted);
+            padding: 6px 6px 10px;
+        }
+        .np-list { list-style: none; margin: 0; padding: 0; overflow-y: auto; flex: 1 1 auto; }
+        .np-note-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            border-radius: var(--radius);
+            margin-bottom: 4px;
+        }
+        .np-note-item.is-current { background: var(--primary-light, rgba(37, 99, 235, 0.1)); }
+        .np-note-open {
+            flex: 1 1 auto;
+            min-width: 0;
+            display: flex;
+            align-items: baseline;
+            gap: 10px;
+            border: none;
+            background: transparent;
+            color: var(--text);
+            text-align: left;
+            cursor: pointer;
+            padding: 12px 10px;
+            border-radius: var(--radius);
+            -webkit-tap-highlight-color: transparent;
+        }
+        .np-note-title { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 1rem; }
+        .np-note-when { flex: 0 0 auto; font-size: 0.75rem; color: var(--text-muted); }
+        .np-note-del {
+            flex: 0 0 auto;
+            border: none;
+            background: transparent;
+            cursor: pointer;
+            font-size: 1rem;
+            padding: 10px 12px;
+            border-radius: var(--radius-sm);
+            -webkit-tap-highlight-color: transparent;
+        }
+        .np-note-del:active { background: var(--danger-light, rgba(220, 38, 38, 0.12)); }
         .np-editor {
             flex: 1 1 auto;
             min-height: 0;

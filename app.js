@@ -112,6 +112,11 @@
         const npBackdrop = $('#npBackdrop');
         const npEditor = $('#npEditor');
         const npTooltip = $('#npTooltip');
+        const npListBtn = $('#npListBtn');
+        const npNewBtn = $('#npNewBtn');
+        const npTitle = $('#npTitle');
+        const npListPanel = $('#npListPanel');
+        const npListUl = $('#npListUl');
 
         // Settings modal
         const settingsBtn = $('#settingsBtn');
@@ -191,7 +196,8 @@
             recentCommands: 'matm0_recent_commands',
             fxRates: 'matm0_fx_rates',
             settings: 'matm0_settings',
-            notepad: 'matm0_notepad',
+            notepad: 'matm0_notepad',     // (legacy: pojedyncza notatka — migrowana do notepads)
+            notepads: 'matm0_notepads',   // wiele notatek: { notes:[{id,text,updatedAt}], currentId }
         };
 
         function loadFromStorage() {
@@ -213,8 +219,20 @@
                     const fxObj = JSON.parse(fx);
                     if (fxObj && fxObj.rates) { STATE.fx.rates = fxObj.rates; STATE.fx.ts = fxObj.ts; STATE.fx.date = fxObj.date; STATE.fx.source = fxObj.source || 'cache'; }
                 }
-                const np = localStorage.getItem(STORAGE_KEYS.notepad);
-                if (np != null) _npText = np;
+                const nps = localStorage.getItem(STORAGE_KEYS.notepads);
+                if (nps) {
+                    const npObj = JSON.parse(nps);
+                    if (npObj && Array.isArray(npObj.notes)) {
+                        _npNotes = npObj.notes.filter(function(n) { return n && typeof n.id === 'string'; });
+                        _npCurrentId = npObj.currentId || (_npNotes[0] && _npNotes[0].id) || null;
+                    }
+                }
+                if (!_npNotes.length) {
+                    // Migracja starej pojedynczej notatki (matm0_notepad) → pierwsza notatka tablicy.
+                    const npOld = localStorage.getItem(STORAGE_KEYS.notepad);
+                    _npNotes = [{ id: _npNewId(), text: npOld != null ? npOld : '', updatedAt: Date.now() }];
+                    _npCurrentId = _npNotes[0].id;
+                }
                 const st = localStorage.getItem(STORAGE_KEYS.settings);
                 if (st) {
                     const stObj = JSON.parse(st);
@@ -6011,7 +6029,8 @@
            ============================================================ */
         // Etykieta musi zawierać literę (żeby „16:9" nie udawało etykiety); bierzemy część
         // po pierwszym dwukropku jako działanie.
-        var _npText = '';                              // źródło prawdy treści (autosave)
+        var _npNotes = [];                             // wiele notatek: [{id, text, updatedAt}]
+        var _npCurrentId = null;                       // id aktywnej notatki
         var _NP_LABEL_RE = /^([^:]*\p{L}[^:]*):\s*(.+)$/u;
         var _NP_TOTAL_RE = /^(razem|suma|total)$/i;
         function _npFmt(v) { return formatLocaleNumber(v, 10); }
@@ -6166,11 +6185,116 @@
             if (first) first.placeholder = 'Pisz… np. „Nocleg: 3 * 180", potem „razem"   (Enter = nowa linia)';
             npRecompute();
         }
+        // ── Wiele notatek ─────────────────────────────────────────────
+        function _npNewId() { return 'n' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
+        function _npCurrentNote() {
+            var n = _npNotes.filter(function(x) { return x.id === _npCurrentId; })[0];
+            if (!n) { n = _npNotes[0]; _npCurrentId = n ? n.id : null; }
+            return n || null;
+        }
+        // Auto-tytuł = pierwsza niepusta linia (jak Apple Notes); fallback „Pusta notatka".
+        function _npTitle(note) {
+            if (!note) return 'Notatka';
+            var first = String(note.text || '').split('\n').map(function(s) { return s.trim(); }).filter(Boolean)[0];
+            if (!first) return 'Pusta notatka';
+            return first.length > 38 ? first.slice(0, 38) + '…' : first;
+        }
         function saveNotepad() {
-            try { localStorage.setItem(STORAGE_KEYS.notepad, _npText); }
+            try { localStorage.setItem(STORAGE_KEYS.notepads, JSON.stringify({ notes: _npNotes, currentId: _npCurrentId })); }
             catch (e) { showToast('⚠️ Brak miejsca na notatnik', 'error'); }
         }
-        function _npCommit() { _npText = _npSerialize(); npRecompute(); saveNotepad(); }
+        function _npStashCurrent() { // zapisz treść z edytora do bieżącej notatki (bez przerysowania)
+            var n = _npCurrentNote();
+            if (n) { n.text = _npSerialize(); n.updatedAt = Date.now(); }
+        }
+        function _npCommit() { _npStashCurrent(); npRecompute(); npRenderTitle(); saveNotepad(); }
+        function npRenderTitle() { if (npTitle) npTitle.textContent = _npTitle(_npCurrentNote()); }
+        function _npLoadCurrent() {
+            var n = _npCurrentNote();
+            npBuildRows(n ? n.text : '');
+            npRenderTitle();
+        }
+        function npSwitchNote(id) {
+            if (id === _npCurrentId) { npCloseList(); return; }
+            _npStashCurrent();              // zachowaj bieżącą zanim przełączysz
+            _npCurrentId = id;
+            saveNotepad();
+            _npLoadCurrent();
+            npCloseList();
+            var f = npEditor && npEditor.querySelector('.np-line');
+            if (f) { f.focus(); var L = f.value.length; f.setSelectionRange(L, L); }
+        }
+        function npNewNote() {
+            _npStashCurrent();
+            var n = { id: _npNewId(), text: '', updatedAt: Date.now() };
+            _npNotes.unshift(n);
+            _npCurrentId = n.id;
+            saveNotepad();
+            _npLoadCurrent();
+            npCloseList();
+            var f = npEditor && npEditor.querySelector('.np-line');
+            if (f) f.focus();
+        }
+        function npDeleteNote(id) {
+            var wasCurrent = id === _npCurrentId;
+            _npNotes = _npNotes.filter(function(x) { return x.id !== id; });
+            if (!_npNotes.length) _npNotes = [{ id: _npNewId(), text: '', updatedAt: Date.now() }];
+            if (wasCurrent) _npCurrentId = _npNotes[0].id;
+            saveNotepad();
+            npRenderList();
+            if (wasCurrent) _npLoadCurrent();
+        }
+
+        // Panel listy notatek (slajd nad edytorem). Każdy wiersz: tytuł + data + kosz.
+        function _npFmtWhen(ts) {
+            if (!ts) return '';
+            var d = new Date(ts);
+            var pad = function(n) { return n < 10 ? '0' + n : '' + n; };
+            return pad(d.getDate()) + '.' + pad(d.getMonth() + 1) + ' ' + pad(d.getHours()) + ':' + pad(d.getMinutes());
+        }
+        function npRenderList() {
+            if (!npListUl) return;
+            npListUl.replaceChildren();
+            _npNotes.forEach(function(note) {
+                var li = document.createElement('li');
+                li.className = 'np-note-item' + (note.id === _npCurrentId ? ' is-current' : '');
+                li.setAttribute('data-id', note.id);
+                var info = document.createElement('button');
+                info.type = 'button';
+                info.className = 'np-note-open';
+                info.setAttribute('data-id', note.id);
+                var t = document.createElement('span');
+                t.className = 'np-note-title';
+                t.textContent = _npTitle(note);
+                var when = document.createElement('span');
+                when.className = 'np-note-when';
+                when.textContent = _npFmtWhen(note.updatedAt);
+                info.appendChild(t);
+                info.appendChild(when);
+                var del = document.createElement('button');
+                del.type = 'button';
+                del.className = 'np-note-del';
+                del.setAttribute('data-id', note.id);
+                del.setAttribute('aria-label', 'Usuń notatkę');
+                del.textContent = '🗑️';
+                li.appendChild(info);
+                li.appendChild(del);
+                npListUl.appendChild(li);
+            });
+        }
+        function npOpenList() {
+            if (!npListPanel) return;
+            _npStashCurrent(); saveNotepad();   // świeże tytuły na liście
+            npRenderList();
+            npListPanel.classList.add('open');
+            npListPanel.setAttribute('aria-hidden', 'false');
+        }
+        function npCloseList() {
+            if (!npListPanel) return;
+            npListPanel.classList.remove('open');
+            npListPanel.setAttribute('aria-hidden', 'true');
+        }
+        function npToggleList() { if (npListPanel && npListPanel.classList.contains('open')) npCloseList(); else npOpenList(); }
 
         // Dymek z rozpisanym równaniem (hover na desktopie / tap na tablecie).
         var _npTipChip = null;
@@ -6235,7 +6359,8 @@
             document.body.classList.add('notepad-open');
             notepadModal.setAttribute('aria-hidden', 'false');
             if (npBackdrop) npBackdrop.setAttribute('aria-hidden', 'false');
-            npBuildRows(_npText);
+            npCloseList();
+            _npLoadCurrent();
             npHideTip();
             // Fokus odroczony (po animacji). Guard: jeśli zamknięto w międzyczasie — nie fokusuj
             // ukrytego pola (inaczej aria-hidden + fokus = ostrzeżenie a11y).
@@ -6249,6 +6374,8 @@
             // KOLEJNOŚĆ KLUCZOWA dla a11y: najpierw fokus POZA modal (do przycisku otwierającego),
             // dopiero potem aria-hidden — inaczej ostrzeżenie „aria-hidden na elemencie z fokusem".
             npHideTip();
+            _npStashCurrent(); saveNotepad();   // zapisz bieżącą treść przy wyjściu
+            npCloseList();
             var active = document.activeElement;
             if (notepadBtn && typeof notepadBtn.focus === 'function') notepadBtn.focus();
             if (active && notepadModal && notepadModal.contains(document.activeElement)) document.activeElement.blur();
@@ -6259,6 +6386,22 @@
         if (notepadBtn) notepadBtn.addEventListener('click', openNotepad);
         if (notepadClose) notepadClose.addEventListener('click', closeNotepad);
         if (npBackdrop) npBackdrop.addEventListener('click', closeNotepad);
+        if (npListBtn) npListBtn.addEventListener('click', npToggleList);
+        if (npNewBtn) npNewBtn.addEventListener('click', npNewNote);
+        if (npListPanel) {
+            npListPanel.addEventListener('click', function(e) {
+                var del = e.target.closest('.np-note-del');
+                if (del) {
+                    e.stopPropagation();
+                    var did = del.getAttribute('data-id');
+                    var note = _npNotes.filter(function(x) { return x.id === did; })[0];
+                    if (note && (!note.text || !note.text.trim() || window.confirm('Usunąć notatkę „' + _npTitle(note) + '"?'))) npDeleteNote(did);
+                    return;
+                }
+                var open = e.target.closest('.np-note-open');
+                if (open) { npSwitchNote(open.getAttribute('data-id')); }
+            });
+        }
         if (npEditor) {
             npEditor.addEventListener('input', function(e) {
                 if (e.target.classList && e.target.classList.contains('np-line')) _npCommit();
@@ -6277,7 +6420,8 @@
         }
         document.addEventListener('keydown', function(e) {
             if (e.key === 'Escape' && document.body.classList.contains('notepad-open')) {
-                if (_npTipChip) { npHideTip(); return; }  // Esc najpierw chowa dymek
+                if (npListPanel && npListPanel.classList.contains('open')) { npCloseList(); return; } // najpierw lista
+                if (_npTipChip) { npHideTip(); return; }  // potem dymek
                 closeNotepad();
             }
         });
