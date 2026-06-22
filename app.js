@@ -113,6 +113,7 @@
         const npEditor = $('#npEditor');
         const npTooltip = $('#npTooltip');
         const npListBtn = $('#npListBtn');
+        const npFoldBtn = $('#npFoldBtn');
         const npNewBtn = $('#npNewBtn');
         const npTitle = $('#npTitle');
         const npListPanel = $('#npListPanel');
@@ -198,6 +199,7 @@
             settings: 'matm0_settings',
             notepad: 'matm0_notepad',     // (legacy: pojedyncza notatka — migrowana do notepads)
             notepads: 'matm0_notepads',   // wiele notatek: { notes:[{id,text,updatedAt}], currentId }
+            notepadGlobals: 'matm0_notepad_globals', // zmienne DZIELONE między notatkami (@nazwa)
         };
 
         function loadFromStorage() {
@@ -233,6 +235,8 @@
                     _npNotes = [{ id: _npNewId(), text: npOld != null ? npOld : '', updatedAt: Date.now() }];
                     _npCurrentId = _npNotes[0].id;
                 }
+                const npg = localStorage.getItem(STORAGE_KEYS.notepadGlobals);
+                if (npg) { const go = JSON.parse(npg); if (go && typeof go === 'object') _npGlobals = go; }
                 const st = localStorage.getItem(STORAGE_KEYS.settings);
                 if (st) {
                     const stObj = JSON.parse(st);
@@ -6031,7 +6035,10 @@
         // po pierwszym dwukropku jako działanie.
         var _npNotes = [];                             // wiele notatek: [{id, text, updatedAt}]
         var _npCurrentId = null;                       // id aktywnej notatki
+        var _npGlobals = {};                           // zmienne DZIELONE między notatkami (@nazwa) — TYLKO notatnik
         var _NP_LABEL_RE = /^([^:]*\p{L}[^:]*):\s*(.+)$/u;
+        // „@nazwa: wartość" → zmienna dzielona między wszystkimi notatkami (ale NIE w kalkulatorze).
+        var _NP_GLOBAL_RE = /^@\s*([\p{L}][\p{L}\p{N}_]*)\s*:\s*(.+)$/u;
         var _NP_TOTAL_RE = /^(razem|suma|total)$/i;
         function _npFmt(v) { return formatLocaleNumber(v, 10); }
 
@@ -6054,11 +6061,11 @@
         }
         // Zarejestruj nieznane „liczba+słowo" tokeny z CAŁEJ notatki jako tymczasowe bezwymiarowe
         // jednostki. Zwraca klucze do późniejszego usunięcia.
-        function _npAutoRegister(text) {
+        function _npAutoRegister(text, exclude) {
             var re = /(\d[\d.,]*)\s*([\p{L}][\p{L}.]*)/gu, m, added = [];
             while ((m = re.exec(text)) !== null) {
                 var w = m[2], k = w.toLowerCase();
-                if (CALC_UNITS[k] || _npTokenKnown(w)) continue;
+                if (CALC_UNITS[k] || _npTokenKnown(w) || (exclude && exclude[k])) continue; // pomiń też zmienne-etykiety
                 CALC_UNITS[k] = { cat: 'custom:' + k, factor: 1, base: w, custom: true, dimensionless: true, _auto: true };
                 CALC_UNIT_DISPLAY[k] = w;
                 added.push(k);
@@ -6077,6 +6084,54 @@
             return expr.replace(/[\p{L}][\p{L}.]*/gu, function(w) { return _npTokenKnown(w) ? w : ' '; }).replace(/\s+/g, ' ').trim();
         }
 
+        // ── Etykiety-zmienne: jednowyrazowa etykieta („Paliwo: 294") definiuje zmienną
+        // (paliwo=294) używalną w KOLEJNYCH liniach („paliwo * 2", „budżet - paliwo"). Top-down.
+        // Nazwa = pojedyncze słowo (litery/cyfry/_), nie kolidujące z jednostką/walutą/słowem
+        // kluczowym (guard _npTokenKnown). Wartość liczbowa (bez jednostki — jak „razem").
+        function _npVarName(label) {
+            var s = String(label == null ? '' : label).trim();
+            if (!/^[\p{L}][\p{L}\p{N}_]*$/u.test(s)) return null; // tylko pojedyncze słowo
+            if (_npTokenKnown(s)) return null;                     // nie nadpisuj jednostek/walut/„razem"
+            return s.toLowerCase();
+        }
+        // Podstaw zmienne w wyrażeniu. fmtFn=null → „(wartość)" do liczenia; podany → sformatowana
+        // liczba do dymka. Granice słowa odporne na polskie znaki (jak resolveCalcConstants).
+        function _npSubVars(expr, vars, fmtFn) {
+            var keys = Object.keys(vars);
+            if (!keys.length) return expr;
+            keys.sort(function(a, b) { return b.length - a.length; }); // dłuższe najpierw
+            var out = expr;
+            keys.forEach(function(k) {
+                var esc = k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                var re = new RegExp('(^|[^\\p{L}\\p{N}_])(' + esc + ')(?![\\p{L}\\p{N}_])', 'giu');
+                out = out.replace(re, function(_m, pre) { return pre + (fmtFn ? fmtFn(vars[k]) : '(' + vars[k] + ')'); });
+            });
+            return out;
+        }
+        // Zmienne DZIELONE między notatkami: skanuj WSZYSTKIE notatki po liniach „@nazwa: wartość".
+        // Wartość liczona samodzielnie (globalne mogą odwoływać się do wcześniej zebranych globalnych).
+        // Obsługuje dodanie/usunięcie — przeliczane od zera. NIE dotyczy kalkulatora standard.
+        function _npRebuildGlobals() {
+            var g = {};
+            _npNotes.forEach(function(note) {
+                String(note.text || '').split('\n').forEach(function(l) {
+                    var m = String(l).match(_NP_GLOBAL_RE);
+                    if (!m) return;
+                    var name = m[1].toLowerCase();
+                    if (_npTokenKnown(name)) return;        // nie nadpisuj jednostek/walut/słów kluczowych
+                    var sub = _npSubVars(m[2].trim(), g);   // globalna może użyć wcześniejszej globalnej
+                    try {
+                        var r = evalCalcExpression(sub);
+                        if (r && typeof r.value === 'number' && isFinite(r.value)) g[name] = r.value;
+                    } catch (e) {}
+                });
+            });
+            _npGlobals = g;
+        }
+        function saveGlobals() {
+            try { localStorage.setItem(STORAGE_KEYS.notepadGlobals, JSON.stringify(_npGlobals)); } catch (e) {}
+        }
+
         // Liczy linie + zwraca dane do dymka (resolved = ROZPISANE równanie). Reużywa
         // evalCalcExpression, więc działają jednostki/waluty/daty/stałe/własne jednostki.
         function evalNotepadLines(text) {
@@ -6085,20 +6140,39 @@
             var runningSum = 0; // suma SUROWYCH pozycji (linie, które same nie użyły „razem")
             var items = [];     // wartości surowych pozycji (do rozpisania „razem" w dymku)
             var autoMode = (STATE.settings && STATE.settings.notepadAutoUnit) || 'safe';
-            var _autoKeys = _npAutoRegister(String(text == null ? '' : text)); // tymcz. bezwymiarowe jednostki z notatki
+            var vars = Object.assign({}, _npGlobals); // globalne (@nazwa) widoczne w KAŻDEJ notatce
+            var varNames = {};   // zbiór nazw zmiennych — wykluczamy je z auto-jednostek
+            Object.keys(_npGlobals).forEach(function(k) { varNames[k] = 1; });
+            lines.forEach(function(l) {
+                var t = String(l).trim();
+                var gmm = t.match(_NP_GLOBAL_RE);
+                if (gmm) { varNames[gmm[1].toLowerCase()] = 1; return; }
+                var mm = t.match(_NP_LABEL_RE);
+                if (mm) { var vn = _npVarName(mm[1].trim()); if (vn) varNames[vn] = 1; }
+            });
+            var _autoKeys = _npAutoRegister(String(text == null ? '' : text), varNames);
             try {
             for (var i = 0; i < lines.length; i++) {
                 var info = { raw: lines[i], labelPart: '', exprPart: '', text: '', value: null, resolved: '', isItem: false, isTotal: false };
                 var line = lines[i].trim();
                 if (!line) { out.push(info); continue; }
                 var exprPart = line, labelPart = '';
-                var lm = line.match(_NP_LABEL_RE);
+                var gm = line.match(_NP_GLOBAL_RE);    // „@nazwa: …" → zmienna dzielona między notatkami
+                var gName = null;
+                if (gm) {
+                    gName = gm[1].toLowerCase();
+                    if (_npTokenKnown(gName)) gName = null; // nie nadpisuj jednostek/walut/słów kluczowych
+                    exprPart = gm[2].trim();
+                    labelPart = line.slice(0, line.length - exprPart.length);
+                }
+                var lm = gm ? null : line.match(_NP_LABEL_RE);
                 if (lm) { exprPart = lm[2].trim(); labelPart = line.slice(0, line.length - exprPart.length); }
                 info.exprPart = exprPart; info.labelPart = labelPart;
                 var usedTotal = false;
                 var evalStr = exprPart.replace(/\b(razem|suma|total)\b/giu, function() {
                     usedTotal = true; return '(' + runningSum + ')';
                 });
+                evalStr = _npSubVars(evalStr, vars); // podstaw etykiety-zmienne (z linii powyżej)
                 if (autoMode === 'full') evalStr = _npStripProse(evalStr); // zdejmij zbłąkane słowa
                 var res = null;
                 try { res = evalCalcExpression(evalStr); } catch (e) { res = null; }
@@ -6108,15 +6182,18 @@
                     // → podstawiona suma; zwykłe → samo działanie (bez etykiety).
                     if (_NP_TOTAL_RE.test(exprPart)) {
                         info.resolved = items.length ? items.map(_npFmt).join(' + ') : exprPart;
-                    } else if (usedTotal) {
-                        info.resolved = exprPart.replace(/\b(razem|suma|total)\b/giu, _npFmt(runningSum));
                     } else {
-                        info.resolved = exprPart;
+                        // rozpisz „razem" i zmienne na liczby (do dymka)
+                        var disp = exprPart.replace(/\b(razem|suma|total)\b/giu, _npFmt(runningSum));
+                        info.resolved = _npSubVars(disp, vars, _npFmt);
                     }
                     if (typeof res.value === 'number' && isFinite(res.value)) {
                         info.value = res.value;
-                        if (usedTotal) { info.isTotal = true; }
+                        // „razem" i definicje globalne (@nazwa) NIE są pozycjami do sumowania
+                        if (usedTotal || gName) { if (usedTotal) info.isTotal = true; }
                         else { runningSum += res.value; items.push(res.value); info.isItem = true; }
+                        if (gName) { vars[gName] = res.value; }            // zmienna globalna (też lokalnie poniżej)
+                        else { var vn2 = lm ? _npVarName(lm[1].trim()) : null; if (vn2) vars[vn2] = res.value; }
                     } else if (usedTotal) { info.isTotal = true; }
                 }
                 out.push(info);
@@ -6207,9 +6284,10 @@
             var n = _npCurrentNote();
             if (n) { n.text = _npSerialize(); n.updatedAt = Date.now(); }
         }
-        function _npCommit() { _npStashCurrent(); npRecompute(); npRenderTitle(); saveNotepad(); }
+        function _npCommit() { _npStashCurrent(); _npRebuildGlobals(); saveGlobals(); npRecompute(); npRenderTitle(); saveNotepad(); }
         function npRenderTitle() { if (npTitle) npTitle.textContent = _npTitle(_npCurrentNote()); }
         function _npLoadCurrent() {
+            _npRebuildGlobals();   // świeże globalne (@nazwa z innych notatek) jako seed
             var n = _npCurrentNote();
             npBuildRows(n ? n.text : '');
             npRenderTitle();
@@ -6296,6 +6374,25 @@
         }
         function npToggleList() { if (npListPanel && npListPanel.classList.contains('open')) npCloseList(); else npOpenList(); }
 
+        // Fold (zwijanie wyrażeń do wyników) jako przełącznik on/off W NOTATNIKU — bez wychodzenia
+        // do ⚙️. Działa od razu (npRecompute przerysowuje), zsynchronizowany z ustawieniem.
+        function updateFoldBtn() {
+            if (!npFoldBtn) return;
+            var on = !!(STATE.settings && STATE.settings.notepadFold);
+            npFoldBtn.classList.toggle('is-on', on);
+            npFoldBtn.setAttribute('aria-pressed', on ? 'true' : 'false');
+            npFoldBtn.textContent = on ? '⊞' : '⊟';
+            npFoldBtn.title = on ? 'Pokaż wyrażenia (rozwiń)' : 'Zwiń wyrażenia do wyników';
+            npFoldBtn.setAttribute('aria-label', npFoldBtn.title);
+        }
+        function npToggleFold() {
+            STATE.settings.notepadFold = !STATE.settings.notepadFold;
+            saveSettings();
+            if (settingNotepadFold) settingNotepadFold.checked = STATE.settings.notepadFold; // sync ⚙️
+            updateFoldBtn();
+            npRecompute(); // natychmiast, bez zamykania notatnika
+        }
+
         // Dymek z rozpisanym równaniem (hover na desktopie / tap na tablecie).
         var _npTipChip = null;
         function npShowTip(chip) {
@@ -6360,6 +6457,7 @@
             notepadModal.setAttribute('aria-hidden', 'false');
             if (npBackdrop) npBackdrop.setAttribute('aria-hidden', 'false');
             npCloseList();
+            updateFoldBtn();
             _npLoadCurrent();
             npHideTip();
             // Fokus odroczony (po animacji). Guard: jeśli zamknięto w międzyczasie — nie fokusuj
@@ -6387,6 +6485,7 @@
         if (notepadClose) notepadClose.addEventListener('click', closeNotepad);
         if (npBackdrop) npBackdrop.addEventListener('click', closeNotepad);
         if (npListBtn) npListBtn.addEventListener('click', npToggleList);
+        if (npFoldBtn) npFoldBtn.addEventListener('click', npToggleFold);
         if (npNewBtn) npNewBtn.addEventListener('click', npNewNote);
         if (npListPanel) {
             npListPanel.addEventListener('click', function(e) {
@@ -7978,6 +8077,31 @@
             STATE.settings.notepadAutoUnit = savedAUmode;
             STATE.fx.rates = savedFxAU; STATE.fx.ts = savedFxTsAU;
             STATE.constants = savedConstAU; registerCustomUnits();
+
+            // Etykiety-zmienne: jednowyrazowa etykieta definiuje zmienną dla kolejnych linii (top-down).
+            var vlines = evalNotepadLines(['Paliwo: 100 + 194', 'Podwojone: paliwo * 2', 'Budżet: 5000', 'Zostało: budżet - paliwo', 'Przed: y + 1', 'Y: 10'].join('\n'));
+            results.push({ expr: 'zmienne: paliwo=294', pass: vlines[0].value === 294, got: vlines[0].text });
+            results.push({ expr: 'zmienne: paliwo*2=588', pass: vlines[1].value === 588, got: vlines[1].text });
+            results.push({ expr: 'zmienne: dymek „294 * 2"', pass: vlines[1].resolved === '294 * 2', got: '"' + vlines[1].resolved + '"' });
+            results.push({ expr: 'zmienne: budżet-paliwo=4706', pass: vlines[3].value === 4706, got: vlines[3].text });
+            results.push({ expr: 'zmienne: odwołanie w przód (y przed def) → brak', pass: vlines[4].text === '', got: '"' + vlines[4].text + '"' });
+
+            // Zmienne GLOBALNE (@nazwa) — dzielone między notatkami, izolacja zmiennych lokalnych.
+            var savedGlobals = _npGlobals, savedNotesG = _npNotes;
+            // (a) w obrębie jednej notatki: @def + użycie poniżej; @def nie jest pozycją sumy
+            _npGlobals = {};
+            var gl = evalNotepadLines(['@stawka: 50', 'Koszt: stawka * 3', 'razem'].join('\n'));
+            results.push({ expr: 'globalne: @stawka → koszt=150', pass: gl[1].value === 150, got: gl[1].text });
+            results.push({ expr: 'globalne: @def nie wlicza się do „razem" (=150)', pass: gl[2].value === 150, got: gl[2].text });
+            // (b) cross-notatka: globalna z innej notatki widoczna po seedzie _npGlobals
+            _npGlobals = { stawka: 50 };
+            var gl2 = evalNotepadLines('Wycena: stawka * 4');
+            results.push({ expr: 'globalne: cross-notatka stawka*4=200', pass: gl2[0].value === 200, got: gl2[0].text });
+            // (c) izolacja: zmienna LOKALNA nie staje się globalna; @def-y tak
+            _npNotes = [{ id: 'a', text: '@stawka: 50\nPaliwo: 100' }, { id: 'b', text: 'Czynsz: 2000' }];
+            _npRebuildGlobals();
+            results.push({ expr: 'globalne: rebuild zbiera tylko @ (stawka), nie lokalne (paliwo/czynsz)', pass: _npGlobals.stawka === 50 && _npGlobals.paliwo === undefined && _npGlobals.czynsz === undefined, got: JSON.stringify(_npGlobals) });
+            _npGlobals = savedGlobals; _npNotes = savedNotesG;
 
             // Stałe-FUNKCJE f(x) — wywołania w kalkulatorze (test(3)/test 3/3 test), argument-stała,
             // oraz bezpieczne NIE-liczenie form dwuznacznych/bezargumentowych.

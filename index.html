@@ -937,7 +937,9 @@
                     <p><strong>Wiele notatek:</strong> <strong>＋</strong> w nagłówku tworzy nową, <strong>📋</strong> otwiera listę wszystkich (tytuł = pierwsza linia) — dotknij, by przełączyć, kosz, by usunąć.</p>
                     <p><strong>Etykieta: działanie</strong> — tekst przed dwukropkiem pomijany w liczeniu: <code>Nocleg: 3 * 180</code> → 540. Linia bez działania (np. nagłówek <code>Wyjazd w góry</code>) zostaje czystym tekstem.</p>
                     <p><strong>razem</strong> (lub <strong>suma</strong>) — suma wyników linii powyżej; działa też wewnątrz działania: <code>na osobę: razem / 5 os.</code> (linie używające „razem" nie wliczają się ponownie do sumy).</p>
-                    <p>W <strong>⚙️ Ustawieniach</strong> możesz włączyć tryb <strong>fold</strong> — linia pokazuje sam wynik zamiast działania; kliknij wiersz, by edytować.</p>
+                    <p><strong>Etykiety-zmienne:</strong> jednowyrazowa etykieta staje się zmienną dla kolejnych linii <strong>tej samej notatki</strong>: <code>Paliwo: 294</code> → potem <code>paliwo * 2</code> = 588, <code>budżet - paliwo</code>. Działają w dół (po zdefiniowaniu).</p>
+                    <p><strong>Zmienna dzielona między notatkami:</strong> z prefiksem <code>@</code> — <code>@stawka: 50</code> jest widoczna we <strong>wszystkich</strong> notatkach (np. <code>stawka * 8</code> w innej). Nadal działa tylko w notatniku, nie w kalkulatorze standardowym.</p>
+                    <p>Tryb <strong>fold</strong> — linia pokazuje sam wynik zamiast działania (kliknij wiersz, by edytować). Przełączasz on/off przyciskiem <strong>⊟</strong> w nagłówku notatnika (działa od razu) albo w ⚙️ Ustawieniach.</p>
                     <p><strong>Niezdefiniowane jednostki</strong> wpisane wprost (np. <code>3 os</code>, <code>5 paczek</code>) liczą się jako bezwymiarowe — <code>3 os</code> → 3 os, <code>3 os × 180 zł</code> → 540 zł. W ⚙️ wybierzesz tryb: <strong>zachowawczo</strong> (proza bez wyniku) lub <strong>pełne auto</strong>.</p>
                 </section>
                 <section>
@@ -1422,6 +1424,7 @@
         aria-labelledby="npTitle" aria-hidden="true">
         <div class="np-head">
             <button class="np-head-btn" id="npListBtn" type="button" aria-label="Lista notatek" title="Notatki">📋</button>
+            <button class="np-head-btn" id="npFoldBtn" type="button" aria-pressed="false" aria-label="Zwiń wyrażenia do wyników" title="Zwiń wyrażenia do wyników">⊟</button>
             <h3 id="npTitle" class="np-title">📝 Notatnik</h3>
             <button class="np-head-btn" id="npNewBtn" type="button" aria-label="Nowa notatka" title="Nowa notatka">＋</button>
             <button class="settings-close" id="notepadClose" type="button" aria-label="Zamknij">✕</button>
