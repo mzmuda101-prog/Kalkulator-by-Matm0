@@ -1816,7 +1816,7 @@
             display: flex;
             flex-direction: column;
             min-height: 0;
-            padding: 12px 14px calc(12px + var(--safe-bottom));
+            padding: 12px 8px calc(12px + var(--safe-bottom)); /* węższe boki = więcej miejsca na pisanie */
         }
         /* ── Panel listy notatek (slajd nad edytorem) ── */
         .np-list-panel {
@@ -1887,10 +1887,11 @@
             -webkit-overflow-scrolling: touch;
         }
         .np-row {
+            position: relative;      /* kotwica dla chipu wyniku podczas edycji */
             display: flex;
             align-items: flex-end;   /* chip wyniku przy OSTATNIEJ linii zawiniętego wiersza */
             gap: 8px;
-            padding: 0 10px;
+            padding: 0 8px;
             min-height: 2rem;        /* dotykowy cel; 1rem × line-height 2 */
         }
         .np-line, .np-label {
@@ -1943,6 +1944,18 @@
             -webkit-tap-highlight-color: transparent;
         }
         .np-res:hover, .np-res:focus-visible { background: var(--primary-light, rgba(37, 99, 235, 0.12)); }
+        /* Podczas EDYCJI wiersza wynik wychodzi z układu (prawy-górny róg, przygaszony) — pole tekstowe
+           dostaje wtedy PEŁNĄ szerokość do pisania; po wyjściu z pola chip wraca na koniec linii. */
+        .np-row:focus-within .np-res {
+            position: absolute;
+            right: 8px;
+            top: 1px;
+            margin: 0;
+            opacity: 0.5;
+            background: transparent;
+            color: var(--text-muted);
+            pointer-events: none;
+        }
         /* „razem"/„suma" zostają wyróżnione pełnym kafelkiem — to podsumowanie, nie zwykła pozycja. */
         .np-row.np-total .np-res { background: var(--primary); color: #fff; }
         .np-row:not(.np-has) .np-res { display: none; }

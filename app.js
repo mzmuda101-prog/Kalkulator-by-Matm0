@@ -6218,8 +6218,7 @@
         // Wiersz = <textarea rows=1> (NIE <input>): zawija długie linie zamiast je ucinać i — kluczowe
         // na telefonach — daje na klawiaturze realny klawisz „Enter/↵", a nie „Dalej" (który w <input>
         // przeskakuje fokus i blokował pisanie w kolejnych liniach). Wysokość auto-rośnie do treści.
-        function _npAutoGrow(el) {
-            if (!el) return;
+        function _npMeasure(el) {
             el.style.height = 'auto';
             el.style.height = el.scrollHeight + 'px';
             // Odróżnij ZAWINIĘTY wiersz (jedna pozycja na kilku liniach) od osobnych „enterów":
@@ -6229,6 +6228,13 @@
                 var lh = parseFloat(getComputedStyle(el).lineHeight) || 32;
                 row.classList.toggle('np-wrapped', el.scrollHeight > lh * 1.4);
             }
+        }
+        function _npAutoGrow(el) {
+            if (!el) return;
+            _npMeasure(el);
+            // Druga miara po reflow: część mobilnych przeglądarek zwraca tuż po „input" jeszcze STARY
+            // scrollHeight (zawinięta linia bywała niewidoczna do następnego zdarzenia/Entera) — rAF to łata.
+            requestAnimationFrame(function() { _npMeasure(el); });
         }
         function _npGrowAll() {
             if (!npEditor) return;
@@ -6575,7 +6581,20 @@
                 if (chip) { e.stopPropagation(); if (_npTipChip === chip) npHideTip(); else npShowTip(chip); return; }
                 npHideTip();
                 var row = e.target.closest('.np-row'); // klik w wiersz (tryb fold) → edycja
-                if (row) { var inp = row.querySelector('.np-line'); if (inp && document.activeElement !== inp) inp.focus(); }
+                if (row) { var inp = row.querySelector('.np-line'); if (inp && document.activeElement !== inp) inp.focus(); return; }
+                // Klik w PUSTE miejsce edytora (pod ostatnią linią) → kursor w ostatniej linii, jak w
+                // Apple Notes; gdy ostatnia linia niepusta, dorzuć świeżą poniżej. [[project_kalkulator_notepad_planning]]
+                if (e.target === npEditor) {
+                    var lines = npEditor.querySelectorAll('.np-line');
+                    var last = lines[lines.length - 1];
+                    if (last && last.value.trim() !== '') {
+                        var nr = _npMakeRow('');
+                        npEditor.appendChild(nr);
+                        _npCommit();
+                        last = nr.querySelector('.np-line');
+                    }
+                    if (last) { last.focus(); var L = last.value.length; last.setSelectionRange(L, L); }
+                }
             });
             npEditor.addEventListener('mouseover', function(e) { var c = e.target.closest('.np-res'); if (c) npShowTip(c); });
             npEditor.addEventListener('mouseout', function(e) { var c = e.target.closest('.np-res'); if (c) npHideTip(); });
