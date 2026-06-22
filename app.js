@@ -645,9 +645,15 @@
             raw = raw.replace(/([\d.,]+)%\s+(?:z|of)\s+([\d.,]+)/gi, '($2*$1/100)');
             // "X% od Y" (rabat skrótowy)
             raw = raw.replace(/([\d.,]+)%\s+od\s+([\d.,]+)/gi, '($2*(1-$1/100))');
-            // Samsung-style "A + B%" (prosta jednocyfrowa forma)
-            raw = raw.replace(/^([\d.,]+)\s*([+\-])\s*([\d.,]+)%\s*$/, function(_, a, op, b) {
-                return a.replace(',', '.') + op + '(' + a.replace(',', '.') + '*' + b.replace(',', '.') + '/100)';
+            // „<wyrażenie> ± N%" — procent liczony OD bazy (jak w kalkulatorze telefonu i jak „± vat").
+            // Bazą może być CAŁE działanie, nie tylko jedna liczba: „3*160 + 12%" = 480 + 12%·480 =
+            // 537,6 (wcześniej „+ 12%" dodawało gołe 0,12 → błędne 480,12). Bazę podstawiamy DWUKROTNIE
+            // — to bezpieczne, bo waluty są już liczbami (resolveCalcCurrency biegnie wcześniej w
+            // evalCalcExpression), a własne jednostki są bezwymiarowe i policzą się tak samo w obu
+            // kopiach. [[project_kalkulator_notepad_planning]]
+            raw = raw.replace(/^(.+\S)\s*([+\-])\s*([\d.,]+)%\s*$/, function(m, base, op, b) {
+                if (/%/.test(base)) return m; // łańcuch „100+10%+5%" — zostaw dla reguły gołego %
+                return '(' + base + ')' + op + '((' + base + ')*' + b.replace(',', '.') + '/100)';
             });
             // Samodzielne "N%"
             raw = raw.replace(/([\d.,]+)%/g, '($1/100)');
