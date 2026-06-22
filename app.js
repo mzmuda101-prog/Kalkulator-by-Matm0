@@ -54,7 +54,9 @@
             //   defaultUnits — domyślna jednostka WYŚWIETLANIA per kategoria fizyczna (np. speed→'km/h').
             //     '' = jednostka bazowa (jak dotąd). Dotyczy tylko gołych sum; jawne „X na Y" wygrywa.
             settings: { defaultCurrency: 'PLN', fxEngine: 'auto', fxBackup: true,
-                        defaultUnits: { speed: '', length: '', mass: '', volume: '' } },
+                        defaultUnits: { speed: '', length: '', mass: '', volume: '' },
+                        notepadFold: false, // notatnik: zwijaj wyrażenia do wyników (tryb fold)
+                        notepadAutoUnit: 'safe' }, // notatnik: auto-jednostki niezdefiniowane — 'safe' | 'full'
             // Komenda tab (merged Engineering + Graph)
             eng: { unit: 'cm', axis: 'X', mode: 'between' }, // used by drawEngineeringCanvas
             graph: {
@@ -103,6 +105,14 @@
         const installAppBtn = $('#installAppBtn');
         const orientationBtn = $('#orientationBtn');
 
+        // Notatnik (nakładka) [[project_kalkulator_notepad_planning]]
+        const notepadBtn = $('#notepadBtn');
+        const notepadModal = $('#notepadModal');
+        const notepadClose = $('#notepadClose');
+        const npBackdrop = $('#npBackdrop');
+        const npEditor = $('#npEditor');
+        const npTooltip = $('#npTooltip');
+
         // Settings modal
         const settingsBtn = $('#settingsBtn');
         const settingsModal = $('#settingsModal');
@@ -112,6 +122,8 @@
         const settingUnitSelects = Array.prototype.slice.call(document.querySelectorAll('#settingDefaultUnits select[data-unit-cat]'));
         const settingFxBackup = $('#settingFxBackup');
         const settingFxBackupRow = $('#settingFxBackupRow');
+        const settingNotepadFold = $('#settingNotepadFold');
+        const settingNotepadAutoUnit = $('#settingNotepadAutoUnit');
         const settingsFxStatus = $('#settingsFxStatus');
         const settingsVersion = $('#settingsVersion');
         const settingsCheckUpdate = $('#settingsCheckUpdate');
@@ -163,6 +175,7 @@
         const constName = $('#constName');
         const constValue = $('#constValue');
         const constUnit = $('#constUnit');
+        const constUnitDimensionless = $('#constUnitDimensionless');
         const constList = $('#constList');
         const addConstBtn = $('#addConstBtn');
 
@@ -178,6 +191,7 @@
             recentCommands: 'matm0_recent_commands',
             fxRates: 'matm0_fx_rates',
             settings: 'matm0_settings',
+            notepad: 'matm0_notepad',
         };
 
         function loadFromStorage() {
@@ -199,6 +213,8 @@
                     const fxObj = JSON.parse(fx);
                     if (fxObj && fxObj.rates) { STATE.fx.rates = fxObj.rates; STATE.fx.ts = fxObj.ts; STATE.fx.date = fxObj.date; STATE.fx.source = fxObj.source || 'cache'; }
                 }
+                const np = localStorage.getItem(STORAGE_KEYS.notepad);
+                if (np != null) _npText = np;
                 const st = localStorage.getItem(STORAGE_KEYS.settings);
                 if (st) {
                     const stObj = JSON.parse(st);
@@ -206,6 +222,8 @@
                         if (stObj.defaultCurrency) STATE.settings.defaultCurrency = String(stObj.defaultCurrency).toUpperCase();
                         if (stObj.fxEngine) STATE.settings.fxEngine = stObj.fxEngine;
                         if (typeof stObj.fxBackup === 'boolean') STATE.settings.fxBackup = stObj.fxBackup;
+                        if (typeof stObj.notepadFold === 'boolean') STATE.settings.notepadFold = stObj.notepadFold;
+                        if (stObj.notepadAutoUnit === 'safe' || stObj.notepadAutoUnit === 'full') STATE.settings.notepadAutoUnit = stObj.notepadAutoUnit;
                         if (stObj.defaultUnits && typeof stObj.defaultUnits === 'object') {
                             Object.keys(STATE.settings.defaultUnits).forEach(function(cat) {
                                 if (typeof stObj.defaultUnits[cat] === 'string') STATE.settings.defaultUnits[cat] = stObj.defaultUnits[cat];
@@ -719,7 +737,7 @@
             for (var pass = 0; pass < 5; pass++) {
                 var before = result;
                 constants.forEach(function(c) {
-                    if (!c.name || _isFuncConst(c)) return; // funkcje obsłużone wyżej
+                    if (!c.name || c.kind === 'unit' || _isFuncConst(c)) return; // jednostki/funkcje obsłużone osobno
                     var escaped = c.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
                     var val = String(c.value).trim();
                     var info = classifyConstValue(val);
@@ -744,10 +762,36 @@
         }
 
         // Regex nazw jednostek — najdłuższe najpierw, żeby „m2" nie złapało się jako „m".
-        var _UNIT_NAMES_RE = Object.keys(CALC_UNITS)
-            .sort(function(a, b) { return b.length - a.length; })
-            .map(function(u) { return u.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); })
-            .join('|');
+        // Przebudowywalny: własne jednostki użytkownika (stałe kind:'unit') dochodzą po
+        // wczytaniu i przy każdej zmianie. [[project_kalkulator_notepad_planning]]
+        var _UNIT_NAMES_RE = '';
+        function rebuildUnitNamesRe() {
+            _UNIT_NAMES_RE = Object.keys(CALC_UNITS)
+                .sort(function(a, b) { return b.length - a.length; })
+                .map(function(u) { return u.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); })
+                .join('|');
+        }
+        // Własne jednostki (wariant A): token bez wartości, BEZ konwersji — każda to OSOBNA
+        // kategoria (factor 1), więc tylko sumuje się z samą sobą i jedzie z liczbą; liczbowa
+        // stała może ją nieść (jak „zł" przy „cena"). Furtka na B (kompozycja „zł/os.") zostaje
+        // na przyszłość. Idempotentne: czyści poprzednio wstrzyknięte i wstrzykuje aktualne.
+        function registerCustomUnits() {
+            Object.keys(CALC_UNITS).forEach(function(k) {
+                if (CALC_UNITS[k] && CALC_UNITS[k].custom) { delete CALC_UNITS[k]; delete CALC_UNIT_DISPLAY[k]; }
+            });
+            (STATE.constants || []).forEach(function(c) {
+                if (!c || c.kind !== 'unit') return;
+                var orig = String(c.unit || '').trim();
+                var key = orig.toLowerCase();
+                if (!key || CALC_UNITS[key]) return; // nie nadpisuj wbudowanej jednostki
+                // dimensionless (domyślnie true — istniejące jednostki bez flagi = liczniki):
+                // licznik (np. os./szt.) NIE blokuje waluty/innych; wymiarowa (false) trzyma wymiar.
+                CALC_UNITS[key] = { cat: 'custom:' + key, factor: 1, base: orig, custom: true, dimensionless: c.dimensionless !== false };
+                CALC_UNIT_DISPLAY[key] = orig;
+            });
+            rebuildUnitNamesRe();
+        }
+        rebuildUnitNamesRe();
 
         // ── Temperatura (skala afiniczna) — tylko jawna konwersja „X na Y" ──
         function _tempCanon(s) {
@@ -1245,9 +1289,14 @@
                 }
                 var unitResult = resolveCalcUnits(expr);
                 expr = unitResult.expr;
-                // Miks WALUTY z jednostką FIZYCZNĄ (np. „12 gb − 12 zł") nie ma sensu — nie liczymy
-                // na siłę (analogicznie do miksu niezgodnych jednostek, który już daje brak wyniku).
-                if (curRes.hasCurrency && unitResult.unit !== null) {
+                // Własna jednostka (np. „os.") jest BEZWYMIAROWA — to licznik, nie wymiar fizyczny.
+                // Nie kłóci się więc z walutą: „3 os. * 180 zł" = 540 zł (wygrywa ostatnia realna
+                // jednostka — tu waluta). Blokujemy tylko miks WALUTY z FIZYCZNĄ jednostką
+                // („12 gb − 12 zł"), który nie ma sensu. [[project_kalkulator_notepad_planning]]
+                var unitIsCustom = unitResult.cat && String(unitResult.cat).indexOf('custom:') === 0;
+                var customKey = unitIsCustom ? String(unitResult.cat).slice('custom:'.length) : null;
+                var unitIsDimensionless = customKey && CALC_UNITS[customKey] && CALC_UNITS[customKey].dimensionless;
+                if (curRes.hasCurrency && unitResult.unit !== null && !unitIsDimensionless) {
                     return { value: null, unit: null, error: null };
                 }
                 var unit = curRes.hasCurrency ? curRes.unit : unitResult.unit;
@@ -5395,6 +5444,33 @@
             STATE.constants.forEach(function(c, idx) {
                 var li = document.createElement('li');
                 li.className = 'const-item';
+
+                // Własna jednostka (kind:'unit') — token bez wartości. Prosty wiersz: nazwa +
+                // etykieta + sam kosz (bez quick-calc i „Użyj" — nie ma czego mnożyć).
+                if (c.kind === 'unit') {
+                    var uInfo = document.createElement('div');
+                    uInfo.className = 'info';
+                    var uName = document.createElement('div');
+                    uName.className = 'name';
+                    uName.textContent = c.name || c.unit;
+                    var uDet = document.createElement('div');
+                    uDet.className = 'detail';
+                    uDet.textContent = 'własna jednostka · ' + c.unit + ' · ' + (c.dimensionless !== false ? 'bezwymiarowa' : 'wymiarowa');
+                    uInfo.appendChild(uName);
+                    uInfo.appendChild(uDet);
+                    var uActions = document.createElement('div');
+                    uActions.className = 'actions';
+                    var uDel = document.createElement('button');
+                    uDel.className = 'btn btn-sm btn-danger del-const';
+                    uDel.setAttribute('data-idx', idx);
+                    uDel.textContent = '🗑️';
+                    uActions.appendChild(uDel);
+                    li.appendChild(uInfo);
+                    li.appendChild(uActions);
+                    constList.appendChild(li);
+                    return;
+                }
+
                 // [EN] Safe DOM creation — no innerHTML, no XSS
                 var infoDiv = document.createElement('div');
                 infoDiv.className = 'info';
@@ -5484,6 +5560,7 @@
                         var name = STATE.constants[idx] ? STATE.constants[idx].name : '';
                         STATE.constants.splice(idx, 1);
                         saveConstants();
+                        registerCustomUnits(); // gdy to była własna jednostka — wycofaj z silnika
                         renderConstants();
                         showToast('🗑️ Usunięto: ' + (name || 'stałą'), '');
                         return;
@@ -5542,6 +5619,28 @@
             var name = constName.value.trim();
             var valueStr = constValue.value.trim();
             var unit = constUnit.value.trim();
+
+            // Własna jednostka (wariant A): PUSTA wartość + podana j.m. → rejestrujemy token jako
+            // jednostkę (np. „os."). Nazwa opcjonalna (domyślnie = token). Bez konwersji — jedzie
+            // z liczbą i sumuje się z samą sobą. [[project_kalkulator_notepad_planning]]
+            if (!valueStr && unit) {
+                var uKey = unit.toLowerCase();
+                if (CALC_UNITS[uKey] && !CALC_UNITS[uKey].custom) {
+                    showToast('⚠️ „' + unit + '" to już wbudowana jednostka', 'error'); return;
+                }
+                if (STATE.constants.some(function(c) { return c.kind === 'unit' && String(c.unit).toLowerCase() === uKey; })) {
+                    showToast('⚠️ Taka jednostka już istnieje', 'error'); return;
+                }
+                var dimensionless = constUnitDimensionless ? constUnitDimensionless.checked : true;
+                STATE.constants.push({ name: name || unit, value: '', unit: unit, kind: 'unit', dimensionless: dimensionless });
+                saveConstants();
+                registerCustomUnits();
+                renderConstants();
+                constName.value = ''; constValue.value = ''; constUnit.value = '';
+                if (constUnitDimensionless) constUnitDimensionless.checked = true; // reset do domyślnego
+                showToast('✅ Dodano jednostkę: ' + unit + (dimensionless ? ' (bezwymiarowa)' : ' (wymiarowa)'), 'success');
+                return;
+            }
 
             if (!name) { showToast('⚠️ Podaj nazwę stałej', 'error'); return; }
             if (!valueStr) { showToast('⚠️ Podaj wartość stałej', 'error'); return; }
@@ -5875,6 +5974,8 @@
             var radios = document.querySelectorAll('#settingFxEngine input[name="fxEngine"]');
             radios.forEach(function(r) { r.checked = (r.value === STATE.settings.fxEngine); });
             syncFxBackupRow();
+            if (settingNotepadFold) settingNotepadFold.checked = !!STATE.settings.notepadFold;
+            if (settingNotepadAutoUnit) settingNotepadAutoUnit.value = STATE.settings.notepadAutoUnit || 'safe';
             updateFxStatusLine();
             if (settingsVersion) settingsVersion.textContent = 'Wersja ' + (window.APP_VERSION || '—');
             document.body.classList.add('settings-open');
@@ -5898,6 +5999,287 @@
         if (settingsBackdrop) settingsBackdrop.addEventListener('click', closeSettings);
         document.addEventListener('keydown', function(e) {
             if (e.key === 'Escape' && document.body.classList.contains('settings-open')) closeSettings();
+        });
+
+        /* ============================================================
+           [EN] NOTATNIK (nakładka) — notatnik obliczeniowy Soulver-like:
+           każda linia liczy się sama (reużywa evalCalcExpression), wynik na
+           marginesie. „Etykieta: działanie" pomija etykietę. Słowo „razem"/
+           „suma" = suma SUROWYCH pozycji powyżej (działa też w działaniu:
+           „na osobę: razem / 5 os."). Własne jednostki z Fazy 0 działają tu
+           tak samo. Stan zapisywany lokalnie (autosave). [[project_kalkulator_notepad_planning]]
+           ============================================================ */
+        // Etykieta musi zawierać literę (żeby „16:9" nie udawało etykiety); bierzemy część
+        // po pierwszym dwukropku jako działanie.
+        var _npText = '';                              // źródło prawdy treści (autosave)
+        var _NP_LABEL_RE = /^([^:]*\p{L}[^:]*):\s*(.+)$/u;
+        var _NP_TOTAL_RE = /^(razem|suma|total)$/i;
+        function _npFmt(v) { return formatLocaleNumber(v, 10); }
+
+        // ── Auto-jednostki (TYLKO notatnik): nieznany token „liczba + słowo" traktujemy jako
+        // jednostkę BEZWYMIAROWĄ na czas liczenia (np. samo wpisane „3 os" → „3 os"). Reużywa
+        // maszynerię własnych jednostek (rejestrujemy tymczasowo, po policzeniu usuwamy). Tryb
+        // 'safe' (domyślny): proza z dodatkowymi słowami i tak się nie skompiluje → brak wyniku.
+        // 'full': dodatkowo zdejmujemy zbłąkane słowa. Standardowy kalkulator tego NIE używa.
+        // Stoplista spójników/przyimków — NIE robimy z nich jednostek (chronią „X na Y", frazy).
+        var _NP_STOP = { 'na':1,'do':1,'w':1,'z':1,'i':1,'od':1,'to':1,'in':1,'oraz':1,'a':1,'po':1,'za':1,'lub':1,'albo':1,'ile':1,'dni':1 };
+        function _npTokenKnown(w) {
+            var k = String(w).toLowerCase();
+            if (_NP_STOP[k]) return true;
+            if (CALC_UNITS[k]) return true;
+            if (_currencyTokenMap()[k]) return true;
+            if (_NP_TOTAL_RE.test(w)) return true;
+            if (_isDateUnit(w)) return true;
+            if ((STATE.constants || []).some(function(c) { return c.name && c.name.toLowerCase() === k && c.kind !== 'unit'; })) return true;
+            return false;
+        }
+        // Zarejestruj nieznane „liczba+słowo" tokeny z CAŁEJ notatki jako tymczasowe bezwymiarowe
+        // jednostki. Zwraca klucze do późniejszego usunięcia.
+        function _npAutoRegister(text) {
+            var re = /(\d[\d.,]*)\s*([\p{L}][\p{L}.]*)/gu, m, added = [];
+            while ((m = re.exec(text)) !== null) {
+                var w = m[2], k = w.toLowerCase();
+                if (CALC_UNITS[k] || _npTokenKnown(w)) continue;
+                CALC_UNITS[k] = { cat: 'custom:' + k, factor: 1, base: w, custom: true, dimensionless: true, _auto: true };
+                CALC_UNIT_DISPLAY[k] = w;
+                added.push(k);
+            }
+            if (added.length) rebuildUnitNamesRe();
+            return added;
+        }
+        function _npAutoClear(keys) {
+            if (!keys || !keys.length) return;
+            keys.forEach(function(k) { if (CALC_UNITS[k] && CALC_UNITS[k]._auto) { delete CALC_UNITS[k]; delete CALC_UNIT_DISPLAY[k]; } });
+            rebuildUnitNamesRe();
+        }
+        // 'full': zdejmij zbłąkane słowa (nie-jednostki, nie-stałe) z działania, by proza z odrobiną
+        // matematyki dała wynik. Tokeny-jednostki (już rozpoznane/auto) zostają.
+        function _npStripProse(expr) {
+            return expr.replace(/[\p{L}][\p{L}.]*/gu, function(w) { return _npTokenKnown(w) ? w : ' '; }).replace(/\s+/g, ' ').trim();
+        }
+
+        // Liczy linie + zwraca dane do dymka (resolved = ROZPISANE równanie). Reużywa
+        // evalCalcExpression, więc działają jednostki/waluty/daty/stałe/własne jednostki.
+        function evalNotepadLines(text) {
+            var lines = String(text == null ? '' : text).split('\n');
+            var out = [];
+            var runningSum = 0; // suma SUROWYCH pozycji (linie, które same nie użyły „razem")
+            var items = [];     // wartości surowych pozycji (do rozpisania „razem" w dymku)
+            var autoMode = (STATE.settings && STATE.settings.notepadAutoUnit) || 'safe';
+            var _autoKeys = _npAutoRegister(String(text == null ? '' : text)); // tymcz. bezwymiarowe jednostki z notatki
+            try {
+            for (var i = 0; i < lines.length; i++) {
+                var info = { raw: lines[i], labelPart: '', exprPart: '', text: '', value: null, resolved: '', isItem: false, isTotal: false };
+                var line = lines[i].trim();
+                if (!line) { out.push(info); continue; }
+                var exprPart = line, labelPart = '';
+                var lm = line.match(_NP_LABEL_RE);
+                if (lm) { exprPart = lm[2].trim(); labelPart = line.slice(0, line.length - exprPart.length); }
+                info.exprPart = exprPart; info.labelPart = labelPart;
+                var usedTotal = false;
+                var evalStr = exprPart.replace(/\b(razem|suma|total)\b/giu, function() {
+                    usedTotal = true; return '(' + runningSum + ')';
+                });
+                if (autoMode === 'full') evalStr = _npStripProse(evalStr); // zdejmij zbłąkane słowa
+                var res = null;
+                try { res = evalCalcExpression(evalStr); } catch (e) { res = null; }
+                if (res && (res.value !== null || res.text != null || res.big)) {
+                    info.text = formatCalcResult(res);
+                    // Rozpisane równanie do dymka: czyste „razem" → składniki; „razem" w działaniu
+                    // → podstawiona suma; zwykłe → samo działanie (bez etykiety).
+                    if (_NP_TOTAL_RE.test(exprPart)) {
+                        info.resolved = items.length ? items.map(_npFmt).join(' + ') : exprPart;
+                    } else if (usedTotal) {
+                        info.resolved = exprPart.replace(/\b(razem|suma|total)\b/giu, _npFmt(runningSum));
+                    } else {
+                        info.resolved = exprPart;
+                    }
+                    if (typeof res.value === 'number' && isFinite(res.value)) {
+                        info.value = res.value;
+                        if (usedTotal) { info.isTotal = true; }
+                        else { runningSum += res.value; items.push(res.value); info.isItem = true; }
+                    } else if (usedTotal) { info.isTotal = true; }
+                }
+                out.push(info);
+            }
+            } finally { _npAutoClear(_autoKeys); } // usuń tymczasowe auto-jednostki
+            return out;
+        }
+
+        // ── Edytor wierszowy: każdy wiersz = natywny <input> (najlepsze odczucie edycji/dotyku)
+        // + chip wyniku na końcu linii. Hover/tap chipu → dymek z rozpisanym równaniem. Tryb fold
+        // (ustawienie) chowa wyrażenie i pokazuje sam wynik, aż klikniesz wiersz. [[project_kalkulator_notepad_planning]]
+        function _npSerialize() {
+            if (!npEditor) return '';
+            return Array.prototype.map.call(npEditor.querySelectorAll('.np-line'), function(inp) { return inp.value; }).join('\n');
+        }
+        function _npMakeRow(text) {
+            var row = document.createElement('div');
+            row.className = 'np-row';
+            var input = document.createElement('input');
+            input.type = 'text';
+            input.className = 'np-line';
+            input.value = text || '';
+            input.autocapitalize = 'off'; input.autocomplete = 'off'; input.spellcheck = false;
+            input.setAttribute('aria-label', 'Linia notatnika');
+            var label = document.createElement('span'); // widoczna tylko w trybie fold (zamiast inputu)
+            label.className = 'np-label';
+            label.setAttribute('aria-hidden', 'true');
+            var res = document.createElement('button');
+            res.type = 'button';
+            res.className = 'np-res';
+            res.tabIndex = -1;
+            res.style.display = 'none';
+            row.appendChild(input);
+            row.appendChild(label);
+            row.appendChild(res);
+            return row;
+        }
+        function npRecompute() {
+            if (!npEditor) return;
+            var rows = npEditor.querySelectorAll('.np-row');
+            var infos = evalNotepadLines(_npSerialize());
+            rows.forEach(function(row, i) {
+                var info = infos[i] || {};
+                var res = row.querySelector('.np-res');
+                var label = row.querySelector('.np-label');
+                var has = !!info.text;
+                row.classList.toggle('np-has', has);
+                row.classList.toggle('np-total', !!info.isTotal);
+                res.textContent = has ? info.text : '';
+                res.style.display = has ? '' : 'none';
+                if (has) {
+                    res.dataset.eq = info.resolved || info.exprPart || '';
+                    res.setAttribute('aria-label', 'Wynik ' + info.text + (res.dataset.eq ? ', z: ' + res.dataset.eq : ''));
+                } else { delete res.dataset.eq; res.removeAttribute('aria-label'); }
+                label.textContent = info.labelPart || '';
+            });
+            npEditor.classList.toggle('np-fold', !!(STATE.settings && STATE.settings.notepadFold));
+        }
+        function npBuildRows(text) {
+            if (!npEditor) return;
+            npEditor.replaceChildren();
+            var lines = String(text == null ? '' : text).split('\n');
+            if (!lines.length) lines = [''];
+            lines.forEach(function(l) { npEditor.appendChild(_npMakeRow(l)); });
+            var first = npEditor.querySelector('.np-line');
+            if (first) first.placeholder = 'Pisz… np. „Nocleg: 3 * 180", potem „razem"   (Enter = nowa linia)';
+            npRecompute();
+        }
+        function saveNotepad() {
+            try { localStorage.setItem(STORAGE_KEYS.notepad, _npText); }
+            catch (e) { showToast('⚠️ Brak miejsca na notatnik', 'error'); }
+        }
+        function _npCommit() { _npText = _npSerialize(); npRecompute(); saveNotepad(); }
+
+        // Dymek z rozpisanym równaniem (hover na desktopie / tap na tablecie).
+        var _npTipChip = null;
+        function npShowTip(chip) {
+            if (!npTooltip || !chip || !chip.dataset.eq) return;
+            npTooltip.textContent = chip.dataset.eq;
+            npTooltip.style.display = 'block';
+            npTooltip.setAttribute('aria-hidden', 'false');
+            var r = chip.getBoundingClientRect();
+            var tw = npTooltip.offsetWidth, th = npTooltip.offsetHeight;
+            var left = Math.min(Math.max(8, r.left + r.width / 2 - tw / 2), window.innerWidth - tw - 8);
+            var top = r.top - th - 8;
+            if (top < 8) top = r.bottom + 8;
+            npTooltip.style.left = left + 'px';
+            npTooltip.style.top = top + 'px';
+            _npTipChip = chip;
+        }
+        function npHideTip() {
+            if (!npTooltip) return;
+            npTooltip.style.display = 'none';
+            npTooltip.setAttribute('aria-hidden', 'true');
+            _npTipChip = null;
+        }
+        function npRowKeydown(e) {
+            var input = e.target;
+            if (!input.classList || !input.classList.contains('np-line')) return;
+            var row = input.closest('.np-row');
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                var pos = input.selectionStart != null ? input.selectionStart : input.value.length;
+                var left = input.value.slice(0, pos), right = input.value.slice(pos);
+                input.value = left;
+                var newRow = _npMakeRow(right);
+                if (row.nextSibling) npEditor.insertBefore(newRow, row.nextSibling);
+                else npEditor.appendChild(newRow);
+                _npCommit();
+                var ni = newRow.querySelector('.np-line');
+                ni.focus(); ni.setSelectionRange(0, 0);
+            } else if (e.key === 'Backspace' && input.selectionStart === 0 && input.selectionEnd === 0) {
+                var prev = row.previousElementSibling;
+                if (prev) {
+                    e.preventDefault();
+                    var pinp = prev.querySelector('.np-line');
+                    var at = pinp.value.length;
+                    pinp.value = pinp.value + input.value;
+                    npEditor.removeChild(row);
+                    _npCommit();
+                    pinp.focus(); pinp.setSelectionRange(at, at);
+                }
+            } else if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+                var sib = e.key === 'ArrowUp' ? row.previousElementSibling : row.nextElementSibling;
+                if (sib) {
+                    e.preventDefault();
+                    var s = sib.querySelector('.np-line');
+                    var col = Math.min(input.selectionStart || 0, s.value.length);
+                    s.focus(); s.setSelectionRange(col, col);
+                }
+            }
+        }
+        function openNotepad() {
+            if (!notepadModal) return;
+            document.body.classList.add('notepad-open');
+            notepadModal.setAttribute('aria-hidden', 'false');
+            if (npBackdrop) npBackdrop.setAttribute('aria-hidden', 'false');
+            npBuildRows(_npText);
+            npHideTip();
+            // Fokus odroczony (po animacji). Guard: jeśli zamknięto w międzyczasie — nie fokusuj
+            // ukrytego pola (inaczej aria-hidden + fokus = ostrzeżenie a11y).
+            setTimeout(function() {
+                if (!document.body.classList.contains('notepad-open')) return;
+                var first = npEditor && npEditor.querySelector('.np-line');
+                if (first) { first.focus(); var L = first.value.length; first.setSelectionRange(L, L); }
+            }, 60);
+        }
+        function closeNotepad() {
+            // KOLEJNOŚĆ KLUCZOWA dla a11y: najpierw fokus POZA modal (do przycisku otwierającego),
+            // dopiero potem aria-hidden — inaczej ostrzeżenie „aria-hidden na elemencie z fokusem".
+            npHideTip();
+            var active = document.activeElement;
+            if (notepadBtn && typeof notepadBtn.focus === 'function') notepadBtn.focus();
+            if (active && notepadModal && notepadModal.contains(document.activeElement)) document.activeElement.blur();
+            document.body.classList.remove('notepad-open');
+            if (notepadModal) notepadModal.setAttribute('aria-hidden', 'true');
+            if (npBackdrop) npBackdrop.setAttribute('aria-hidden', 'true');
+        }
+        if (notepadBtn) notepadBtn.addEventListener('click', openNotepad);
+        if (notepadClose) notepadClose.addEventListener('click', closeNotepad);
+        if (npBackdrop) npBackdrop.addEventListener('click', closeNotepad);
+        if (npEditor) {
+            npEditor.addEventListener('input', function(e) {
+                if (e.target.classList && e.target.classList.contains('np-line')) _npCommit();
+            });
+            npEditor.addEventListener('keydown', npRowKeydown);
+            npEditor.addEventListener('click', function(e) {
+                var chip = e.target.closest('.np-res');
+                if (chip) { e.stopPropagation(); if (_npTipChip === chip) npHideTip(); else npShowTip(chip); return; }
+                npHideTip();
+                var row = e.target.closest('.np-row'); // klik w wiersz (tryb fold) → edycja
+                if (row) { var inp = row.querySelector('.np-line'); if (inp && document.activeElement !== inp) inp.focus(); }
+            });
+            npEditor.addEventListener('mouseover', function(e) { var c = e.target.closest('.np-res'); if (c) npShowTip(c); });
+            npEditor.addEventListener('mouseout', function(e) { var c = e.target.closest('.np-res'); if (c) npHideTip(); });
+            npEditor.addEventListener('scroll', npHideTip);
+        }
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape' && document.body.classList.contains('notepad-open')) {
+                if (_npTipChip) { npHideTip(); return; }  // Esc najpierw chowa dymek
+                closeNotepad();
+            }
         });
 
         if (settingDefaultCurrency) {
@@ -5944,6 +6326,21 @@
                 // odśwież, by stan był aktualny przy następnej próbie.
                 STATE.fx.ts = null;
                 loadFxRates();
+            });
+        }
+
+        if (settingNotepadFold) {
+            settingNotepadFold.addEventListener('change', function() {
+                STATE.settings.notepadFold = settingNotepadFold.checked;
+                saveSettings();
+                if (document.body.classList.contains('notepad-open')) npRecompute(); // przerysuj tryb na żywo
+            });
+        }
+        if (settingNotepadAutoUnit) {
+            settingNotepadAutoUnit.addEventListener('change', function() {
+                STATE.settings.notepadAutoUnit = settingNotepadAutoUnit.value === 'full' ? 'full' : 'safe';
+                saveSettings();
+                if (document.body.classList.contains('notepad-open')) npRecompute(); // przelicz na żywo
             });
         }
 
@@ -7022,6 +7419,7 @@
             if (graphFsExitEl && graphContainer) graphContainer.appendChild(graphFsExitEl);
 
             loadFromStorage();
+            registerCustomUnits(); // własne jednostki użytkownika rozpoznawalne od razu w kalkulatorze
 
             // [EN] FAZA 1 — tylko kalkulator standardowy. Stawiamy go natychmiast, żeby był
             // interaktywny od razu po otwarciu PWA (osoba „wpadam policzyć i wypadam" nie czeka
@@ -7352,6 +7750,91 @@
                 }
             });
             STATE.fx.rates = savedFx0; STATE.fx.ts = savedFxTs0;
+
+            // Własne jednostki (wariant A): token bez wartości — rejestrujemy, jedzie z liczbą,
+            // sumuje się z samą sobą, BEZ konwersji; liczbowa stała może ją nieść; nie miesza
+            // kategorii. Sprzątamy rejestr po teście. [[project_kalkulator_notepad_planning]]
+            var savedConstCU = STATE.constants;
+            STATE.constants = [
+                { name: 'os.', value: '', unit: 'os.', kind: 'unit' }, // własna jednostka
+                { name: 'ludzie', value: '5', unit: 'os.' },           // liczba niosąca własną jednostkę
+            ];
+            registerCustomUnits();
+            var cuCases = [
+                { expr: '3 os. + 2 os.', value: 5,  unit: 'os.' }, // sumowanie z samą sobą
+                { expr: '10 os. - 4 os.', value: 6, unit: 'os.' },
+                { expr: 'ludzie * 2',    value: 10, unit: 'os.' }, // stała niesie własną jednostkę
+            ];
+            cuCases.forEach(function(t) {
+                try {
+                    var rcu = evalCalcExpression(t.expr);
+                    var passcu = Math.abs(rcu.value - t.value) <= 1e-6 && rcu.unit === t.unit;
+                    results.push({ expr: t.expr + ' (własna jednostka)', pass: passcu, got: rcu.value + ' ' + rcu.unit });
+                } catch (err) {
+                    results.push({ expr: t.expr + ' (własna jednostka)', pass: false, error: err.message });
+                }
+            });
+            try {
+                var rMix = evalCalcExpression('3 os. + 2 m'); // miks z jednostką FIZYCZNĄ → brak wyniku jednostkowego
+                results.push({ expr: '3 os. + 2 m (miks fizyczny → brak jednostki)', pass: rMix.unit === null, got: String(rMix.unit) });
+            } catch (err) { results.push({ expr: '3 os. + 2 m (miks)', pass: false, error: err.message }); }
+            // Własna jednostka (bezwymiarowa) × WALUTA: licznik nie blokuje waluty → wygrywa zł.
+            var savedFxCU = STATE.fx.rates, savedFxTsCU = STATE.fx.ts;
+            STATE.fx.rates = { PLN: 1, EUR: 4.30 }; STATE.fx.ts = Date.now();
+            try {
+                var rCur = evalCalcExpression('3 os. * 180 zł'); // = 540 zł (os. = licznik)
+                results.push({ expr: '3 os. * 180 zł (licznik × waluta = 540 zł)', pass: Math.abs(rCur.value - 540) < 1e-9 && rCur.unit === 'zł', got: rCur.value + ' ' + rCur.unit });
+            } catch (err) { results.push({ expr: '3 os. * 180 zł', pass: false, error: err.message }); }
+            // Własna jednostka WYMIAROWA (dimensionless:false) — trzyma wymiar, blokuje miks z walutą.
+            STATE.constants = [{ name: 'pkt', value: '', unit: 'pkt', kind: 'unit', dimensionless: false }];
+            registerCustomUnits();
+            try {
+                var rDim = evalCalcExpression('3 pkt * 180 zł'); // wymiarowa + waluta → brak wyniku
+                results.push({ expr: '3 pkt * 180 zł (wymiarowa + waluta → brak)', pass: rDim.value === null && rDim.unit === null, got: rDim.value + ' ' + rDim.unit });
+            } catch (err) { results.push({ expr: '3 pkt * 180 zł', pass: false, error: err.message }); }
+            STATE.fx.rates = savedFxCU; STATE.fx.ts = savedFxTsCU;
+            STATE.constants = savedConstCU;
+            registerCustomUnits(); // sprzątanie: usuń testowe jednostki z CALC_UNITS
+
+            // Notatnik (Faza 1): per-linia, strip etykiety „Etykieta: działanie", słowo „razem"
+            // = suma surowych pozycji powyżej (też w działaniu); własna jednostka „os." z Fazy 0.
+            var savedConstNP = STATE.constants;
+            STATE.constants = [{ name: 'os.', value: '', unit: 'os.', kind: 'unit' }];
+            registerCustomUnits();
+            var npLines = evalNotepadLines(['Wyjazd w góry', 'Paliwo: 100 + 194', 'Nocleg: 3 * 180', 'razem', 'na osobę: razem / 5 os.', '16:9'].join('\n'));
+            var npCases = [
+                { label: 'nagłówek bez wyniku', pass: npLines[0].text === '', got: '"' + npLines[0].text + '"' },
+                { label: 'Paliwo (strip etykiety) = 294', pass: npLines[1].value === 294, got: npLines[1].text },
+                { label: 'Nocleg = 540', pass: npLines[2].value === 540, got: npLines[2].text },
+                { label: 'razem = 834 (suma surowych)', pass: npLines[3].value === 834 && npLines[3].isTotal, got: npLines[3].text },
+                { label: 'na osobę = razem/5 = 166,8 os.', pass: Math.abs(npLines[4].value - 166.8) < 1e-6 && /os\./.test(npLines[4].text), got: npLines[4].text },
+                { label: '16:9 NIE etykieta (brak wyniku)', pass: npLines[5].text === '', got: '"' + npLines[5].text + '"' },
+                // resolved = rozpisane równanie do dymka
+                { label: 'dymek razem = „294 + 540"', pass: npLines[3].resolved === '294 + 540', got: '"' + npLines[3].resolved + '"' },
+                { label: 'dymek na osobę = „834 / 5 os."', pass: npLines[4].resolved === '834 / 5 os.', got: '"' + npLines[4].resolved + '"' },
+                { label: 'labelPart Nocleg', pass: /Nocleg/.test(npLines[2].labelPart), got: '"' + npLines[2].labelPart + '"' },
+            ];
+            npCases.forEach(function(t) { results.push({ expr: 'notatnik: ' + t.label, pass: t.pass, got: t.got }); });
+            STATE.constants = savedConstNP;
+            registerCustomUnits();
+
+            // Auto-jednostki w notatniku (niezdefiniowany token „liczba+słowo" = bezwymiarowy).
+            var savedAUmode = STATE.settings.notepadAutoUnit;
+            var savedConstAU = STATE.constants, savedFxAU = STATE.fx.rates, savedFxTsAU = STATE.fx.ts;
+            STATE.constants = []; registerCustomUnits();                 // żadnych zdefiniowanych jednostek
+            STATE.fx.rates = { PLN: 1, EUR: 4.30 }; STATE.fx.ts = Date.now();
+            STATE.settings.notepadAutoUnit = 'safe';
+            var auSafe = evalNotepadLines('3 os * 180 zł\n3 koty\nmam 3 koty i biegam');
+            results.push({ expr: 'auto-jedn safe: 3 os * 180 zł = 540 zł', pass: Math.abs(auSafe[0].value - 540) < 1e-9 && /540/.test(auSafe[0].text) && /zł/.test(auSafe[0].text), got: auSafe[0].text });
+            results.push({ expr: 'auto-jedn safe: 3 koty = „3 koty"', pass: auSafe[1].value === 3 && /koty/.test(auSafe[1].text), got: auSafe[1].text });
+            results.push({ expr: 'auto-jedn safe: proza „mam 3 koty i biegam" → brak', pass: auSafe[2].text === '', got: '"' + auSafe[2].text + '"' });
+            STATE.settings.notepadAutoUnit = 'full';
+            var auFull = evalNotepadLines('mam 3 koty');
+            results.push({ expr: 'auto-jedn full: „mam 3 koty" → 3 koty (zdjęte „mam")', pass: auFull[0].value === 3 && /koty/.test(auFull[0].text), got: auFull[0].text });
+            STATE.settings.notepadAutoUnit = savedAUmode;
+            STATE.fx.rates = savedFxAU; STATE.fx.ts = savedFxTsAU;
+            STATE.constants = savedConstAU; registerCustomUnits();
+
             // Stałe-FUNKCJE f(x) — wywołania w kalkulatorze (test(3)/test 3/3 test), argument-stała,
             // oraz bezpieczne NIE-liczenie form dwuznacznych/bezargumentowych.
             STATE.constants = [
@@ -7471,6 +7954,9 @@
                 runProjectionSmokeTests: runProjectionSmokeTests,
                 runCalcSmokeTests: runCalcSmokeTests,
                 evalCalcExpression: evalCalcExpression,
+                evalNotepadLines: evalNotepadLines,
+                npRecompute: npRecompute,
+                npBuildRows: npBuildRows,
                 loadFxRates: loadFxRates,
                 resolveCalcCurrency: resolveCalcCurrency,
             };

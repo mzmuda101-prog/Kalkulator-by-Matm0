@@ -35,6 +35,8 @@
             <div class="header-actions">
                 <button class="install-btn" id="installAppBtn" type="button" aria-label="Zainstaluj aplikację"
                     title="Zainstaluj aplikację" hidden>📲</button>
+                <button class="settings-btn notepad-btn" id="notepadBtn" type="button"
+                    aria-label="Notatnik" title="Notatnik">📝</button>
                 <button class="settings-btn" id="settingsBtn" type="button"
                     aria-label="Ustawienia" title="Ustawienia">⚙️</button>
                 <button class="cache-refresh-btn" id="cacheRefreshBtn" type="button"
@@ -812,7 +814,18 @@
                         <input type="text" id="constUnit" placeholder="j.m." maxlength="10"
                             aria-label="Jednostka stałej">
                     </div>
-                    <button class="btn btn-primary" id="addConstBtn">💾 Zapisz stałą</button>
+                    <label class="const-unit-dim" id="constUnitDimRow" style="display:flex;align-items:flex-start;gap:8px;margin-top:10px;font-size:.82rem;line-height:1.4;cursor:pointer">
+                        <input type="checkbox" id="constUnitDimensionless" checked style="margin-top:2px;flex:0 0 auto">
+                        <span>Jednostka <strong>bezwymiarowa</strong> (licznik, np. <code>os.</code>, <code>szt.</code>) — dotyczy dodawania samej j.m.</span>
+                    </label>
+                    <button class="btn btn-primary" id="addConstBtn" style="margin-top:10px">💾 Zapisz stałą</button>
+                    <p style="margin-top:8px;font-size:.8rem;color:var(--text-muted);line-height:1.45">
+                        Wpisz samą <strong>j.m.</strong> bez wartości (np. <code>os.</code>), by dodać własną jednostkę —
+                        jedzie z liczbą i sumuje się z samą sobą (<code>3 os. + 2 os.</code> = 5 os.).<br>
+                        <strong>Bezwymiarowa</strong> = licznik: nie kłóci się z walutą/innymi jednostkami, „realna" jednostka wygrywa
+                        (<code>3 os. × 180 zł</code> = 540 zł). <strong>Wymiarowa</strong> (odznacz) = trzyma własny wymiar i blokuje
+                        takie mieszanie (jak <code>kg</code> + <code>zł</code>). Konwersji na inne i tak brak.
+                    </p>
                 </div>
             </div>
 
@@ -910,11 +923,21 @@
                     <p>Definiujesz w <strong>📊 Moje Stałe</strong>, potem używasz nazwą wprost w działaniu (działają polskie znaki, np. <code>kwartał</code>).</p>
                     <p class="help-command" data-command="10 * DESKA"><code>10 * DESKA</code> — gdy DESKA = 4,5 → 45. Wartość może być liczbą, procentem (<code>rabat</code> = <code>8%</code> → <code>100 - rabat</code> = 92) lub wyrażeniem (<code>5+5*2</code>).</p>
                     <p><strong>Z jednostką:</strong> <code>cena</code> = <code>4,80 zł</code> → <code>cena * 12</code> = 57,6 zł (jednostka zostaje); <code>dł</code> = <code>120 cm</code> → <code>dł na m</code> = 1,2 m.</p>
+                    <p><strong>Własna jednostka:</strong> dodaj samą <code>j.m.</code> bez wartości (np. <code>os.</code>) — potem jedzie z liczbą i sumuje się z samą sobą: <code>3 os. + 2 os.</code> = 5 os. Własna jednostka nie przelicza się na inne (to czysta etykieta, np. <code>os.</code>, <code>szt.</code>, <code>rbg</code>).</p>
+                    <p><strong>Bezwymiarowa vs wymiarowa</strong> (checkbox przy dodawaniu): <strong>bezwymiarowa</strong> (licznik, domyślnie) nie kłóci się z walutą/innymi jednostkami — wygrywa „realna" jednostka: <code>3 os. × 180 zł</code> = 540 zł. <strong>Wymiarowa</strong> trzyma własny wymiar i blokuje takie mieszanie (jak <code>kg</code> + <code>zł</code>).</p>
                     <p><strong>Operacja</strong> — wartość zaczyna się od operatora (<code>× ÷ * / + ^</code>) i dopełnia wyrażenie: <code>marża</code> = <code>×5+2</code> → <code>100 marża</code> = 502.</p>
                     <p><strong>Funkcja</strong> — gdy wartość stałej zawiera <code>x</code>, stała staje się wzorem, w który podstawiasz liczbę. Przykład: stała o wartości <code>50-(20x+5)</code>. Poniżej <code>stała</code> oznacza nazwę, którą jej nadałeś:</p>
                     <p><code>stała(3)</code> — w nawiasach (najpewniejsze): podstawia <code>x = 3</code> → −15. W nawiasach podasz liczbę albo <strong>inną stałą</strong>: <code>stała(cena)</code>.</p>
                     <p><code>stała 3</code> lub <code>3 stała</code> — krótko, bez nawiasów, gdy liczba jest tylko z jednej strony.</p>
                     <p>Operand z <strong>obu</strong> stron (<code>5 stała 3</code>) celowo nie liczy — wtedy użyj nawiasów <code>stała(3)</code>.</p>
+                </section>
+                <section>
+                    <h4>Notatnik 📝 (przycisk w górnej belce)</h4>
+                    <p>Otwórz <strong>📝</strong> obok ⚙️. Każda linia liczy się sama (cała moc kalkulatora: jednostki, waluty, daty, stałe, własne jednostki), a wynik pojawia się na końcu linii. <strong>Naprowadź lub dotknij wynik</strong> — dymek pokaże, z jakiego równania pochodzi (np. <code>razem</code> → <code>294 + 540</code>). Stan zapisuje się sam.</p>
+                    <p><strong>Etykieta: działanie</strong> — tekst przed dwukropkiem pomijany w liczeniu: <code>Nocleg: 3 * 180</code> → 540. Linia bez działania (np. nagłówek <code>Wyjazd w góry</code>) zostaje czystym tekstem.</p>
+                    <p><strong>razem</strong> (lub <strong>suma</strong>) — suma wyników linii powyżej; działa też wewnątrz działania: <code>na osobę: razem / 5 os.</code> (linie używające „razem" nie wliczają się ponownie do sumy).</p>
+                    <p>W <strong>⚙️ Ustawieniach</strong> możesz włączyć tryb <strong>fold</strong> — linia pokazuje sam wynik zamiast działania; kliknij wiersz, by edytować.</p>
+                    <p><strong>Niezdefiniowane jednostki</strong> wpisane wprost (np. <code>3 os</code>, <code>5 paczek</code>) liczą się jako bezwymiarowe — <code>3 os</code> → 3 os, <code>3 os × 180 zł</code> → 540 zł. W ⚙️ wybierzesz tryb: <strong>zachowawczo</strong> (proza bez wyniku) lub <strong>pełne auto</strong>.</p>
                 </section>
                 <section>
                     <h4>Jednostki długości</h4>
@@ -1389,6 +1412,23 @@
     [EN] Settings Modal
     ============================================================ -->
     <div class="settings-backdrop" id="settingsBackdrop" aria-hidden="true"></div>
+
+    <!-- ============================================================
+    [EN] Notatnik — pełnoekranowa nakładka (notatnik obliczeniowy)
+    ============================================================ -->
+    <div class="np-backdrop" id="npBackdrop" aria-hidden="true"></div>
+    <div class="notepad-modal" id="notepadModal" role="dialog" aria-modal="true"
+        aria-labelledby="notepadTitle" aria-hidden="true">
+        <div class="np-head">
+            <h3 id="notepadTitle">📝 Notatnik</h3>
+            <button class="settings-close" id="notepadClose" type="button" aria-label="Zamknij">✕</button>
+        </div>
+        <div class="np-body">
+            <div class="np-editor" id="npEditor"></div>
+            <p class="np-hint">Każda linia liczy się osobno; wynik na końcu linii. <strong>Naprowadź lub dotknij wynik</strong>, by zobaczyć z jakiego równania pochodzi. <strong>Etykieta: działanie</strong> pomija etykietę; <strong>razem</strong>/<strong>suma</strong> = suma linii powyżej (też w działaniu: <code>na osobę: razem / 5 os.</code>). Własne jednostki (np. <code>os.</code>) dodasz w 📊 Moje Stałe.</p>
+        </div>
+        <div class="np-tooltip" id="npTooltip" role="status" aria-hidden="true"></div>
+    </div>
     <div class="settings-modal" id="settingsModal" role="dialog" aria-modal="true"
         aria-labelledby="settingsTitle" aria-hidden="true">
         <div class="settings-head">
@@ -1434,6 +1474,18 @@
                 </label>
             </div>
             <p class="settings-fxstatus" id="settingsFxStatus"></p>
+            <div class="settings-field">
+                <label>Notatnik 📝</label>
+                <label class="settings-check">
+                    <input type="checkbox" id="settingNotepadFold">
+                    <span><strong>Zwijaj wyrażenia do wyników (fold)</strong><br><small>Linia pokazuje sam wynik zamiast działania; kliknij wiersz, by edytować, a najedź/dotknij wynik, by zobaczyć równanie. Domyślnie wyłączone (wynik na końcu linii).</small></span>
+                </label>
+                <p class="settings-hint" style="margin-top:12px">Niezdefiniowane jednostki (np. wpisane wprost <code>3 os</code>) traktuj jako bezwymiarowe:</p>
+                <select id="settingNotepadAutoUnit">
+                    <option value="safe">Zachowawczo — tylko gdy reszta linii to działanie (proza bez wyniku)</option>
+                    <option value="full">Pełne auto — zdejmuj też zbłąkane słowa (może dać mylne wyniki)</option>
+                </select>
+            </div>
             <div class="settings-version">
                 <span id="settingsVersion">Wersja —</span>
                 <button class="settings-version-btn" id="settingsCheckUpdate" type="button">Sprawdź aktualizacje</button>

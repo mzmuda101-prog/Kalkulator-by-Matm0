@@ -1744,6 +1744,133 @@
             white-space: nowrap;
             box-shadow: var(--shadow-lg);
         }
+        /* ── Notatnik (pełnoekranowa nakładka) ────────────────────── */
+        .np-backdrop {
+            position: fixed;
+            inset: 0;
+            background: rgba(15, 23, 42, 0.36);
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity var(--transition);
+            z-index: 500;
+        }
+        body.notepad-open .np-backdrop { opacity: 1; pointer-events: auto; }
+        .notepad-modal {
+            position: fixed;
+            inset: 0;
+            display: flex;
+            flex-direction: column;
+            background: var(--card-bg);
+            opacity: 0;
+            pointer-events: none;
+            transform: translateY(10px) scale(0.99);
+            transition: transform 0.24s cubic-bezier(0.2, 0.8, 0.2, 1), opacity 0.2s ease;
+            z-index: 600;
+            padding-top: var(--safe-top, 0);
+        }
+        body.notepad-open .notepad-modal { opacity: 1; pointer-events: auto; transform: none; }
+        .np-head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 14px 18px;
+            border-bottom: 1px solid var(--border);
+            flex: 0 0 auto;
+        }
+        .np-head h3 { margin: 0; font-size: 1.15rem; }
+        .np-body {
+            flex: 1 1 auto;
+            display: flex;
+            flex-direction: column;
+            min-height: 0;
+            padding: 12px 14px calc(12px + var(--safe-bottom));
+        }
+        .np-editor {
+            flex: 1 1 auto;
+            min-height: 0;
+            overflow-y: auto;
+            border: 1px solid var(--border);
+            border-radius: var(--radius-lg);
+            background: var(--bg, #fff);
+            padding: 6px 2px;
+            -webkit-overflow-scrolling: touch;
+        }
+        .np-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 0 10px;
+            min-height: 2rem;        /* dotykowy cel; 1rem × line-height 2 */
+        }
+        .np-line, .np-label {
+            font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+            font-size: 1rem;
+            line-height: 2;
+        }
+        .np-line {
+            flex: 1 1 auto;
+            min-width: 0;
+            border: none;
+            outline: none;
+            background: transparent;
+            color: var(--text);
+            padding: 0;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .np-label {
+            display: none;            /* widoczna tylko w trybie fold (zamiast inputu) */
+            color: var(--text);
+            white-space: pre;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .np-res {
+            flex: 0 0 auto;
+            margin-left: auto;        /* wynik na KOŃCU linii (model A) */
+            border: none;
+            background: var(--primary-light, rgba(37, 99, 235, 0.1));
+            color: var(--primary);
+            font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+            font-size: 0.95rem;
+            font-weight: 600;
+            padding: 1px 9px;
+            border-radius: 999px;
+            cursor: pointer;
+            white-space: nowrap;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .np-res:hover, .np-res:focus-visible { filter: brightness(0.95); }
+        .np-row.np-total .np-res { background: var(--primary); color: #fff; }
+        .np-row:not(.np-has) .np-res { display: none; }
+        /* Tryb fold: zwiń wyrażenie do wyniku; klik w wiersz (fokus) odsłania input do edycji. */
+        .np-editor.np-fold .np-row.np-has:not(:focus-within) .np-line { display: none; }
+        .np-editor.np-fold .np-row.np-has:not(:focus-within) .np-label { display: inline-block; max-width: 60%; }
+        .np-editor.np-fold .np-row.np-has:not(:focus-within) .np-res { margin-left: 8px; }
+        .np-tooltip {
+            position: fixed;
+            z-index: 700;
+            display: none;
+            max-width: min(82vw, 440px);
+            background: var(--text, #0f172a);
+            color: #fff;
+            font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+            font-size: 0.85rem;
+            padding: 6px 10px;
+            border-radius: 8px;
+            box-shadow: var(--shadow-lg, 0 10px 28px rgba(15, 23, 42, 0.3));
+            pointer-events: none;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .np-hint {
+            flex: 0 0 auto;
+            margin: 10px 2px 0;
+            font-size: 0.78rem;
+            color: var(--text-muted);
+            line-height: 1.45;
+        }
+
         /* ── Settings modal ───────────────────────────────────────── */
         .settings-backdrop {
             position: fixed;
