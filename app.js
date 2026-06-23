@@ -6504,6 +6504,13 @@
         // Scala bieżący wiersz z poprzednim (kursor na początku linii → Backspace przenosi w górę).
         // Wydzielone, bo wołane z DWÓCH ścieżek: keydown (laptop) i beforeinput (mobilne klawiatury,
         // które nie zawsze wysyłają keydown 'Backspace'). Zwraca true gdy scalono (caller robi preventDefault).
+        // Czy keydown to „backspace"? Na PUSTYM polu klawiatury Androida (Samsung/Gboard) często
+        // wysyłają keyCode 8 z key='Unidentified' (samo e.key==='Backspace' nie wystarcza), a
+        // beforeinput/deleteContentBackward NIE odpala, bo nie ma czego usunąć. NIE łapiemy 229 —
+        // to kompozycja IME przy normalnym pisaniu (inaczej pierwsza litera scalałaby wiersz w górę).
+        function _npIsBackspaceKey(e) {
+            return e.key === 'Backspace' || e.keyCode === 8 || e.which === 8;
+        }
         function _npMergeBack(input) {
             var row = input.closest('.np-row');
             if (!row) return false;
@@ -6535,7 +6542,7 @@
                 var ni = newRow.querySelector('.np-line');
                 _npAutoGrow(ni);
                 ni.focus(); ni.setSelectionRange(0, 0);
-            } else if (e.key === 'Backspace' && input.selectionStart === 0 && input.selectionEnd === 0) {
+            } else if (_npIsBackspaceKey(e) && input.selectionStart === 0 && input.selectionEnd === 0) {
                 if (_npMergeBack(input)) e.preventDefault();
             } else if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
                 // W wieloliniowym wierszu strzałki przesuwają kursor w jego obrębie; do sąsiedniego
