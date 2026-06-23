@@ -1,0 +1,12 @@
+{
+  "name": "smart-kalkulator-pwa",
+  "private": true,
+  "scripts": {
+    "test": "node test/smoke-node.js",
+    "test:prop": "node test/property.js",
+    "test:all": "node test/smoke-node.js && node test/property.js"
+  },
+  "devDependencies": {
+    "fast-check": "^3.23.2"
+  }
+}
