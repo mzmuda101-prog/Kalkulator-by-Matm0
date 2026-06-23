@@ -2125,6 +2125,49 @@
             cursor: default;
             pointer-events: none;
         }
+        /* Segmentowy przełącznik on/off w ustawieniach (jak .mode-toggle w apce) */
+        .settings-toggle-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            margin-top: 10px;
+            padding: 10px 12px;
+            border: 1.5px solid var(--border);
+            border-radius: var(--radius-sm);
+            transition: all var(--transition);
+        }
+        .settings-toggle-row:has(.settings-seg-btn[data-val="on"].active) { border-color: var(--border-focus); }
+        .settings-toggle-text { line-height: 1.3; }
+        .settings-toggle-text small { color: var(--text-muted); font-size: 0.78rem; line-height: 1.3; }
+        .settings-seg {
+            display: inline-grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 4px;
+            background: var(--bg);
+            border-radius: var(--radius);
+            padding: 3px;
+            flex-shrink: 0;
+        }
+        .settings-seg-btn {
+            min-height: 36px;
+            padding: 7px 18px;
+            border: none;
+            border-radius: calc(var(--radius) - 3px);
+            background: transparent;
+            color: var(--text-secondary);
+            font-family: var(--font);
+            font-size: 0.8rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all var(--transition);
+        }
+        .settings-seg-btn.active {
+            background: #fff;
+            color: var(--primary);
+            box-shadow: var(--shadow-sm);
+        }
+        .settings-seg-btn:active { transform: scale(0.97); }
         .settings-fxstatus {
             margin: 4px 0 0;
             font-size: 0.8rem;

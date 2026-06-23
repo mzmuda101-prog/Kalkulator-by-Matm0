@@ -1487,10 +1487,13 @@
             <p class="settings-fxstatus" id="settingsFxStatus"></p>
             <div class="settings-field">
                 <label>Notatnik 📝</label>
-                <label class="settings-check">
-                    <input type="checkbox" id="settingNotepadFold">
-                    <span><strong>Zwijaj wyrażenia do wyników (fold)</strong><br><small>Linia pokazuje sam wynik zamiast działania; kliknij wiersz, by edytować, a najedź/dotknij wynik, by zobaczyć równanie. Domyślnie wyłączone (wynik na końcu linii).</small></span>
-                </label>
+                <div class="settings-toggle-row">
+                    <span class="settings-toggle-text"><strong>Zwijaj wyrażenia do wyników (fold)</strong><br><small>Linia pokazuje sam wynik zamiast działania; kliknij wiersz, by edytować, a najedź/dotknij wynik, by zobaczyć równanie. Domyślnie wyłączone (wynik na końcu linii).</small></span>
+                    <div class="settings-seg" id="settingNotepadFold" role="group" aria-label="Zwijaj wyrażenia do wyników (fold)">
+                        <button type="button" class="settings-seg-btn" data-val="off">Wył</button>
+                        <button type="button" class="settings-seg-btn" data-val="on">Wł</button>
+                    </div>
+                </div>
                 <p class="settings-hint" style="margin-top:12px">Niezdefiniowane jednostki (np. wpisane wprost <code>3 os</code>) traktuj jako bezwymiarowe:</p>
                 <select id="settingNotepadAutoUnit">
                     <option value="safe">Zachowawczo — tylko gdy reszta linii to działanie (proza bez wyniku)</option>

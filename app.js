@@ -6010,7 +6010,7 @@
             var radios = document.querySelectorAll('#settingFxEngine input[name="fxEngine"]');
             radios.forEach(function(r) { r.checked = (r.value === STATE.settings.fxEngine); });
             syncFxBackupRow();
-            if (settingNotepadFold) settingNotepadFold.checked = !!STATE.settings.notepadFold;
+            syncFoldSetting(STATE.settings.notepadFold);
             if (settingNotepadAutoUnit) settingNotepadAutoUnit.value = STATE.settings.notepadAutoUnit || 'safe';
             updateFxStatusLine();
             if (settingsVersion) settingsVersion.textContent = 'Wersja ' + (window.APP_VERSION || '—');
@@ -6446,6 +6446,16 @@
 
         // Fold (zwijanie wyrażeń do wyników) jako przełącznik on/off W NOTATNIKU — bez wychodzenia
         // do ⚙️. Działa od razu (npRecompute przerysowuje), zsynchronizowany z ustawieniem.
+        // Odbij stan fold na segmentowym przełączniku w ⚙️ (Wył/Wł).
+        function syncFoldSetting(on) {
+            if (!settingNotepadFold) return;
+            var btns = settingNotepadFold.querySelectorAll('.settings-seg-btn');
+            btns.forEach(function(b) {
+                var sel = (b.dataset.val === 'on') === !!on;
+                b.classList.toggle('active', sel);
+                b.setAttribute('aria-pressed', sel ? 'true' : 'false');
+            });
+        }
         function updateFoldBtn() {
             if (!npFoldBtn) return;
             var on = !!(STATE.settings && STATE.settings.notepadFold);
@@ -6458,7 +6468,7 @@
         function npToggleFold() {
             STATE.settings.notepadFold = !STATE.settings.notepadFold;
             saveSettings();
-            if (settingNotepadFold) settingNotepadFold.checked = STATE.settings.notepadFold; // sync ⚙️
+            syncFoldSetting(STATE.settings.notepadFold); // sync ⚙️
             updateFoldBtn();
             npRecompute(); // natychmiast, bez zamykania notatnika
         }
@@ -6691,9 +6701,13 @@
         }
 
         if (settingNotepadFold) {
-            settingNotepadFold.addEventListener('change', function() {
-                STATE.settings.notepadFold = settingNotepadFold.checked;
+            settingNotepadFold.addEventListener('click', function(e) {
+                var btn = e.target.closest('.settings-seg-btn');
+                if (!btn) return;
+                STATE.settings.notepadFold = btn.dataset.val === 'on';
                 saveSettings();
+                syncFoldSetting(STATE.settings.notepadFold);
+                updateFoldBtn(); // zsynchronizuj też przycisk ⊟/⊞ w nagłówku notatnika
                 if (document.body.classList.contains('notepad-open')) npRecompute(); // przerysuj tryb na żywo
             });
         }
