@@ -6481,6 +6481,10 @@
             syncFoldSetting(STATE.settings.notepadFold); // sync ⚙️
             updateFoldBtn();
             npRecompute(); // natychmiast, bez zamykania notatnika
+            // Przy wyłączeniu fold linie wracają z display:none → ich wysokość była zmierzona jako 0
+            // (textarea ukryta nie ma scrollHeight). Bez ponownego pomiaru tekst zostałby NIEWIDOCZNY
+            // (wysokość 0) aż do tapnięcia. _npGrowAll mierzy je teraz, gdy są już widoczne.
+            _npGrowAll();
         }
 
         // Dymek z rozpisanym równaniem obsługuje silnik cursor-hint (js/cursor-hint.js):
@@ -6497,6 +6501,23 @@
             : null;
         function npBindHints() { if (_npHintCtl && npEditor) _npHintCtl.setupCursorHint(npEditor.querySelectorAll('.np-res')); }
         function npHideTip() { if (_npHintCtl && _npHintCtl.hideHint) _npHintCtl.hideHint(); }
+        // Scala bieżący wiersz z poprzednim (kursor na początku linii → Backspace przenosi w górę).
+        // Wydzielone, bo wołane z DWÓCH ścieżek: keydown (laptop) i beforeinput (mobilne klawiatury,
+        // które nie zawsze wysyłają keydown 'Backspace'). Zwraca true gdy scalono (caller robi preventDefault).
+        function _npMergeBack(input) {
+            var row = input.closest('.np-row');
+            if (!row) return false;
+            var prev = row.previousElementSibling;
+            if (!prev) return false;
+            var pinp = prev.querySelector('.np-line');
+            var at = pinp.value.length;
+            pinp.value = pinp.value + input.value;
+            npEditor.removeChild(row);
+            _npCommit();
+            _npAutoGrow(pinp);
+            pinp.focus(); pinp.setSelectionRange(at, at);
+            return true;
+        }
         function npRowKeydown(e) {
             var input = e.target;
             if (!input.classList || !input.classList.contains('np-line')) return;
@@ -6515,17 +6536,7 @@
                 _npAutoGrow(ni);
                 ni.focus(); ni.setSelectionRange(0, 0);
             } else if (e.key === 'Backspace' && input.selectionStart === 0 && input.selectionEnd === 0) {
-                var prev = row.previousElementSibling;
-                if (prev) {
-                    e.preventDefault();
-                    var pinp = prev.querySelector('.np-line');
-                    var at = pinp.value.length;
-                    pinp.value = pinp.value + input.value;
-                    npEditor.removeChild(row);
-                    _npCommit();
-                    _npAutoGrow(pinp);
-                    pinp.focus(); pinp.setSelectionRange(at, at);
-                }
+                if (_npMergeBack(input)) e.preventDefault();
             } else if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
                 // W wieloliniowym wierszu strzałki przesuwają kursor w jego obrębie; do sąsiedniego
                 // wiersza skaczemy dopiero z brzegu pola (góra: kursor na początku, dół: na końcu).
@@ -6593,6 +6604,18 @@
             });
         }
         if (npEditor) {
+            // Backspace na początku linii — niezawodnie na MOBILE. Wiele klawiatur ekranowych
+            // (Android/IME, część iOS) nie wysyła keydown 'Backspace' (keyCode 229), więc scalanie
+            // wsteczne z npRowKeydown nie odpalało. beforeinput/deleteContentBackward łapie intencję
+            // usunięcia także gdy w polu nie ma co usuwać (kursor na pozycji 0) → scalamy w górę.
+            npEditor.addEventListener('beforeinput', function(e) {
+                var el = e.target;
+                if (!el.classList || !el.classList.contains('np-line')) return;
+                if ((e.inputType === 'deleteContentBackward' || e.inputType === 'deleteWordBackward')
+                    && el.selectionStart === 0 && el.selectionEnd === 0) {
+                    if (_npMergeBack(el)) e.preventDefault();
+                }
+            });
             npEditor.addEventListener('input', function(e) {
                 var el = e.target;
                 if (!el.classList || !el.classList.contains('np-line')) return;
