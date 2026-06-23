@@ -6560,6 +6560,41 @@
                 }
             }
         }
+        // Klawiatura ekranowa na telefonie zasłaniałaby dolne wiersze (nakładka jest fixed/inset:0,
+        // więc rośnie pod klawiaturę). Kurczymy nakładkę do OBSZARU WIDOCZNEGO (visualViewport) —
+        // tak jak natywny notatnik: pisana linia zawsze nad klawiaturą. Brak API = no-op (desktop OK).
+        var _npVVBound = false;
+        function _npSyncViewport() {
+            if (!notepadModal || !document.body.classList.contains('notepad-open')) return;
+            var vv = window.visualViewport;
+            if (!vv) return;
+            notepadModal.style.top = vv.offsetTop + 'px';
+            notepadModal.style.height = vv.height + 'px';
+            notepadModal.style.bottom = 'auto';     // bez tego top+bottom:0 zignorowałyby height
+        }
+        function _npClearViewport() {
+            if (!notepadModal) return;
+            notepadModal.style.top = '';
+            notepadModal.style.height = '';
+            notepadModal.style.bottom = '';
+        }
+        function _npBindViewport() {
+            var vv = window.visualViewport;
+            if (!vv || _npVVBound) return;
+            vv.addEventListener('resize', _npSyncViewport);
+            vv.addEventListener('scroll', _npSyncViewport);
+            _npVVBound = true;
+            _npSyncViewport();
+        }
+        function _npUnbindViewport() {
+            var vv = window.visualViewport;
+            if (vv && _npVVBound) {
+                vv.removeEventListener('resize', _npSyncViewport);
+                vv.removeEventListener('scroll', _npSyncViewport);
+            }
+            _npVVBound = false;
+            _npClearViewport();
+        }
         function openNotepad() {
             if (!notepadModal) return;
             document.body.classList.add('notepad-open');
@@ -6569,6 +6604,7 @@
             updateFoldBtn();
             _npLoadCurrent();
             npHideTip();
+            _npBindViewport();   // kurcz nakładkę do obszaru nad klawiaturą (telefon)
             // Fokus odroczony (po animacji). Guard: jeśli zamknięto w międzyczasie — nie fokusuj
             // ukrytego pola (inaczej aria-hidden + fokus = ostrzeżenie a11y).
             setTimeout(function() {
@@ -6581,6 +6617,7 @@
             // KOLEJNOŚĆ KLUCZOWA dla a11y: najpierw fokus POZA modal (do przycisku otwierającego),
             // dopiero potem aria-hidden — inaczej ostrzeżenie „aria-hidden na elemencie z fokusem".
             npHideTip();
+            _npUnbindViewport();   // przywróć pełną wysokość nakładki
             _npStashCurrent(); saveNotepad();   // zapisz bieżącą treść przy wyjściu
             npCloseList();
             var active = document.activeElement;
@@ -6630,9 +6667,13 @@
                 _npAutoGrow(el);
                 _npCommit();
             });
-            // Fokus (klik/tab/programowo) na wierszu → dopasuj wysokość (np. po odsłonięciu z trybu fold).
+            // Fokus (klik/tab/programowo) na wierszu → dopasuj wysokość (np. po odsłonięciu z trybu fold)
+            // i przewiń aktywny wiersz do widoku (po skurczeniu nakładki nad klawiaturę), jak natywny notatnik.
             npEditor.addEventListener('focusin', function(e) {
-                if (e.target.classList && e.target.classList.contains('np-line')) _npAutoGrow(e.target);
+                if (!e.target.classList || !e.target.classList.contains('np-line')) return;
+                _npAutoGrow(e.target);
+                var row = e.target.closest('.np-row');
+                if (row) requestAnimationFrame(function() { try { row.scrollIntoView({ block: 'nearest' }); } catch (_) {} });
             });
             // Utrata fokusu: chip wraca do flow → pole WĘŻSZE → tekst może zawinąć się na więcej linii.
             // Bez przeliczenia wysokość zostałaby z szerszego stanu i ucięłaby ostatnią linię (overflow:hidden).
