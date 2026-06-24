@@ -1044,17 +1044,35 @@
             if (h > 23 || mi > 59) return null;
             return h*60 + mi;
         }
-        // Czas trwania → minuty lub null. „2h", „90 min", „1h30", „1:30", „2 godz 15 min".
+        // Czas trwania → minuty (może być ułamkowe przez sekundy) lub null.
+        // „2h", „90 min", „300s", „1h30", „1:30", „1:30:20", „2 godz 15 min 30 s".
         function _parseDuration(str) {
             var s = String(str).trim().toLowerCase().replace(/\s+/g, ' ');
             if (!s) return null;
             var m;
-            if ((m = s.match(/^(\d{1,3}):(\d{2})$/))) { var mm = +m[2]; if (mm > 59) return null; return (+m[1])*60 + mm; }
-            if ((m = s.match(/^(\d+)\s*(?:h|g|godz[a-ząćęłńóśźż]*)\s*(\d+)?\s*(?:m|min|minut[a-ząćęłńóśźż]*)?$/))) {
-                return (+m[1])*60 + (m[2] ? +m[2] : 0);
+            // H:MM lub H:MM:SS jako czas trwania
+            if ((m = s.match(/^(\d{1,3}):(\d{2})(?::(\d{2}))?$/))) {
+                var dm = +m[2], ds = m[3] ? +m[3] : 0;
+                if (dm > 59 || ds > 59) return null;
+                return (+m[1])*60 + dm + ds/60;
             }
-            if ((m = s.match(/^(\d+)\s*(?:m|min|minut[a-ząćęłńóśźż]*)$/))) return +m[1];
-            return null;
+            // „Nh M" — godziny + gołe minuty bez jednostki (np. „1h30", „2 godz 15")
+            if ((m = s.match(/^(\d+)\s*(?:h|g|godz[a-ząćęłńóśźż]*)\s*(\d+)$/))) {
+                return (+m[1])*60 + (+m[2]);
+            }
+            // Suma par „liczba jednostka" (godziny/minuty/sekundy), np. „2h", „90 min", „300s", „1h 5 min 30 s".
+            var U = '(godz[a-ząćęłńóśźż]*|minut[a-ząćęłńóśźż]*|sekund[a-ząćęłńóśźż]*|min|sek|h|g|m|s)';
+            var pair = '(\\d+(?:[.,]\\d+)?)\\s*' + U;
+            if (!new RegExp('^(?:' + pair + '\\s*)+$').test(s)) return null;
+            var total = 0, re = new RegExp(pair, 'g'), t;
+            while ((t = re.exec(s))) {
+                var n = parseFloat(t[1].replace(',', '.'));
+                var u = t[2];
+                if (u[0] === 'h' || u[0] === 'g') total += n*60;   // godziny
+                else if (u[0] === 's') total += n/60;              // sekundy
+                else total += n;                                   // minuty (min/minut/m)
+            }
+            return total;
         }
         function _fmtClock(mins) {
             mins = ((Math.round(mins) % 1440) + 1440) % 1440; // zawijanie przez północ
@@ -8319,7 +8337,10 @@
                 { expr: 'od 9:30 do 17:15', text: '7 h 45 min' },
                 { expr: 'od 22:00 do 6:00', text: '8 h' },     // nocna zmiana (przez północ)
                 { expr: '17:00 - 9:30', text: '7 h 30 min' },  // różnica dwóch zegarów
-                { expr: '10:00 + 2:30', text: '12:30' }        // trwanie w formacie H:MM
+                { expr: '10:00 + 2:30', text: '12:30' },       // trwanie w formacie H:MM
+                { expr: '12:30 + 300s', text: '12:35' },       // sekundy (300 s = 5 min)
+                { expr: '12:00 + 1h 120 s', text: '13:02' },   // złożone h+s (120 s = 2 min)
+                { expr: '10:00 + 1:30:00', text: '11:30' }     // trwanie H:MM:SS
             ].forEach(function(t) {
                 try {
                     var rc = evalCalcExpression(t.expr);
