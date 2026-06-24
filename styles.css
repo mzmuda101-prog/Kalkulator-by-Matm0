@@ -516,6 +516,39 @@
         }
         .calc-result.small { font-size: 1.9rem; }
         .calc-result.xsmall { font-size: 1.5rem; }
+        /* Wiersz wyniku: opcjonalny znacznik „≈" (zaokrąglenie) tuż przed liczbą, do prawej. */
+        .calc-result-row {
+            display: flex;
+            align-items: center;       /* ≈ wyśrodkowany w pionie względem wyniku (jak w pro kalkulatorach) */
+            justify-content: flex-end;
+            gap: 8px;
+            width: 100%;
+            min-width: 0;
+        }
+        .calc-result-row .calc-result { width: auto; max-width: 100%; }
+        .calc-approx {
+            flex: 0 0 auto;
+            font-size: 1.6rem;
+            font-weight: 700;
+            color: var(--primary);                                              /* fallback */
+            color: color-mix(in srgb, var(--primary) 58%, #94a3b8 42%);         /* lekko wyszarzony niebieski */
+            opacity: 0.9;
+            cursor: pointer;
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
+            transform-origin: center;
+            /* Pojawienie = ODWRÓCONA animacja znikania dymków (cursor-hint: opacity+blur), z lekkim
+               opóźnieniem względem wyniku. fill-mode „both" → w czasie delaya trzyma stan 0% (nie mignie). */
+            animation: calcApproxIn 0.42s ease-out 90ms both;
+        }
+        .calc-approx[hidden] { display: none; }
+        @keyframes calcApproxIn {
+            0%   { opacity: 0; filter: blur(6px); transform: scale(0.85); }     /* jak dymek znikający — tylko odwrotnie */
+            100% { opacity: 0.9; filter: blur(0);  transform: scale(1); }
+        }
+        @media (prefers-reduced-motion: reduce) {
+            .calc-approx { animation: none; }
+        }
         
         /* ****** Animacja pojawienia się znaku w wyniku kalkulacji ****** */
         /* [EN] Lekkie „pojawienie się" TYLKO dodanego/zmienionego znaku (Samsung-style): fade +

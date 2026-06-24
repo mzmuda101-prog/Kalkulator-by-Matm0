@@ -54,7 +54,7 @@
             //   defaultUnits — domyślna jednostka WYŚWIETLANIA per kategoria fizyczna (np. speed→'km/h').
             //     '' = jednostka bazowa (jak dotąd). Dotyczy tylko gołych sum; jawne „X na Y" wygrywa.
             settings: { defaultCurrency: 'PLN', fxEngine: 'auto', fxBackup: true,
-                        defaultUnits: { speed: '', length: '', mass: '', volume: '' },
+                        defaultUnits: { speed: '', length: '', mass: '', volume: '', time: 'h' },
                         notepadFold: false, // notatnik: zwijaj wyrażenia do wyników (tryb fold)
                         notepadAutoUnit: 'safe' }, // notatnik: auto-jednostki niezdefiniowane — 'safe' | 'full'
             // Komenda tab (merged Engineering + Graph)
@@ -93,6 +93,7 @@
         // Calculator
         const calcExpr = $('#calcExpr');
         const calcResult = $('#calcResult');
+        const calcApprox = $('#calcApprox');
         const calcGrid = $('#calcGrid');
         const historyList = $('#historyList');
         const historySearch = $('#historySearch');
@@ -1031,98 +1032,11 @@
         }
 
         /* ============================================================
-           [EN] Czas zegarowy — „17:00 + 3h", „od 9:30 do 17:15", „teraz + 90 min", „17:00 - 9:30"
+           [EN] Czas zegarowy — wydzielony do modułu js/smart-parser.js (window.MATM0_PARSER).
+           Pkt 2 kierunku „typowanego silnika": pierwszy najemca smart-parsera. Tu tylko wiązanie.
            ============================================================ */
-        function _nowMinutes() { var d = new Date(); return d.getHours()*60 + d.getMinutes(); }
-        // Token zegara → minuty doby (0..1439) lub null. Akceptuje HH:MM oraz „teraz"/„now".
-        function _parseClockToken(str) {
-            var s = String(str).trim().toLowerCase();
-            if (s === 'teraz' || s === 'now') return _nowMinutes();
-            var m = s.match(/^(\d{1,2}):(\d{2})$/);
-            if (!m) return null;
-            var h = +m[1], mi = +m[2];
-            if (h > 23 || mi > 59) return null;
-            return h*60 + mi;
-        }
-        // Czas trwania → minuty (może być ułamkowe przez sekundy) lub null.
-        // „2h", „90 min", „300s", „1h30", „1:30", „1:30:20", „2 godz 15 min 30 s".
-        function _parseDuration(str) {
-            var s = String(str).trim().toLowerCase().replace(/\s+/g, ' ');
-            if (!s) return null;
-            var m;
-            // H:MM lub H:MM:SS jako czas trwania
-            if ((m = s.match(/^(\d{1,3}):(\d{2})(?::(\d{2}))?$/))) {
-                var dm = +m[2], ds = m[3] ? +m[3] : 0;
-                if (dm > 59 || ds > 59) return null;
-                return (+m[1])*60 + dm + ds/60;
-            }
-            // „Nh M" — godziny + gołe minuty bez jednostki (np. „1h30", „2 godz 15")
-            if ((m = s.match(/^(\d+)\s*(?:h|g|godz[a-ząćęłńóśźż]*)\s*(\d+)$/))) {
-                return (+m[1])*60 + (+m[2]);
-            }
-            // Suma par „liczba jednostka" (godziny/minuty/sekundy), np. „2h", „90 min", „300s", „1h 5 min 30 s".
-            var U = '(godz[a-ząćęłńóśźż]*|minut[a-ząćęłńóśźż]*|sekund[a-ząćęłńóśźż]*|min|sek|h|g|m|s)';
-            var pair = '(\\d+(?:[.,]\\d+)?)\\s*' + U;
-            if (!new RegExp('^(?:' + pair + '\\s*)+$').test(s)) return null;
-            var total = 0, re = new RegExp(pair, 'g'), t;
-            while ((t = re.exec(s))) {
-                var n = parseFloat(t[1].replace(',', '.'));
-                var u = t[2];
-                if (u[0] === 'h' || u[0] === 'g') total += n*60;   // godziny
-                else if (u[0] === 's') total += n/60;              // sekundy
-                else total += n;                                   // minuty (min/minut/m)
-            }
-            return total;
-        }
-        function _fmtClock(mins) {
-            mins = ((Math.round(mins) % 1440) + 1440) % 1440; // zawijanie przez północ
-            var h = Math.floor(mins/60), mi = mins % 60;
-            return (h<10?'0':'')+h + ':' + (mi<10?'0':'')+mi;
-        }
-        function _fmtDuration(mins) {
-            mins = Math.round(Math.abs(mins));
-            var h = Math.floor(mins/60), mi = mins % 60;
-            if (h && mi) return h + ' h ' + mi + ' min';
-            if (h) return h + ' h';
-            return mi + ' min';
-        }
-        function evalClockExpression(raw) {
-            var s = String(raw || '').trim();
-            if (!s) return null;
-            var low = s.toLowerCase();
-            var m;
-            // „od HH:MM do HH:MM" → czas trwania (z przeskokiem przez północ)
-            if ((m = low.match(/^od\s+(.+?)\s+do\s+(.+)$/))) {
-                var a = _parseClockToken(m[1]), b = _parseClockToken(m[2]);
-                if (a != null && b != null) {
-                    var diff = b - a; if (diff < 0) diff += 1440;
-                    return { text: _fmtDuration(diff), value: diff };
-                }
-                return null;
-            }
-            // „HH:MM - HH:MM" → różnica (oba muszą być zegarem) — przed regułą odejmowania trwania
-            if ((m = low.match(/^(\d{1,2}:\d{2}|teraz|now)\s*-\s*(\d{1,2}:\d{2}|teraz|now)$/))) {
-                var a2 = _parseClockToken(m[1]), b2 = _parseClockToken(m[2]);
-                if (a2 != null && b2 != null) {
-                    var diff2 = a2 - b2; if (diff2 < 0) diff2 += 1440;
-                    return { text: _fmtDuration(diff2), value: diff2 };
-                }
-                return null;
-            }
-            // „HH:MM + <trwanie>" / „HH:MM - <trwanie>" → nowy czas zegarowy
-            if ((m = low.match(/^(\d{1,2}:\d{2}|teraz|now)\s*([+\-])\s*(.+)$/))) {
-                var base = _parseClockToken(m[1]);
-                var dur = _parseDuration(m[3]);
-                if (base != null && dur != null) {
-                    var res = base + (m[2] === '-' ? -dur : dur);
-                    return { text: _fmtClock(res), value: null };
-                }
-                return null;
-            }
-            // „teraz" / „now" samodzielnie → aktualny czas
-            if (low === 'teraz' || low === 'now') return { text: _fmtClock(_nowMinutes()), value: null };
-            return null;
-        }
+        var _PARSER = (typeof window !== 'undefined' && window.MATM0_PARSER) || {};
+        var evalClockExpression = _PARSER.evalClockExpression || function() { return null; };
 
         /* ============================================================
            [EN] Waluty — „12 zł + 20 eur", „20 eur na zł" (kursy NBP, offline z cache)
@@ -1379,22 +1293,45 @@
             return (neg ? '-' : '') + d;
         }
 
+        // ── Kanoniczny WYNIK silnika (pkt 1: spójność modelu wartości) ──
+        // JEDEN kształt produkowany przez wszystkie ścieżki evalCalcExpression. Nadzbiór dawnych
+        // kluczy (value/unit/text/error + przelotki pendingFx/big/bigStr), żeby NIC u callerów nie
+        // pękło. Dokłada:
+        //   • kind  — typ wartości: number | duration | clock | date | money | physical | null
+        //   • exact — czy wyświetlana forma jest DOKŁADNA (false = stratne zaokrąglenie; baza pod
+        //             sygnał „≈", [[A2]]). UWAGA: czyszczenie szumu float (toPrecision) zostaje exact.
+        // Docelowo to zalążek „typowanej wielkości" — patrz project_kalkulator_unified_engine_direction.
+        function makeVal(o) {
+            o = o || {};
+            return {
+                value: o.value == null ? null : o.value,
+                unit: o.unit == null ? null : o.unit,
+                text: o.text == null ? null : o.text,
+                error: o.error == null ? null : o.error,
+                kind: o.kind || null,
+                exact: o.exact !== false,
+                exactText: o.exactText != null ? o.exactText : null,  // dokładna wartość „z czego" zaokrąglono (≈)
+                pendingFx: !!o.pendingFx,
+                big: !!o.big,
+                bigStr: o.bigStr != null ? o.bigStr : null
+            };
+        }
         function evalCalcExpression(raw) {
             var original = String(raw || '').trim();
-            if (!original) return { value: null, unit: null, error: null };
+            if (!original) return makeVal({});
             // Najpierw czas zegarowy („17:00 + 3h", „od 9:30 do 17:15") — krócej niż daty, ma własne tokeny.
             var clockRes = evalClockExpression(original);
             if (clockRes) {
                 STATE.calc.lastResult = clockRes.value;
                 STATE.calc.lastUnit = null;
-                return { value: clockRes.value, unit: null, text: clockRes.text, error: null };
+                return makeVal({ value: clockRes.value, text: clockRes.text, kind: clockRes.kind || 'clock', exact: clockRes.exact, exactText: clockRes.exactText });
             }
             // Najpierw daty/czas — zanim „dni"/„za" trafią do matematyki/jednostek.
             var dateRes = evalDateExpression(original);
             if (dateRes) {
                 STATE.calc.lastResult = dateRes.value;
                 STATE.calc.lastUnit = null;
-                return { value: dateRes.value, unit: null, text: dateRes.text, error: null };
+                return makeVal({ value: dateRes.value, text: dateRes.text, kind: 'date' });
             }
             try {
                 var expr = original;
@@ -1406,7 +1343,7 @@
                 // jednostkę. Dzięki temu finanse/procenty/matematyka komponują się z walutą — token
                 // waluty już nie blokuje reguł typu „brutto 12 zł", „12 pln - vat", „20% z 100 zł".
                 var curRes = resolveCalcCurrency(expr);
-                if (curRes.pending) return { value: null, unit: null, error: null, pendingFx: true };
+                if (curRes.pending) return makeVal({ pendingFx: true });
                 expr = curRes.expr;
                 expr = parseNaturalShortcuts(expr);
                 expr = resolveCalcAnswer(expr);
@@ -1420,8 +1357,7 @@
                     if (bigNeeded) {
                         STATE.calc.lastResult = bigStr;
                         STATE.calc.lastUnit = null;
-                        return { value: null, unit: null, error: null,
-                                 big: true, bigStr: bigStr, text: groupBigIntStr(bigStr) };
+                        return makeVal({ big: true, bigStr: bigStr, text: groupBigIntStr(bigStr), kind: 'number' });
                     }
                 }
                 var unitResult = resolveCalcUnits(expr);
@@ -1434,19 +1370,19 @@
                 var customKey = unitIsCustom ? String(unitResult.cat).slice('custom:'.length) : null;
                 var unitIsDimensionless = customKey && CALC_UNITS[customKey] && CALC_UNITS[customKey].dimensionless;
                 if (curRes.hasCurrency && unitResult.unit !== null && !unitIsDimensionless) {
-                    return { value: null, unit: null, error: null };
+                    return makeVal({});
                 }
                 var unit = curRes.hasCurrency ? curRes.unit : unitResult.unit;
                 expr = expr.replace(/,(?=\d)/g, '.');
                 expr = expr.replace(/×/g, '*').replace(/÷/g, '/').replace(/−/g, '-');
                 expr = expr.replace(/\s+/g, '');
-                if (!expr) return { value: null, unit: null, error: null };
+                if (!expr) return makeVal({});
                 var fn = compileGraphExpression(expr);
                 var value = fn(0);
                 // Wartość policzona jest w jednostkach BAZOWYCH (expr ma podstawione bazy). Jeśli
                 // resolveCalcUnits wskazał preferowaną jednostkę wyświetlania, przelicz wartość.
                 if (!curRes.hasCurrency && unitResult.displayFactor) value = value / unitResult.displayFactor;
-                if (!isFinite(value)) return { value: Infinity, unit: unit, error: '∞' };
+                if (!isFinite(value)) return makeVal({ value: Infinity, unit: unit, error: '∞', kind: 'number' });
                 // Dokładne liczby całkowite do MAX_SAFE_INTEGER (16 cyfr) zostaw bez
                 // zaokrąglania; tylko ułamki/duże floaty tnij do 15 cyfr znaczących,
                 // by ukryć szum zmiennoprzecinkowy (np. 0,1+0,2).
@@ -1456,9 +1392,22 @@
                 }
                 STATE.calc.lastResult = value;
                 STATE.calc.lastUnit = unit;
-                return { value: value, unit: unit, error: null };
+                // kind: waluta→money, fizyczna jednostka→physical, inaczej czysta liczba.
+                var valKind = curRes.hasCurrency ? 'money' : (unitResult.cat ? 'physical' : 'number');
+                // OGÓLNY sygnał ≈: gdy wyświetlenie (10 miejsc po przecinku, jak formatCalcResult)
+                // gubi realne cyfry → wynik PRZYBLIŻONY (np. 1/3, √2, waluta z wieloma groszami).
+                // NIE dotyczy czyszczenia szumu float — to już wyczyszczone wyżej (round-trip = dokładny).
+                var approxNum = false, exactNumText = null;
+                if (isFinite(value) && !Number.isInteger(value)) {
+                    var disp10 = Number(value.toFixed(10));
+                    if (Math.abs(value - disp10) > Math.abs(value) * 1e-12) {
+                        approxNum = true;
+                        exactNumText = formatLocaleNumber(value, 15) + (unit ? ' ' + unit : '');
+                    }
+                }
+                return makeVal({ value: value, unit: unit, kind: valKind, exact: !approxNum, exactText: exactNumText });
             } catch (err) {
-                return { value: null, unit: null, error: null };
+                return makeVal({});
             }
         }
 
@@ -1549,6 +1498,7 @@
                 calcResult.textContent = STATE.fx.error && !_fxReady() ? 'Kursy: brak połączenia' : 'Pobieram kursy…';
                 calcResult.classList.remove('small', 'xsmall');
                 calcResult.classList.add('small');
+                _setApproxMark(false);
                 return;
             }
             // Mamy kursy, ale warto odświeżyć w tle, gdy stare (wynik z cache pokazujemy od razu).
@@ -1556,6 +1506,19 @@
             var hasResult = res.value !== null || res.text != null;
             var display = hasResult ? formatCalcResult(res) : (calcExpr.value === '' ? '0' : '');
             renderCalcResult(calcResult.textContent, display);
+            _setApproxMark(hasResult && res.exact === false, res.exactText);
+        }
+        // Znacznik „≈" (wynik zaokrąglony stratnie, np. sekundy → minuta). Dymek na tap/hover
+        // (cursor-hint) pokazuje dokładną wartość. on=false → chowamy. [[A2]]
+        function _setApproxMark(on, exactText) {
+            if (!calcApprox) return;
+            if (on) {
+                calcApprox.dataset.eq = exactText ? ('Pełna wartość: ' + exactText) : 'Wynik zaokrąglony';
+                calcApprox.hidden = false;
+            } else {
+                calcApprox.hidden = true;
+                delete calcApprox.dataset.eq;
+            }
         }
         // *------------ Logika Animacji pojawiania się liczb/wyrażeń/wyniku* ----------------*
         // [EN] Render wyniku z lekką animacją pojawienia (Samsung-style) TYLKO zmienionej końcówki —
@@ -6663,6 +6626,7 @@
             })
             : null;
         function npBindHints() { if (_npHintCtl && npEditor) _npHintCtl.setupCursorHint(npEditor.querySelectorAll('.np-res')); }
+        if (_npHintCtl && calcApprox) _npHintCtl.setupCursorHint([calcApprox]); // dymek dokładnej wartości przy ≈
         function npHideTip() { if (_npHintCtl && _npHintCtl.hideHint) _npHintCtl.hideHint(); }
         // Scala bieżący wiersz z poprzednim (kursor na początku linii → Backspace przenosi w górę).
         // Wydzielone, bo wołane z DWÓCH ścieżek: keydown (laptop) i beforeinput (mobilne klawiatury,
@@ -8220,7 +8184,7 @@
                 { expr: '5 funtow na kg', value: 2.267962, unit: 'kg', tol: 1e-4 },
                 // czas
                 { expr: '90 min na h', value: 1.5, unit: 'h' },
-                { expr: '2 h + 30 min', value: 9000, unit: 's' },
+                { expr: '2 h + 30 min', value: 2.5, unit: 'h' },   // domyślna time:'h' → goła suma w godzinach
                 // temperatura (offset)
                 { expr: '20 C na F', value: 68, unit: '°F' },
                 { expr: '100 C na K', value: 373.15, unit: 'K' },
@@ -8295,7 +8259,7 @@
             // Domyślne jednostki wyświetlania (ustawienia) — gołe sumy zwijają się do preferowanej;
             // jawne „X na Y" wygrywa. Zapis/odtworzenie stanu, by nie wpłynąć na inne testy.
             var savedDU = STATE.settings.defaultUnits;
-            STATE.settings.defaultUnits = { speed: 'km/h', length: 'm', mass: 'kg', volume: 'l' };
+            STATE.settings.defaultUnits = { speed: 'km/h', length: 'm', mass: 'kg', volume: 'l', time: 'h' };
             var duCases = [
                 { expr: '36 km/h', value: 36, unit: 'km/h' },          // baza m/s → preferowana km/h (był 10 m/s)
                 { expr: '2 m/s + 5 km/h', value: 12.2, unit: 'km/h', tol: 1e-6 }, // (2*3,6)+5
@@ -8304,6 +8268,9 @@
                 { expr: '5 m + 200 cm', value: 7, unit: 'm' },         // 7000 mm → 7 m (baza była mm)
                 { expr: '2 kg + 300 g', value: 2.3, unit: 'kg' },      // 2300 g → 2,3 kg
                 { expr: '500 ml + 1 l', value: 1.5, unit: 'l' },       // 1500 ml → 1,5 l
+                { expr: '5h', value: 5, unit: 'h' },                   // czas: goła suma w domyślnej (h) zamiast „18000 s"
+                { expr: '90 min', value: 1.5, unit: 'h' },             // 5400 s → 1,5 h
+                { expr: '300 s na min', value: 5, unit: 'min' },       // jawne „na" wygrywa
             ];
             duCases.forEach(function(t) {
                 var r = evalCalcExpression(t.expr);
@@ -8311,9 +8278,11 @@
                 results.push({ expr: t.expr + ' (domyślna jednostka)', pass: pass, got: r.value + ' ' + r.unit });
             });
             // Pusta domyślna (auto) = zachowanie bazowe.
-            STATE.settings.defaultUnits = { speed: '', length: '', mass: '', volume: '' };
+            STATE.settings.defaultUnits = { speed: '', length: '', mass: '', volume: '', time: '' };
             var rAuto = evalCalcExpression('36 km/h');
             results.push({ expr: '36 km/h @auto (baza)', pass: rAuto.unit === 'm/s' && Math.abs(rAuto.value - 10) < 1e-9, got: rAuto.value + ' ' + rAuto.unit });
+            var rTimeAuto = evalCalcExpression('5h');   // time:'' → baza s
+            results.push({ expr: '5h @time:auto (baza s = 18000)', pass: rTimeAuto.unit === 's' && rTimeAuto.value === 18000, got: rTimeAuto.value + ' ' + rTimeAuto.unit });
             // Niepasująca jednostka w ustawieniu (np. speed='kg') → ignorowana, baza.
             STATE.settings.defaultUnits = { speed: 'kg', length: '', mass: '', volume: '' };
             var rBad = evalCalcExpression('36 km/h');
@@ -8349,6 +8318,28 @@
             });
             // Czas: „16:9" to proporcja, NIE zegar (1-cyfrowe minuty) → zegar zwraca null
             results.push({ expr: '16:9 nie jest zegarem', pass: evalClockExpression('16:9') === null, got: String(evalClockExpression('16:9')) });
+            // Kanoniczny model wartości (pkt 1): kind + exact na różnych ścieżkach
+            [
+                { expr: '2+2', kind: 'number', exact: true },
+                { expr: '5 km + 300 m', kind: 'physical', exact: true },
+                { expr: '17:00 + 3h', kind: 'clock', exact: true },
+                { expr: '15:00 + 30s', kind: 'clock', exact: false },   // 30 s → ułamek minuty → zaokrąglone
+                { expr: 'od 9:30 do 17:15', kind: 'duration', exact: true },
+                { expr: 'za 3 dni', kind: 'date', exact: true },
+                { expr: '1/3', kind: 'number', exact: false },          // długi ułamek ucięty na wyświetlaniu
+                { expr: '10/4', kind: 'number', exact: true },          // 2,5 — krótki, dokładny
+                { expr: '0,1 + 0,2', kind: 'number', exact: true }      // szum float wyczyszczony → NIE ≈
+            ].forEach(function(t) {
+                try {
+                    var rv = evalCalcExpression(t.expr);
+                    var ok = rv.kind === t.kind && rv.exact === t.exact && rv.hasOwnProperty('value') && rv.hasOwnProperty('unit');
+                    results.push({ expr: t.expr + ' (kind/exact)', pass: ok, got: rv.kind + '/' + rv.exact });
+                } catch (err) { results.push({ expr: t.expr + ' (kind/exact)', pass: false, error: err.message }); }
+            });
+            // ≈ niesie dokładniejszą wartość (exactText) tam, gdzie zaokrąglamy
+            results.push({ expr: '15:30 + 40s → exactText 15:30:40', pass: evalCalcExpression('15:30 + 40s').exactText === '15:30:40', got: evalCalcExpression('15:30 + 40s').exactText });
+            results.push({ expr: '1/3 → exactText ustawiony', pass: !!evalCalcExpression('1/3').exactText, got: evalCalcExpression('1/3').exactText });
+            results.push({ expr: '10/4 → brak exactText (dokładny)', pass: evalCalcExpression('10/4').exactText === null, got: String(evalCalcExpression('10/4').exactText) });
             // Stałe-OPERACJE (niedokończone równania) — podstawianie DOSŁOWNE bez nawiasów.
             // Wstrzykujemy zestaw stałych, sprawdzamy użycie, przywracamy oryginalne.
             var savedConsts = STATE.constants;

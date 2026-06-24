@@ -17,6 +17,7 @@ const ASSETS_TO_CACHE = [
     './sw.js',
     './js/cursor-hint.js',
     './js/data-tables.js',
+    './js/smart-parser.js',
     './command-definitions.js',
     './app.js',
     './styles.css'
