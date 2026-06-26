@@ -1233,6 +1233,46 @@
                 bigStr: o.bigStr != null ? o.bigStr : null
             };
         }
+        // „ile %" — KIERUNEK ODWROTNY do „X% z Y": pytamy jaki PROCENT stanowi A z B (= A/B·100).
+        // Wynik jest procentem → unit '%'. Obsługiwane formy (PL):
+        //   „ile % stanowi A z B", „ile procent to A z B", „A z B to ile %", „A to ile % z B".
+        // Czyszczenie szumu float + sygnał ≈ jak główna ścieżka liczbowa.
+        function _pctResult(p) {
+            var v = p;
+            if (isFinite(v) && v !== 0 && !(Number.isInteger(v) && Math.abs(v) <= Number.MAX_SAFE_INTEGER)) v = parseFloat(v.toPrecision(15));
+            var approx = false, ex = null;
+            if (isFinite(v) && !Number.isInteger(v)) {
+                var d = Number(v.toFixed(10));
+                if (Math.abs(v - d) > Math.abs(v) * 1e-12) { approx = true; ex = formatLocaleNumber(v, 15) + '%'; }
+            }
+            STATE.calc.lastResult = v; STATE.calc.lastUnit = '%';
+            return makeVal({ value: v, unit: '%', kind: 'percent', exact: !approx, exactText: ex });
+        }
+        function evalPercentQuery(raw) {
+            var s = String(raw || '').trim().toLowerCase();
+            if (!s || (s.indexOf('%') === -1 && s.indexOf('procent') === -1) || s.indexOf('ile') === -1) return null;
+            var P = '([\\d.,]+)', PCT = '(?:%|procent[a-ząćęłńóśźż]*)';
+            var m;
+            // „ile % [to|stanowi] A z B"
+            if ((m = s.match(new RegExp('^ile\\s+' + PCT + '\\s+(?:to\\s+|stanowi\\s+)?' + P + '\\s+z\\s+' + P + '\\s*$')))) {
+                return _pctFrac(m[1], m[2]);
+            }
+            // „A z B to ile %"
+            if ((m = s.match(new RegExp('^' + P + '\\s+z\\s+' + P + '\\s+to\\s+ile\\s+' + PCT + '\\s*$')))) {
+                return _pctFrac(m[1], m[2]);
+            }
+            // „A to ile % z B"
+            if ((m = s.match(new RegExp('^' + P + '\\s+to\\s+ile\\s+' + PCT + '\\s+z\\s+' + P + '\\s*$')))) {
+                return _pctFrac(m[1], m[2]);
+            }
+            return null;
+        }
+        function _pctFrac(aStr, bStr) {
+            var a = parseFloat(String(aStr).replace(',', '.')), b = parseFloat(String(bStr).replace(',', '.'));
+            if (!isFinite(a) || !isFinite(b) || b === 0) return null;
+            return _pctResult(a / b * 100);
+        }
+
         function evalCalcExpression(raw) {
             var original = String(raw || '').trim();
             if (!original) return makeVal({});
@@ -1250,6 +1290,9 @@
                 STATE.calc.lastUnit = null;
                 return makeVal({ value: dateRes.value, text: dateRes.text, kind: 'date' });
             }
+            // „ile % stanowi A z B" / „A z B to ile %" — kierunek ODWROTNY do „X% z Y" (wynik = procent).
+            var pctQ = evalPercentQuery(original);
+            if (pctQ) return pctQ;
             try {
                 var expr = original;
                 // Stałe NAJPIERW — ich wartości mogą zawierać „%", „vat", frazy naturalne, które
@@ -8343,6 +8386,13 @@
                 { expr: '100*50%', value: 50, tol: 1e-6 },              // 50% jako ułamek przy mnożeniu
                 { expr: '100/50%', value: 200, tol: 1e-6 },
                 { expr: '12%*100', value: 12, tol: 1e-6 },
+                // „ile %" — kierunek ODWROTNY (wynik = procent, unit '%')
+                { expr: 'ile % stanowi 25 z 200', value: 12.5, tol: 1e-6, unit: '%' },
+                { expr: 'ile procent to 25 z 200', value: 12.5, tol: 1e-6, unit: '%' },
+                { expr: '25 z 200 to ile %', value: 12.5, tol: 1e-6, unit: '%' },
+                { expr: '25 to ile % z 200', value: 12.5, tol: 1e-6, unit: '%' },
+                { expr: 'ile % stanowi 50 z 50', value: 100, tol: 1e-6, unit: '%' },
+                { expr: '20% z 100', value: 20, tol: 1e-6 },            // FORWARD nadal liczba (nie %)
                 // daty — deterministyczny zakres
                 { expr: 'ile dni od 1.01.2026 do 1.02.2026', value: 31 },
             ];
