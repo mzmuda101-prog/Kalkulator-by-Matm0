@@ -877,28 +877,36 @@
                 }
             }
 
-            // 2) Sumowanie jednostek tej samej kategorii (pierwsza napotkana wyznacza kategorię)
+            // 2) Liczby z jednostkami → wartości w JEDNOSTCE ROBOCZEJ (pierwsza napotkana w tej
+            // kategorii). MODEL „jednostka jako etykieta" (decyzja Mateusza): operatory liczą na
+            // liczbach jak wpisane, a jednostka jedzie z wynikiem — więc „10 km / 2 km" = 5 km,
+            // „5 km × 2 km" = 10 km (a NIE bezwymiarowo/„mm²"). evalCalcExpression mnoży wynik
+            // przez workFactor → wartość bazowa (do wyświetlenia: baza / preferowana / autodobór).
+            // Dla + − / pojedynczej jednostki to daje DOKŁADNIE to samo co dawne „licz w bazie".
             var totalBase = 0;
+            var workFactor = null; // współczynnik (do bazy) jednostki roboczej; null = brak jednostek
             var cat = null;
             var baseUnit = null;
             var hasUnits = false;
             var mixed = false; // wykryto jednostki z różnych kategorii (np. kg + cm)
             var expr = raw;
 
+            function _emitUnit(numStr, factor, catName, base) {
+                if (workFactor == null) workFactor = factor; // pierwsza jednostka = robocza
+                cat = catName; baseUnit = base; hasUnits = true;
+                var n = parseFloat(String(numStr).replace(',', '.'));
+                totalBase += n * factor;                 // suma bazowa (dla „na" przy sumach)
+                return String(n * factor / workFactor);  // wartość w jednostce roboczej
+            }
+
             // Notacja stóp (N') i cali (N") — zawsze długość
             expr = expr.replace(/([\d.,]+)\s*'/g, function(_, n) {
                 if (cat && cat !== 'length') { mixed = true; return _; }
-                hasUnits = true; cat = 'length'; baseUnit = 'mm';
-                var base = parseFloat(n.replace(',', '.')) * 304.8;
-                totalBase += base;
-                return String(base);
+                return _emitUnit(n, 304.8, 'length', 'mm');
             });
             expr = expr.replace(/([\d.,]+)\s*"/g, function(_, n) {
                 if (cat && cat !== 'length') { mixed = true; return _; }
-                hasUnits = true; cat = 'length'; baseUnit = 'mm';
-                var base = parseFloat(n.replace(',', '.')) * 25.4;
-                totalBase += base;
-                return String(base);
+                return _emitUnit(n, 25.4, 'length', 'mm');
             });
 
             // Nazwane jednostki. Lookahead (?![A-Za-z0-9]) zamiast \b — obsługuje też „°".
@@ -907,22 +915,19 @@
                 var def = CALC_UNITS[unit.toLowerCase()];
                 if (!def) return m;
                 if (cat && def.cat !== cat) { mixed = true; return m; } // miks kategorii
-                cat = def.cat; baseUnit = def.base; hasUnits = true;
-                var base = parseFloat(numStr.replace(',', '.')) * def.factor;
-                totalBase += base;
-                return String(base);
+                return _emitUnit(numStr, def.factor, def.cat, def.base);
             });
 
             // Miks kategorii (kg + cm) nie ma sensu → zwróć surowiec bez wyniku jednostkowego.
-            if (mixed) return { expr: raw, unit: null, cat: null, valueInBase: 0 };
+            if (mixed) return { expr: raw, unit: null, cat: null, valueInBase: 0, workFactor: 1 };
 
-            if (!hasUnits) return { expr: expr, unit: null, cat: null, valueInBase: 0 };
-            // Domyślna jednostka wyświetlania (ustawienia) — dotyczy TYLKO gołych sum (tu);
+            if (!hasUnits) return { expr: expr, unit: null, cat: null, valueInBase: 0, workFactor: 1 };
+            // Domyślna jednostka wyświetlania (ustawienia) — dotyczy gołych wyników jednostkowych;
             // jawna konwersja „X na Y" wraca wcześniej, więc zawsze wygrywa. displayFactor mówi
             // evalCalcExpression, przez ile podzielić wartość bazową, by pokazać w preferowanej.
             var pref = _preferredDisplayUnit(cat);
-            if (pref) return { expr: expr, unit: pref.label, cat: cat, valueInBase: totalBase, displayFactor: pref.factor };
-            return { expr: expr, unit: baseUnit, cat: cat, valueInBase: totalBase };
+            if (pref) return { expr: expr, unit: pref.label, cat: cat, valueInBase: totalBase, displayFactor: pref.factor, workFactor: workFactor };
+            return { expr: expr, unit: baseUnit, cat: cat, valueInBase: totalBase, workFactor: workFactor };
         }
 
         // Preferowana jednostka WYŚWIETLANIA dla kategorii (z ustawień). Generyczne — działa dla
@@ -1289,16 +1294,21 @@
                 if (!expr) return makeVal({});
                 var fn = compileGraphExpression(expr);
                 var value = fn(0);
-                // Wartość policzona jest w jednostkach BAZOWYCH (expr ma podstawione bazy). Jeśli
-                // resolveCalcUnits wskazał preferowaną jednostkę wyświetlania, przelicz wartość.
+                // resolveCalcUnits liczy w JEDNOSTCE ROBOCZEJ (etykieta jedzie z wynikiem) →
+                // mnożymy z powrotem na bazę. Dla + − / pojedynczej jednostki = bez zmian; dla
+                // × ÷ naprawia wymiar wg modelu „jednostka jako etykieta" (10 km/2 km = 5 km).
+                if (!curRes.hasCurrency && unitResult.workFactor) value = value * unitResult.workFactor;
+                // Wartość jest teraz BAZOWA. Jeśli resolveCalcUnits wskazał preferowaną jednostkę
+                // wyświetlania (ustawienia), przelicz wartość.
                 if (!curRes.hasCurrency && unitResult.displayFactor) value = value / unitResult.displayFactor;
                 // Autodobór czytelnej jednostki — ustawienie „Czytelnie (auto)" per kategoria
                 // ('__auto__'). Domyślnie kategorie = '' (baza), więc to nie rusza baseline.
                 // Wybór jednostki liczymy z FINALNEJ wartości bazowej (MATM0_QTY.chooseUnit).
-                if (!curRes.hasCurrency && unitResult.cat && isFinite(value) && window.MATM0_QTY &&
+                var _QTY = (typeof window !== 'undefined' && window.MATM0_QTY) || null;
+                if (!curRes.hasCurrency && unitResult.cat && isFinite(value) && _QTY &&
                     (STATE.settings.defaultUnits || {})[unitResult.cat] === '__auto__') {
-                    var _autoU = MATM0_QTY.chooseUnit(unitResult.cat, value);
-                    var _autoInfo = _autoU && MATM0_QTY.unitInfo(_autoU);
+                    var _autoU = _QTY.chooseUnit(unitResult.cat, value);
+                    var _autoInfo = _autoU && _QTY.unitInfo(_autoU);
                     if (_autoInfo) { value = value / _autoInfo.factor; unit = CALC_UNIT_DISPLAY[_autoU] || _autoU; }
                 }
                 if (!isFinite(value)) return makeVal({ value: Infinity, unit: unit, error: '∞', kind: 'number' });

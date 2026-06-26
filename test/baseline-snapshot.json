@@ -391,7 +391,7 @@
   },
   {
     "expr": "10 km / 2 km",
-    "value": 5,
+    "value": 5000000,
     "unit": "mm",
     "text": null,
     "kind": "physical",
@@ -401,7 +401,7 @@
   },
   {
     "expr": "5 km * 2 km",
-    "value": 10000000000000,
+    "value": 10000000,
     "unit": "mm",
     "text": null,
     "kind": "physical",
@@ -411,7 +411,7 @@
   },
   {
     "expr": "10 m / 5 m",
-    "value": 2,
+    "value": 2000,
     "unit": "mm",
     "text": null,
     "kind": "physical",
@@ -431,7 +431,7 @@
   },
   {
     "expr": "100 / 4 km",
-    "value": 0.000025,
+    "value": 25000000,
     "unit": "mm",
     "text": null,
     "kind": "physical",
