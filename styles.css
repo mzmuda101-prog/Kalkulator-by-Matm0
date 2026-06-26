@@ -83,6 +83,61 @@
         }
 
         /* ============================================================
+           [EN] Ekran ładowania (splash) — logo „oddycha" + cienki obracający się
+           pierścień. WYŁĄCZNIE transform/opacity (GPU) → płynnie też na słabszych
+           telefonach, bez przerysowań layoutu. Po starcie JS dodaje .is-hiding (fade)
+           i ustawia [hidden] → element znika z układu (zero kosztu, nie łapie dotyku).
+           ============================================================ */
+        .app-splash {
+            position: fixed;
+            inset: 0;
+            z-index: 10000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: var(--bg);
+            opacity: 1;
+            transition: opacity 0.45s ease;
+        }
+        .app-splash.is-hiding { opacity: 0; }
+        .app-splash[hidden] { display: none; }
+        .app-splash-logo {
+            position: relative;
+            display: grid;
+            place-items: center;
+            width: 88px;
+            height: 88px;
+        }
+        .app-splash-logo img {
+            width: 88px;
+            height: 88px;
+            border-radius: 22px;
+            display: block;
+            box-shadow: 0 12px 32px rgba(37, 99, 235, 0.18);
+            animation: splashBreathe 1.5s ease-in-out infinite;
+            will-change: transform;
+        }
+        .app-splash-ring {
+            position: absolute;
+            inset: -13px;
+            border-radius: 50%;
+            border: 3px solid var(--primary-light);
+            border-top-color: var(--primary);
+            animation: splashSpin 0.9s linear infinite;
+            will-change: transform;
+        }
+        @keyframes splashBreathe {
+            0%, 100% { transform: scale(0.93); }
+            50%      { transform: scale(1); }
+        }
+        @keyframes splashSpin {
+            to { transform: rotate(360deg); }
+        }
+        @media (prefers-reduced-motion: reduce) {
+            .app-splash-logo img, .app-splash-ring { animation: none; }
+        }
+
+        /* ============================================================
            [EN] Header
            ============================================================ */
         /* [EN] Header row with cache refresh */
@@ -2295,36 +2350,31 @@
         }
         @media (max-width: 360px) { .settings-units { grid-template-columns: 1fr; } }
         .settings-radios { display: flex; flex-direction: column; gap: 8px; }
-        .settings-radio {
-            display: flex;
-            align-items: flex-start;
-            gap: 10px;
-            padding: 10px 12px;
-            border: 1.5px solid var(--border);
-            border-radius: var(--radius-sm);
-            cursor: pointer;
-            transition: all var(--transition);
-        }
-        .settings-radio input { margin-top: 3px; flex-shrink: 0; accent-color: var(--primary); }
-        .settings-radio small { color: var(--text-muted); font-size: 0.78rem; line-height: 1.3; }
-        .settings-radio:has(input:checked) {
-            border-color: var(--primary);
-            background: var(--primary-light);
-        }
+        /* Karty radio/checkbox dzielą wygląd z polami <select> reszty ustawień:
+           to samo szare wypełnienie (var(--bg)), ta sama ramka i promień. */
+        .settings-radio,
         .settings-check {
             display: flex;
             align-items: flex-start;
             gap: 10px;
-            margin-top: 10px;
-            padding: 10px 12px;
+            padding: 11px 12px;
             border: 1.5px solid var(--border);
             border-radius: var(--radius-sm);
+            background: var(--bg);
             cursor: pointer;
-            transition: all var(--transition);
+            transition: border-color var(--transition), background var(--transition);
         }
+        .settings-check { margin-top: 10px; }
+        .settings-radio input,
         .settings-check input { margin-top: 3px; flex-shrink: 0; accent-color: var(--primary); }
+        .settings-radio small,
         .settings-check small { color: var(--text-muted); font-size: 0.78rem; line-height: 1.3; }
-        .settings-check:has(input:checked) { border-color: var(--border-focus); }
+        /* Zaznaczone — spójny akcent (jak fokus pól): delikatny primary, bez krzykliwego bloku. */
+        .settings-radio:has(input:checked),
+        .settings-check:has(input:checked) {
+            border-color: var(--primary);
+            background: var(--primary-light);
+        }
         .settings-check.is-na {
             opacity: 0.5;
             cursor: default;

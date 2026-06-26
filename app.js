@@ -8049,6 +8049,23 @@
             renderAll();
         }
 
+        // Ekran ładowania (logo) — chowamy gdy kalkulator gotowy, ale z minimalnym czasem
+        // pokazania, by nie mignął przy szybkim (cache'owanym) starcie. Po fade usuwamy z układu
+        // (hidden) → zero kosztu i zero przechwytywania dotyku. Tylko transform/opacity (GPU).
+        function hideSplash() {
+            var el = document.getElementById('appSplash');
+            if (!el || el.hidden) return;
+            var MIN_SHOW = 450;
+            var go = function () {
+                el.classList.add('is-hiding');
+                var done = function () { el.hidden = true; };
+                el.addEventListener('transitionend', done, { once: true });
+                setTimeout(done, 700); // fallback gdyby transitionend nie przyszedł
+            };
+            var elapsed = (window.performance && performance.now) ? performance.now() : MIN_SHOW;
+            if (elapsed >= MIN_SHOW) go(); else setTimeout(go, MIN_SHOW - elapsed);
+        }
+
         function init() {
             /* [EN] Wrap graph canvas for CSS zoom/pan */
             var graphFsExitEl = $('#graphFsExitBtn');
@@ -8069,6 +8086,7 @@
             setupPlaceholderMarquee();
             liveEval();
             renderHistory();
+            hideSplash(); // kalkulator gotowy → zgaś ekran ładowania (z minimalnym czasem pokazu)
 
             // [EN] FAZA 2 — reszta (wykres, stałe, ostatnie komendy, autouzupełnianie, Warsztat,
             // kreator, badge). Poza krytyczną ścieżką: w bezczynności, a najpóźniej przy pierwszym

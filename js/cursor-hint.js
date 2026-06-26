@@ -643,6 +643,21 @@ window.MateuszCursorHint = (() => {
       });
     }
 
+    // SZYBKIE UKRYCIE: dotknięcie/klik GDZIEKOLWIEK poza elementem-źródłem natychmiast chowa
+    // widoczny dymek (np. „Pełna wartość…" przy ≈) — bez czekania na auto-hide (2,6 s). Element,
+    // który dymek wywołał, pomijamy — jego własny gest zarządza dymkiem. Capture, by zadziałać
+    // wcześnie i niezależnie od innych handlerów. Scroll/zmiana widoczności też chowają (niżej).
+    var _quickDismiss = function(event) {
+      if (!cursorHint || !cursorHint.classList.contains("is-visible")) return;
+      var t = event && event.target;
+      if (activeHintEl && t && (t === activeHintEl || activeHintEl.contains(t) || t === cursorHint || cursorHint.contains(t))) return;
+      hideCursorHint();
+    };
+    document.addEventListener("pointerdown", _quickDismiss, true);
+    document.addEventListener("wheel", function() {
+      if (cursorHint && cursorHint.classList.contains("is-visible")) hideCursorHint();
+    }, { capture: true, passive: true });
+
     return { setupCursorHint, hideHint: hideCursorHint };
   }
 

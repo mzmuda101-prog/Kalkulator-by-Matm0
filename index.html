@@ -27,6 +27,18 @@
 <body>
 
     <!-- ============================================================
+    [EN] Ekran ładowania (logo) — statyczny, maluje się przy pierwszym paint.
+    JS (hideSplash) gasi go gdy kalkulator gotowy. Animacja tylko transform/opacity
+    (GPU) + mały asset (icon-192) → płynnie też na starszych telefonach.
+    ============================================================ -->
+    <div class="app-splash" id="appSplash">
+        <div class="app-splash-logo">
+            <span class="app-splash-ring" aria-hidden="true"></span>
+            <img src="assets/img/logo-mateusz-transparent-pod-loading.png" width="88" height="88" alt="" aria-hidden="true">
+        </div>
+    </div>
+
+    <!-- ============================================================
     [EN] App Header
     ============================================================ -->
     <header class="app-header">
