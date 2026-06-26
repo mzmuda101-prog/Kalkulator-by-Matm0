@@ -626,6 +626,10 @@ window.MateuszCursorHint = (() => {
             }
             return;
           }
+          // Mysz na elemencie INFORMACYJNYM (data-hint-tap = brak własnej akcji na klik, np. „≈"
+          // czy chip wyniku): klik NIE chowa dymka — nie ma czego „wykonać", a znikanie po
+          // kliknięciu jest mylące. Najechanie/zjazd kursorem (pointerleave) nadal chowa normalnie.
+          if (event && event.pointerType !== "touch" && el.dataset.hintTap !== undefined) return;
           hideCursorHint();
         });
         el.addEventListener("pointercancel", () => {

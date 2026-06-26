@@ -1514,10 +1514,13 @@
             if (!calcApprox) return;
             if (on) {
                 calcApprox.dataset.eq = exactText ? ('Pełna wartość: ' + exactText) : 'Wynik zaokrąglony';
+                // Dokładna wartość pod przytrzymanie (kopiowanie) — patrz bindLongPressCopy(calcApprox).
+                if (exactText) calcApprox.dataset.exact = exactText; else delete calcApprox.dataset.exact;
                 calcApprox.hidden = false;
             } else {
                 calcApprox.hidden = true;
                 delete calcApprox.dataset.eq;
+                delete calcApprox.dataset.exact;
             }
         }
         // *------------ Logika Animacji pojawiania się liczb/wyrażeń/wyniku* ----------------*
@@ -1713,6 +1716,14 @@
             var res = evalCalcExpression(calcExpr.value);
             if (res.text != null) return res.text; // sformatowana data
             return res.value !== null ? String(res.value) : calcExpr.value;
+        });
+
+        // Znacznik „≈": przytrzymanie kopiuje DOKŁADNĄ wartość (tak jak przytrzymanie wyniku głównego),
+        // a tap/hover nadal pokazuje ją w dymku (cursor-hint). dataset.exact ustawia _setApproxMark.
+        bindLongPressCopy(calcApprox, function() {
+            if (calcApprox.dataset.exact) return calcApprox.dataset.exact;
+            if (STATE.calc.lastResult !== null) return String(STATE.calc.lastResult);
+            return calcResult.textContent.trim();
         });
 
         function bindCopyBox(el) {

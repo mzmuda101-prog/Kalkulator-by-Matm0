@@ -531,20 +531,23 @@
             font-size: 1.6rem;
             font-weight: 700;
             color: var(--primary);                                              /* fallback */
-            color: color-mix(in srgb, var(--primary) 58%, #94a3b8 42%);         /* lekko wyszarzony niebieski */
+            color: color-mix(in srgb, var(--primary) 30%, #94a3b8 70%);         /* lekko wyszarzony niebieski */
             opacity: 0.9;
             cursor: pointer;
             user-select: none;
+            -webkit-user-select: none;
+            -webkit-touch-callout: none;   /* iOS: przytrzymanie kopiuje, nie pokazuje lupy/„Kopiuj/Szukaj" */
             -webkit-tap-highlight-color: transparent;
             transform-origin: center;
-            /* Pojawienie = ODWRÓCONA animacja znikania dymków (cursor-hint: opacity+blur), z lekkim
-               opóźnieniem względem wyniku. fill-mode „both" → w czasie delaya trzyma stan 0% (nie mignie). */
-            animation: calcApproxIn 0.42s ease-out 90ms both;
+            /* * Pojawienie = ODWRÓCONA animacja znikania dymków (cursor-hint: opacity+blur), z lekkim
+               * opóźnieniem względem wyniku. fill-mode „both" → w czasie delaya trzyma stan 0% (nie mignie). */
+            animation: calcApproxIn 0.4s ease-out 90ms both;
         }
         .calc-approx[hidden] { display: none; }
         @keyframes calcApproxIn {
-            0%   { opacity: 0; filter: blur(6px); transform: scale(0.85); }     /* jak dymek znikający — tylko odwrotnie */
-            100% { opacity: 0.9; filter: blur(0);  transform: scale(1); }
+            0%   { opacity: 0; filter: blur(6px); transform: scale(0.85) translateY(0.65em); }
+            75%  { opacity: 0.85; filter: blur(1.5px); transform: scale(0.96) translateY(-0.08em); }   /* jak dymek znikający — tylko odwrotnie */
+            100% { opacity: 1; filter: blur(0);  transform: scale(1) translateY(0); }
         }
         @media (prefers-reduced-motion: reduce) {
             .calc-approx { animation: none; }
@@ -851,6 +854,8 @@
             font-size: 0.9rem;
             font-family: inherit;
             -webkit-appearance: none;
+            appearance: none;
+       
         }
         .history-search-input:focus {
             outline: none;
