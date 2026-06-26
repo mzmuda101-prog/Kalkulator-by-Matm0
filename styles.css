@@ -811,20 +811,86 @@
             touch-action: pan-y;
         }
         .history-item {
-            padding: 10px 12px;
+            position: relative;                 /* kontener: pod spodem „Usuń", na wierzchu zjeżdżająca treść */
+            overflow: hidden;
             border-bottom: 1px solid var(--border);
+            border-radius: var(--radius-sm);
             font-family: var(--font-mono);
             font-size: 0.8125rem;
             color: var(--text-secondary);
-            cursor: pointer;
-            transition: background var(--transition);
+        }
+        .history-item-content {
+            position: relative;
+            z-index: 1;
             display: flex;
             justify-content: space-between;
             align-items: center;
-            border-radius: var(--radius-sm);
             gap: 10px;
+            padding: 10px 12px;
+            background: var(--card-bg);          /* nieprzezroczyste — zakrywa „Usuń" w pozycji spoczynku */
+            cursor: pointer;
+            touch-action: pan-y;                 /* pionowy scroll natywny; poziomy gest bierze JS */
+            -webkit-tap-highlight-color: transparent;
+            will-change: transform;
+            transition: transform 0.22s cubic-bezier(0.4, 0, 0.2, 1);
         }
-        .history-item:active { background: var(--primary-light); }
+        .history-item-content:active { background: var(--primary-light); }
+        /* Przycisk „Usuń" — odsłaniany swipe'em w lewo, wypełnia prawą krawędź wpisu. */
+        .history-item-delete {
+            position: absolute;
+            top: 0; right: 0; bottom: 0;
+            width: 84px;
+            z-index: 0;
+            border: none;
+            background: var(--danger);
+            color: #fff;
+            font-family: inherit;
+            font-size: 0.8125rem;
+            font-weight: 700;
+            cursor: pointer;
+            -webkit-tap-highlight-color: transparent;
+            opacity: 0;             /* w spoczynku ukryty — żaden czerwony prześwit spod treści */
+            pointer-events: none;
+            transition: opacity 0.12s ease;
+        }
+        .history-item.swiping .history-item-delete,
+        .history-item.swiped .history-item-delete {
+            opacity: 1;
+            pointer-events: auto;
+        }
+        .history-item-delete:active { background: var(--danger-hover); }
+        /* Nakładka potwierdzenia — „mały ekranik" na całym wpisie. */
+        .history-item-confirm {
+            position: absolute;
+            inset: 0;
+            z-index: 2;
+            display: none;
+            align-items: center;
+            gap: 8px;
+            padding: 0 12px;
+            background: var(--card-bg);
+        }
+        .history-item.confirming .history-item-confirm { display: flex; }
+        .history-item-confirm-msg {
+            flex: 1;
+            min-width: 0;
+            font-weight: 600;
+            color: var(--text);
+        }
+        .history-confirm-btn {
+            flex: 0 0 auto;
+            border: none;
+            border-radius: var(--radius-sm);
+            padding: 7px 14px;
+            font-family: inherit;
+            font-size: 0.8125rem;
+            font-weight: 700;
+            cursor: pointer;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .history-confirm-btn.yes { background: var(--danger); color: #fff; }
+        .history-confirm-btn.yes:active { background: var(--danger-hover); }
+        .history-confirm-btn.no { background: var(--border); color: var(--text); }
         .history-item .expr {
             flex: 1;
             min-width: 0;
@@ -861,7 +927,7 @@
             outline: none;
             border-color: var(--primary);
         }
-        .history-item.is-pinned {
+        .history-item.is-pinned .history-item-content {
             background: var(--primary-light, rgba(37, 99, 235, 0.08));
         }
         .history-item-actions {

@@ -522,22 +522,24 @@
         ];
 
         function buildCalcButtons() {
-            calcGrid.replaceChildren();
-            calcButtons.forEach(function(row) {
-                for (var i = 0; i < row.length; i += 2) {
-                    var label = row[i];
-                    var type = row[i + 1];
-                    var btn = document.createElement('button');
-                    btn.className = 'calc-btn calc-btn--' + type;
-                    if (type === 'clear') btn.className += ' calc-btn--clear';
-                    btn.textContent = label;
-                    btn.setAttribute('data-action', label);
-                    btn.addEventListener('pointerdown', function(e) {
-                        if (e.button !== undefined && e.button !== 0) return;
-                        handleCalcAction(e.currentTarget.getAttribute('data-action'));
-                    });
-                    calcGrid.appendChild(btn);
-                }
+            // Grid jest STATYCZNY w HTML (maluje się przy pierwszym paint, jeszcze przed app.js).
+            // Tu tylko podpinamy JEDEN delegowany listener zamiast 20 osobnych. Fallback: gdyby grid
+            // był pusty (stary cache HTML), odtwórz przyciski z danych calcButtons (źródło zapasowe).
+            if (!calcGrid.querySelector('.calc-btn')) {
+                calcButtons.forEach(function(row) {
+                    for (var i = 0; i < row.length; i += 2) {
+                        var btn = document.createElement('button');
+                        btn.className = 'calc-btn calc-btn--' + row[i + 1];
+                        btn.textContent = row[i];
+                        btn.setAttribute('data-action', row[i]);
+                        calcGrid.appendChild(btn);
+                    }
+                });
+            }
+            calcGrid.addEventListener('pointerdown', function(e) {
+                if (e.button !== undefined && e.button !== 0) return;
+                var btn = e.target.closest('.calc-btn');
+                if (btn && calcGrid.contains(btn)) handleCalcAction(btn.getAttribute('data-action'));
             });
         }
 
@@ -1796,6 +1798,10 @@
                 var parts = item.text.split(' = ');
                 var exprPart = parts[0] || item.text;
                 var resultPart = parts.length > 1 ? parts.slice(1).join(' = ') : '';
+
+                // Warstwa treści, która zjeżdża w lewo przy swipe (pod nią czerwone „Usuń").
+                var content = document.createElement('div');
+                content.className = 'history-item-content';
                 // [EN] Safe DOM creation — no innerHTML, no XSS
                 var spanExpr = document.createElement('span');
                 spanExpr.className = 'expr';
@@ -1835,13 +1841,52 @@
                 actions.appendChild(pinBtn);
                 actions.appendChild(copyBtn);
 
-                li.appendChild(spanExpr);
-                li.appendChild(spanResult);
-                li.appendChild(actions);
-                bindLongPressCopy(li, function() { return item.text; });
-                li.addEventListener('click', function() {
-                    if (li.dataset.longPressed === 'true') {
-                        delete li.dataset.longPressed;
+                content.appendChild(spanExpr);
+                content.appendChild(spanResult);
+                content.appendChild(actions);
+
+                // Czerwony przycisk „Usuń" odsłaniany swipe'em w lewo (siedzi POD warstwą treści).
+                var delBtn = document.createElement('button');
+                delBtn.type = 'button';
+                delBtn.className = 'history-item-delete';
+                delBtn.textContent = 'Usuń';
+                delBtn.title = 'Usuń wpis';
+                delBtn.setAttribute('aria-label', 'Usuń wpis');
+                delBtn.tabIndex = -1;
+
+                // Nakładka potwierdzenia („mały ekranik": Usunąć? Anuluj / Usuń) — chroni przed przypadkiem.
+                var confirm = document.createElement('div');
+                confirm.className = 'history-item-confirm';
+                var confirmMsg = document.createElement('span');
+                confirmMsg.className = 'history-item-confirm-msg';
+                confirmMsg.textContent = 'Usunąć wpis?';
+                var noBtn = document.createElement('button');
+                noBtn.type = 'button';
+                noBtn.className = 'history-confirm-btn no';
+                noBtn.textContent = 'Anuluj';
+                noBtn.setAttribute('aria-label', 'Anuluj usuwanie');
+                var yesBtn = document.createElement('button');
+                yesBtn.type = 'button';
+                yesBtn.className = 'history-confirm-btn yes';
+                yesBtn.textContent = 'Usuń';
+                yesBtn.setAttribute('aria-label', 'Potwierdź usunięcie');
+                confirm.appendChild(confirmMsg);
+                confirm.appendChild(noBtn);
+                confirm.appendChild(yesBtn);
+
+                li.appendChild(delBtn);
+                li.appendChild(content);
+                li.appendChild(confirm);
+
+                bindLongPressCopy(content, function() { return item.text; });
+                content.addEventListener('click', function() {
+                    if (content.dataset.longPressed === 'true') {
+                        delete content.dataset.longPressed;
+                        return;
+                    }
+                    if (li._swipeHandled) return;                       // świeży swipe — nie traktuj jako klik
+                    if (li.classList.contains('swiped') || li.classList.contains('confirming')) {
+                        _histSwipeClose(li, content);                  // odsłonięte → klik chowa, nie przywraca
                         return;
                     }
                     // [EN] Reuse history result as current input
@@ -1862,7 +1907,98 @@
                         showToast('📋 Przywrócono wynik', 'success');
                     }
                 });
+                delBtn.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    li.classList.add('confirming'); // pokaż „ekranik" potwierdzenia
+                    hapticTap(15);
+                    _histArmConfirmAutoClose(li, content);
+                });
+                noBtn.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    _histSwipeClose(li, content);
+                });
+                yesBtn.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    var idx = STATE.history.indexOf(item);
+                    if (idx !== -1) { STATE.history.splice(idx, 1); saveHistory(); }
+                    hapticTap(30);
+                    renderHistory();
+                    showToast('🗑️ Usunięto wpis', '');
+                });
+                _bindHistorySwipe(li, content);
                 historyList.appendChild(li);
+            });
+        }
+
+        // ── Swipe-to-delete dla wpisu historii ──────────────────────────────
+        // Treść jedzie w lewo, odsłaniając „Usuń"; klik „Usuń" pokazuje nakładkę potwierdzenia.
+        // Pionowy scroll listy zostaje natywny (touch-action: pan-y); poziomy gest przejmujemy.
+        var _HIST_SWIPE_OPEN = -84;     // px odsłonięcia przycisku „Usuń"
+        var _histConfirmTimer = null;
+        function _histSetX(content, x, animate) {
+            content.style.transition = animate ? '' : 'none';
+            content.style.transform = x ? ('translateX(' + x + 'px)') : '';
+        }
+        function _histSwipeClose(li, content) {
+            li.classList.remove('swiped', 'swiping', 'confirming');
+            if (_histConfirmTimer) { clearTimeout(_histConfirmTimer); _histConfirmTimer = null; }
+            _histSetX(content, 0, true);
+        }
+        function _histSwipeOpen(li, content) {
+            li.classList.remove('swiping');
+            li.classList.add('swiped');
+            _histSetX(content, _HIST_SWIPE_OPEN, true);
+        }
+        function _histArmConfirmAutoClose(li, content) {
+            if (_histConfirmTimer) clearTimeout(_histConfirmTimer);
+            _histConfirmTimer = setTimeout(function() { _histSwipeClose(li, content); }, 5000);
+        }
+        function _bindHistorySwipe(li, content) {
+            var startX = 0, startY = 0, dragging = false, decided = false, horizontal = false, curX = 0;
+            content.addEventListener('pointerdown', function(e) {
+                if (e.pointerType === 'mouse' && e.button !== 0) return;
+                startX = e.clientX; startY = e.clientY;
+                dragging = true; decided = false; horizontal = false;
+                curX = li.classList.contains('swiped') ? _HIST_SWIPE_OPEN : 0;
+            });
+            content.addEventListener('pointermove', function(e) {
+                if (!dragging) return;
+                var dx = e.clientX - startX, dy = e.clientY - startY;
+                if (!decided) {
+                    if (Math.abs(dx) < 8 && Math.abs(dy) < 8) return;   // za mały ruch — czekaj
+                    decided = true;
+                    horizontal = Math.abs(dx) > Math.abs(dy);
+                    if (horizontal) {
+                        // Przejmujemy gest: ubij długie-przytrzymanie-kopiuj (nasłuchuje 'pointerleave').
+                        try { content.dispatchEvent(new Event('pointerleave')); } catch (_) {}
+                        try { content.setPointerCapture(e.pointerId); } catch (_) {}
+                        li.classList.remove('confirming');
+                        li.classList.add('swiping'); // odsłoń „Usuń" dopiero TERAZ (w spoczynku ukryty — bez prześwitu)
+                    }
+                }
+                if (!horizontal) return;        // gest pionowy → zostaw natywnemu scrollowi
+                e.preventDefault();
+                var base = li.classList.contains('swiped') ? _HIST_SWIPE_OPEN : 0;
+                var x = base + dx;
+                if (x > 0) x = 0;                                       // tylko w lewo
+                if (x < _HIST_SWIPE_OPEN - 24) x = _HIST_SWIPE_OPEN - 24; // lekki opór za progiem
+                curX = x;
+                _histSetX(content, x, false);
+            });
+            function settle() {
+                if (!dragging) return;
+                dragging = false;
+                if (!horizontal) return;
+                li._swipeHandled = true;                                // zablokuj klik-reuse tuż po swipe
+                setTimeout(function() { li._swipeHandled = false; }, 60);
+                if (curX <= _HIST_SWIPE_OPEN / 2) _histSwipeOpen(li, content);
+                else _histSwipeClose(li, content);
+            }
+            content.addEventListener('pointerup', settle);
+            content.addEventListener('pointercancel', function() {
+                if (!dragging) return;
+                dragging = false;
+                if (horizontal) { if (curX <= _HIST_SWIPE_OPEN / 2) _histSwipeOpen(li, content); else _histSwipeClose(li, content); }
             });
         }
 
