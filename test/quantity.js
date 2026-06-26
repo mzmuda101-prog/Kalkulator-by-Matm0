@@ -93,6 +93,24 @@ isKV('od 9:30 do 17:00 (range) = 27000 s', Q.range(Q.clock(570), Q.clock(1020)),
     ok('(5 km + 300 m) w km = 5,3', near(disp.value, 5.3), disp && disp.value);
 })();
 
+// ── Autodobór czytelnej jednostki ────────────────────────────────────────────
+(function () {
+    function ad(q) { return Q.autoDisplay(q); }
+    var a1 = ad(Q.add(Q.physical(5, 'km'), Q.physical(300, 'm'))); // 5 300 000 mm
+    ok('autodobór: 5 km + 300 m → 5,3 km', a1 && near(a1.value, 5.3) && a1.unit === 'km', a1 && (a1.value + ' ' + a1.unit));
+    var a2 = ad(Q.physical(1500, 'mm'));
+    ok('autodobór: 1500 mm → 1,5 m', a2 && near(a2.value, 1.5) && a2.unit === 'm', a2 && (a2.value + ' ' + a2.unit));
+    var a3 = ad(Q.physical(500, 'mm'));
+    ok('autodobór: 500 mm → 50 cm', a3 && near(a3.value, 50) && a3.unit === 'cm', a3 && (a3.value + ' ' + a3.unit));
+    var a4 = ad(Q.physical(2500, 'g'));
+    ok('autodobór: 2500 g → 2,5 kg', a4 && near(a4.value, 2.5) && a4.unit === 'kg', a4 && (a4.value + ' ' + a4.unit));
+    var a5 = ad(Q.duration(5400)); // 90 min
+    ok('autodobór: 5400 s → 1,5 h', a5 && near(a5.value, 1.5) && a5.unit === 'h', a5 && (a5.value + ' ' + a5.unit));
+    var a6 = ad(Q.physical(2 * 1073741824, 'B')); // 2 GB w bajtach
+    ok('autodobór: 2 GB (bajty) → 2 GB', a6 && near(a6.value, 2) && a6.unit === 'GB', a6 && (a6.value + ' ' + a6.unit));
+    ok('chooseUnit: 0 → pierwsza w drabince (mm)', Q.chooseUnit('length', 0) === 'mm');
+})();
+
 // ── Propagacja invalid ───────────────────────────────────────────────────────
 isKV('invalid propaguje przez add', Q.add(Q.invalid('x'), Q.num(2)), 'invalid');
 isKV('invalid propaguje przez mul', Q.mul(Q.num(2), Q.invalid('x')), 'invalid');

@@ -1292,6 +1292,15 @@
                 // Wartość policzona jest w jednostkach BAZOWYCH (expr ma podstawione bazy). Jeśli
                 // resolveCalcUnits wskazał preferowaną jednostkę wyświetlania, przelicz wartość.
                 if (!curRes.hasCurrency && unitResult.displayFactor) value = value / unitResult.displayFactor;
+                // Autodobór czytelnej jednostki — ustawienie „Czytelnie (auto)" per kategoria
+                // ('__auto__'). Domyślnie kategorie = '' (baza), więc to nie rusza baseline.
+                // Wybór jednostki liczymy z FINALNEJ wartości bazowej (MATM0_QTY.chooseUnit).
+                if (!curRes.hasCurrency && unitResult.cat && isFinite(value) && window.MATM0_QTY &&
+                    (STATE.settings.defaultUnits || {})[unitResult.cat] === '__auto__') {
+                    var _autoU = MATM0_QTY.chooseUnit(unitResult.cat, value);
+                    var _autoInfo = _autoU && MATM0_QTY.unitInfo(_autoU);
+                    if (_autoInfo) { value = value / _autoInfo.factor; unit = CALC_UNIT_DISPLAY[_autoU] || _autoU; }
+                }
                 if (!isFinite(value)) return makeVal({ value: Infinity, unit: unit, error: '∞', kind: 'number' });
                 // Dokładne liczby całkowite do MAX_SAFE_INTEGER (16 cyfr) zostaw bez
                 // zaokrąglania; tylko ułamki/duże floaty tnij do 15 cyfr znaczących,
@@ -6146,8 +6155,13 @@
                 sel.innerHTML = '';
                 var base = document.createElement('option');
                 base.value = '';
-                base.textContent = 'Bazowa: ' + def.base + ' (auto)';
+                base.textContent = 'Bazowa: ' + def.base;
                 sel.appendChild(base);
+                // Autodobór czytelnej jednostki wg wielkości (np. 1500 mm → „1,5 m"). Opt-in.
+                var autoOpt = document.createElement('option');
+                autoOpt.value = '__auto__';
+                autoOpt.textContent = 'Czytelnie (auto-dobór)';
+                sel.appendChild(autoOpt);
                 var baseKey = String(def.base).toLowerCase();
                 var seenFactor = {};
                 Object.keys(def.units).forEach(function(u) {

@@ -100,6 +100,44 @@
         return { value: q.value, unit: q.unit };
     }
 
+    // ── AUTODOBÓR czytelnej jednostki (opcja „Czytelnie" w ustawieniach) ─────────
+    // Dla każdego wymiaru: drabinka „ładnych" jednostek (kanoniczne metryczne, bez aliasów).
+    // Wybieramy największą jednostkę, przy której |wartość| ≥ 1 (czyli np. 5 300 000 mm → 5,3 km,
+    // 1500 mm → 1,5 m, 500 mm → 50 cm). Brak drabinki / value 0 → pierwsza jednostka.
+    var NICE_UNITS = {
+        length: ['mm', 'cm', 'm', 'km'],
+        mass: ['mg', 'g', 'kg', 't'],
+        volume: ['ml', 'l', 'm3'],
+        area: ['mm2', 'cm2', 'm2', 'ar', 'ha', 'km2'],
+        time: ['s', 'min', 'h', 'doba', 'tydzien', 'rok'],
+        data: ['B', 'KB', 'MB', 'GB', 'TB'],
+        speed: ['m/s', 'km/h'],
+        angle: ['deg']
+    };
+    function chooseUnit(dim, baseValue) {
+        var ladder = NICE_UNITS[dim];
+        if (!ladder || !ladder.length) return null;
+        var abs = Math.abs(baseValue);
+        if (!(abs > 0)) return ladder[0];
+        var best = ladder[0];
+        for (var i = 0; i < ladder.length; i++) {
+            var info = unitInfo(ladder[i]);
+            if (!info) continue;
+            if (abs / info.factor >= 1) best = ladder[i]; else break; // drabinka rośnie → przerwij gdy spadło < 1
+        }
+        return best;
+    }
+    // toDisplay z autodoborem jednostki (dla physical/duration). Reszta jak toDisplay.
+    function autoDisplay(q) {
+        if (isInvalid(q)) return null;
+        if (q.kind === 'physical' || q.kind === 'duration') {
+            var dim = q.kind === 'duration' ? 'time' : q.dim;
+            var u = chooseUnit(dim, q.value);
+            return u ? toDisplay(q, u) : toDisplay(q);
+        }
+        return toDisplay(q);
+    }
+
     // convert („A na B"): physical/duration → ta sama oś (inny wymiar = invalid);
     // money między walutami = needs-rate (kursy poza tym modułem).
     function convert(q, targetUnit) {
@@ -223,9 +261,10 @@
         // operatory
         add: add, sub: sub, mul: mul, div: div, scale: scale, convert: convert, range: range,
         // pomocnicze
-        toDisplay: toDisplay, unitInfo: unitInfo, baseUnitOf: baseUnitOf,
+        toDisplay: toDisplay, autoDisplay: autoDisplay, chooseUnit: chooseUnit,
+        unitInfo: unitInfo, baseUnitOf: baseUnitOf,
         isInvalid: isInvalid, isQuantity: isQuantity,
-        _UNIT_INDEX: UNIT_INDEX
+        _UNIT_INDEX: UNIT_INDEX, _NICE_UNITS: NICE_UNITS
     };
 
     if (typeof window !== 'undefined') window.MATM0_QTY = API;
