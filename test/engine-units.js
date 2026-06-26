@@ -54,6 +54,20 @@ setMass('__auto__');
 expect('2 kg + 300 g', 2.3, 'kg');
 expect('2500 g', 2.5, 'kg');
 
+// ── WALUTY: ten sam model „etykieta" (kursy stubowane, domyślna PLN) ──
+api.state.fx.rates = { PLN: 1, EUR: 4.30, USD: 3.95 };
+api.state.fx.ts = Date.now();
+api.state.settings.defaultCurrency = 'PLN';
+expect('100 zł / 4 zł', 25, 'zł');         // PLN: 25 zł
+expect('5 zł * 2 zł', 10, 'zł');           // 10 zł
+expect('100 usd * 4 usd', 1580, 'zł');     // ← był nonsens „6241 zł"; 400 usd = 1580 zł
+expect('100 usd / 4 usd', 98.75, 'zł');    // 25 usd = 98,75 zł
+expect('12 zł + 20 eur', 98, 'zł');        // miks (suma) — bez zmian
+expect('20 usd - 5 usd', 59.25, 'zł');     // 15 usd — bez zmian
+expect('1000 zł + vat', 1230, 'zł');       // vat nietknięty
+expect('brutto 12 zł', 14.76, 'zł');       // vat nietknięty
+expect('20 eur na zł', 86, 'zł');          // konwersja nietknięta
+
 // ── Raport ───────────────────────────────────────────────────────────────────
 console.log('  ' + (fail ? '✗' : '✓') + ' engine-units: ' + pass + '/' + (pass + fail) + ' PASS');
 if (fails.length) {

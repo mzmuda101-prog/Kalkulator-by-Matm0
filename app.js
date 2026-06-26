@@ -54,7 +54,7 @@
             //   defaultUnits — domyślna jednostka WYŚWIETLANIA per kategoria fizyczna (np. speed→'km/h').
             //     '' = jednostka bazowa (jak dotąd). Dotyczy tylko gołych sum; jawne „X na Y" wygrywa.
             settings: { defaultCurrency: 'PLN', fxEngine: 'auto', fxBackup: true,
-                        defaultUnits: { speed: '', length: '', mass: '', volume: '', time: 'h' },
+                        defaultUnits: { speed: '', length: '', mass: '', volume: '', time: 'h', area: '', data: '', angle: '' },
                         notepadFold: false, // notatnik: zwijaj wyrażenia do wyników (tryb fold)
                         notepadAutoUnit: 'safe' }, // notatnik: auto-jednostki niezdefiniowane — 'safe' | 'full'
             // Komenda tab (merged Engineering + Graph)
@@ -1012,29 +1012,31 @@
                 }
             }
 
-            // 2) Sumowanie kwot walutowych → PLN
-            var totalPln = 0, hasCurrency = false, pending = false;
+            // 2) Kwoty walutowe → wartości w WALUCIE ROBOCZEJ (pierwsza napotkana). Model
+            // „waluta jako etykieta" (jak jednostki miernicze): liczby liczą się jak wpisane,
+            // a wynik skalujemy do waluty DOMYŚLNEJ przez curMul — stosowane w evalCalcExpression
+            // PO fn(0) (i po vat/%, które liczą się później), więc niczego nie psuje. Naprawia
+            // „100 usd * 4 usd" (był nonsens „6241 zł") i trzyma + − bez zmian.
+            var totalPln = 0, hasCurrency = false, pending = false, workRate = null;
             var amountRe = new RegExp('([\\d.,]+)\\s*(' + tokenRe + ')(?![a-ząćęłńóśźż0-9])', 'gi');
             var expr = raw.replace(amountRe, function(m, num, tok) {
                 hasCurrency = true;
                 var code = map[tok.toLowerCase()];
                 var rate = _currencyRate(code);
                 if (!_fxReady() || rate == null) { pending = true; return m; }
-                var pln = parseFloat(num.replace(',', '.')) * rate;
-                totalPln += pln;
-                return String(pln);
+                if (workRate == null) workRate = rate; // waluta robocza = pierwsza napotkana
+                var n = parseFloat(num.replace(',', '.'));
+                totalPln += n * rate;
+                return String(n * rate / workRate); // kwota w walucie roboczej
             });
             if (!hasCurrency) return { expr: raw, unit: null, hasCurrency: false, pending: false };
             if (pending) return { expr: raw, unit: null, hasCurrency: true, pending: true };
-            // Gołe sumy walutowe zwijają się do waluty DOMYŚLNEJ (ustawienia). PLN zostaje
-            // wewnętrzną osią (valueInBase), a wynik dzielimy przez kurs waluty docelowej.
+            // Gołe sumy/wyniki walutowe pokazujemy w walucie DOMYŚLNEJ (ustawienia). PLN zostaje
+            // wewnętrzną osią (valueInBase = suma PLN, dla „na"). curMul: robocza → domyślna.
             var def = (STATE.settings && STATE.settings.defaultCurrency) || 'PLN';
-            if (def !== 'PLN') {
-                var dRate = _currencyRate(def);
-                if (dRate == null) return { expr: raw, unit: null, hasCurrency: true, pending: true };
-                return { expr: '(' + expr + ')/' + dRate, unit: _currencyDisplay(def), valueInBase: totalPln, hasCurrency: true, pending: false };
-            }
-            return { expr: expr, unit: 'zł', valueInBase: totalPln, hasCurrency: true, pending: false };
+            var defRate = _currencyRate(def);
+            if (defRate == null) return { expr: raw, unit: null, hasCurrency: true, pending: true };
+            return { expr: expr, unit: _currencyDisplay(def), valueInBase: totalPln, hasCurrency: true, pending: false, curMul: workRate / defRate };
         }
 
         // ── Dwa silniki kursów ──────────────────────────────────────────
@@ -1298,6 +1300,8 @@
                 // mnożymy z powrotem na bazę. Dla + − / pojedynczej jednostki = bez zmian; dla
                 // × ÷ naprawia wymiar wg modelu „jednostka jako etykieta" (10 km/2 km = 5 km).
                 if (!curRes.hasCurrency && unitResult.workFactor) value = value * unitResult.workFactor;
+                // Waluty: wynik policzony w walucie roboczej → skala do domyślnej (po vat/%).
+                if (curRes.hasCurrency && curRes.curMul && isFinite(value)) value = value * curRes.curMul;
                 // Wartość jest teraz BAZOWA. Jeśli resolveCalcUnits wskazał preferowaną jednostkę
                 // wyświetlania (ustawienia), przelicz wartość.
                 if (!curRes.hasCurrency && unitResult.displayFactor) value = value / unitResult.displayFactor;
