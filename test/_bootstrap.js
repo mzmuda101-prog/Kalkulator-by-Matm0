@@ -103,6 +103,7 @@ function load(file) {
 
 try {
   load('js/data-tables.js');
+  load('js/smart-parser.js'); // podsilniki czasu+dat (MATM0_PARSER) — app.js wiąże się z nimi
   load('command-definitions.js');
   load('app.js');
 } catch (e) {
