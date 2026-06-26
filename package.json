@@ -4,7 +4,8 @@
   "scripts": {
     "test": "node test/smoke-node.js",
     "test:prop": "node test/property.js",
-    "test:all": "node test/smoke-node.js && node test/property.js"
+    "test:qty": "node test/quantity.js",
+    "test:all": "node test/smoke-node.js && node test/property.js && node test/quantity.js"
   },
   "devDependencies": {
     "fast-check": "^3.23.2"
