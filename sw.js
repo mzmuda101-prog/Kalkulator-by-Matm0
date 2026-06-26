@@ -13,6 +13,7 @@ const ASSETS_TO_CACHE = [
     './assets/img/icon-192.png',
     './assets/img/icon-512.png',
     './assets/img/logo-mateusz-transparent.png',
+    './assets/img/logo-mateusz-transparent-pod-loading.png',
     './assets/img/logo-refresh.png',
     './sw.js',
     './js/cursor-hint.js',
