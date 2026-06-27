@@ -3299,7 +3299,7 @@
         var graphCmdSyntaxEl = document.getElementById('graphCmdSyntax');
         var CMD_SIGNATURES = [
             { test: /^f\s*\(|^y\s*=/, head: 'f(x)=', sig: 'f(x)=<b>wyrażenie</b>', desc: 'wykres funkcji. Działa: + − * / ^, sin cos tan sqrt abs log ln exp, stałe π e.' },
-            { test: /^(kamera|widok|fov|pole|stozek|sto[zż]ek)/, head: 'kamera', sig: 'kamera=<b>x;y[;z]</b> ,, kąt=<b>H[;V]</b> ,, zasięg=<b>Z</b> ,, [cel=x;y;z | azymut=A[;V] | kierunek=A[;V]] ,, [pochył=P] ,, [na=D1;D2]', desc: 'pole widzenia. z = wysokość, V = pionowy FOV. Skrót pozycyjny: kamera=x;y;z;kąt;zasięg.' },
+            { test: /^(kamera|widok|fov|pole|stozek|sto[zż]ek)/, head: 'kamera', sig: 'kamera=<b>x;y[;z]</b> ,, kąt=<b>H[;V]</b> ,, zasięg=<b>Z</b> ,, [cel=x;y;z | azymut=A[;V] | kierunek=A[;V] | krawędźL=x;y | krawędźP=x;y] ,, [pochył=P] ,, [na=D1;D2]', desc: 'pole widzenia. z = wysokość, V = pionowy FOV. Skrót pozycyjny: kamera=x;y;z;kąt;zasięg. Kąt z optyki: ogniskowa= + matryca=.' },
             { test: /^(siatka|grid)/, head: 'siatka', sig: 'siatka=<b>WxH</b> ,, co=<b>dx x dy</b> ,, [ox= ,, oy=]', desc: 'siatka punktów w polu W×H (dx, dy = odstępy).' },
             { test: /^(rect|prostokat)/, head: 'rect', sig: 'rect=<b>WxH</b> ,, [ox= ,, oy= ,, label=]', desc: 'prostokąt; lewy dolny róg w 0;0.' },
             { test: /^(okrag|kolo|circle|okr[aą]g|ko[lł]o)/, head: 'okrag', sig: 'okrag=<b>R</b> ,, [ox= ,, oy=]', desc: 'okrąg o promieniu R, środek w 0;0.' },
@@ -3315,6 +3315,9 @@
             fov: 'kąt', fov_h: 'kąt', angle: 'kąt',
             range: 'zasięg', zasieg: 'zasięg', tilt: 'pochył', pochyl: 'pochył', pochylenie: 'pochył', spad: 'pochył', 'spąd': 'pochył',
             wys: 'z', wysokosc: 'z', 'wysokość': 'z', h: 'z', target: 'cel', patrz: 'cel', bearing: 'azymut', kompas: 'azymut', dir: 'kierunek', kat_kier: 'kierunek',
+            krawedzl: 'krawędźL', lewy: 'krawędźL', lewa: 'krawędźL', brzegl: 'krawędźL', rogl: 'krawędźL', left: 'krawędźL',
+            krawedzp: 'krawędźP', prawy: 'krawędźP', prawa: 'krawędźP', brzegp: 'krawędźP', rogp: 'krawędźP', right: 'krawędźP',
+            ognisk: 'ogniskowa', ogn: 'ogniskowa', focal: 'ogniskowa', matrica: 'matryca', sensor: 'matryca', przetwornik: 'matryca', ccd: 'matryca', cmos: 'matryca',
             opis: 'label', nazwa: 'label', step: 'co', krok: 'co', every: 'co', odstep: 'co', co_x: 'co', margin: 'm', margines: 'm',
             przy: 'na', odl: 'na', dystans: 'na',
             x0: 'ox', od_x: 'ox', y0: 'oy', od_y: 'oy',
@@ -3325,6 +3328,10 @@
             'cel':      { sig: 'cel=<b>x;y[;z]</b>', desc: 'wyceluj kamerę w punkt; z = wysokość celu.' },
             'azymut':   { sig: 'azymut=<b>A[;V]</b>', desc: 'A = kompas (0=płn., zgodnie z zegarem), V = pion (+ w górę).' },
             'kierunek': { sig: 'kierunek=<b>A[;V]</b>', desc: 'A = matematyczny (0=prawo, przeciwnie do zegara), V = pion (+ w górę).' },
+            'krawędźL': { sig: 'krawędźL=<b>x;y</b>', desc: 'przypnij LEWY brzeg FOV do punktu — oś dolicza parser (zasięg = odległość, o ile nie podasz zasięg=).' },
+            'krawędźP': { sig: 'krawędźP=<b>x;y</b>', desc: 'przypnij PRAWY brzeg FOV do punktu — oś dolicza parser (zasięg = odległość, o ile nie podasz zasięg=).' },
+            'ogniskowa': { sig: 'ogniskowa=<b>mm</b>', desc: 'kąt z optyki: w parze z matryca= liczy FOV = 2·atan(wymiar/(2·f)). Bez matryca= zakłada pełną klatkę 36×24.' },
+            'matryca': { sig: 'matryca=<b>W[;H]</b>', desc: 'wymiary matrycy w mm (szer.;wys.) do trybu „z ogniskowej". Alias: sensor, przetwornik.' },
             'kąt':      { sig: 'kąt=<b>H[;V]</b>', desc: 'H = poziomy FOV, V = pionowy (skrót zamiast kątZ).' },
             'kątxy':    { sig: 'kątXY=<b>H</b>', desc: 'poziomy FOV (płaszczyzna XY).' },
             'kątz':     { sig: 'kątZ=<b>V</b>', desc: 'pionowy FOV (oś Z) — potrzebny do rzutu na ziemię.' },
@@ -4441,6 +4448,8 @@
                 var oz = posNum(2) != null ? Math.abs(parseGraphNumber(posC[2], 0)) : 0;
                 var fov = posNum(3) != null ? Math.abs(parseGraphNumber(posC[3], 90)) : 90;
                 var range = posNum(4) != null ? Math.abs(parseGraphNumber(posC[4], 10)) : 10;
+                var fovExplicit = posNum(3) != null;   // czy kąt poziomy podano jawnie (blokuje wyliczenie z ogniskowej)
+                var rangeExplicit = posNum(4) != null; // czy zasięg podano jawnie (inaczej można go wziąć z krawędzi)
                 var label = '', markDists = [];
                 var dirRad = 0, dirMode = 'kierunek', dirValue = 0, targetTxt = null;
                 var targetX = null, targetY = null; // punkt celu (do narysowania znacznika „cel")
@@ -4448,6 +4457,8 @@
                 var tilt = null, tiltMode = 'brak'; // pochylenie osi w dół (°), jawne lub z celu
                 var dirTilt = null;           // pion z azymut=A,V / kierunek=A,V (down-positive po przeliczeniu z elewacji)
                 var targetZ = 0, targetHorizDist = null; // do auto-pochylenia z celu
+                var edgeX = null, edgeY = null, edgeSide = null; // krawędźL=/krawędźP= — przypnij jeden brzeg FOV do punktu
+                var focal = 0, sensorW = 0, sensorH = 0;         // tryb „z ogniskowej": kąt z ogniskowej (mm) i matrycy (mm)
                 parts.slice(1).forEach(function(p) {
                     var pl = p.toLowerCase();
                     var val = p.split('=').slice(1).join('=').trim();
@@ -4456,7 +4467,7 @@
                     } else if (/^(k[aą]t|kat|k[aą]txy|katxy|k[aą]t_poziomy|kat_poziomy|k[aą]t_poz|kat_poz|fov|hfov|fov_h|angle)=/.test(pl)) {
                         // kąt=H lub kąt=H;V — H = kąt poziomy, V (opcjonalnie) = kąt pionowy (jak kątZ=)
                         var kc = splitVals(val);
-                        fov = Math.abs(parseGraphNumber(kc[0], 90));
+                        fov = Math.abs(parseGraphNumber(kc[0], 90)); fovExplicit = true;
                         if (kc[1] != null && kc[1] !== '') fovV = Math.abs(parseGraphNumber(kc[1], 0));
                     } else if (/^(pochy[lł]|pochylenie|tilt|sp[aą]d|wd[oó][lł])=/.test(pl)) {
                         tilt = parseGraphNumber(val, 0); tiltMode = 'jawny';
@@ -4466,7 +4477,23 @@
                         // na=5 lub na=5;10;15 — jedna lub wiele poprzecznych linii granic FOV.
                         splitVals(val).forEach(function(d) { var n = Math.abs(parseGraphNumber(d, 0)); if (n > 0) markDists.push(n); });
                     } else if (/^(zasi[eę]g|zasieg|range|d[lł]ugo[sś][cć]|r)=/.test(pl)) {
-                        range = Math.abs(parseGraphNumber(val, 10));
+                        range = Math.abs(parseGraphNumber(val, 10)); rangeExplicit = true;
+                    } else if (/^(ognisk\w*|focal|f_?mm|ogn)=/.test(pl)) {
+                        // ogniskowa= (mm) — w parze z matryca= policzymy kąt: 2·atan(wymiar/(2·f)).
+                        focal = Math.abs(parseGraphNumber(val, 0));
+                    } else if (/^(matryca|matrica|sensor|przetwornik|ccd|cmos)=/.test(pl)) {
+                        // matryca=W lub matryca=W;H — szerokość;wysokość matrycy w mm (do trybu „z ogniskowej").
+                        var mv = splitVals(val);
+                        sensorW = Math.abs(parseGraphNumber(mv[0], 0));
+                        if (mv[1] != null && mv[1] !== '') sensorH = Math.abs(parseGraphNumber(mv[1], 0));
+                    } else if (/^(kraw[eę]d[zź][_ ]?l|krawedzl|lewy|lewa|brzeg[_ ]?l|brzegl|rog[_ ]?l|rogl|edge[_ ]?l|left)=/.test(pl)) {
+                        // krawędźL=x;y — przypnij LEWY brzeg FOV do punktu (oś = brzeg − kąt/2).
+                        var el = splitVals(val);
+                        edgeX = parseGraphNumber(el[0], 0); edgeY = parseGraphNumber(el[1] || '0', 0); edgeSide = 'L';
+                    } else if (/^(kraw[eę]d[zź][_ ]?p|krawedzp|prawy|prawa|brzeg[_ ]?p|brzegp|rog[_ ]?p|rogp|edge[_ ]?r|right)=/.test(pl)) {
+                        // krawędźP=x;y — przypnij PRAWY brzeg FOV do punktu (oś = brzeg + kąt/2).
+                        var er = splitVals(val);
+                        edgeX = parseGraphNumber(er[0], 0); edgeY = parseGraphNumber(er[1] || '0', 0); edgeSide = 'P';
                     } else if (/^(cel|target|patrz)=/.test(pl)) {
                         var c = splitVals(val);
                         var cx = parseGraphNumber(c[0], 0), cy = parseGraphNumber(c[1] || '0', 0);
@@ -4491,9 +4518,37 @@
                         label = val;
                     }
                 });
+
+                // Tryb „z ogniskowej": jeśli nie podano kąta jawnie, policz poziomy (i pionowy)
+                // FOV z ogniskowej i wymiarów matrycy: FOV = 2·atan(wymiar / (2·ogniskowa)).
+                // Bez matryca= zakładamy pełną klatkę 36×24 mm (i tak to sygnalizujemy w opisie).
+                var fovFromLens = false;
+                if (focal > 0 && !fovExplicit) {
+                    var haveSensor = sensorW > 0;
+                    var swMm = haveSensor ? sensorW : 36;
+                    var shMm = sensorH > 0 ? sensorH : (haveSensor ? 0 : 24);
+                    fov = 2 * Math.atan(swMm / (2 * focal)) * 180 / Math.PI;
+                    if (shMm > 0 && !(fovV > 0)) fovV = 2 * Math.atan(shMm / (2 * focal)) * 180 / Math.PI;
+                    fovFromLens = true;
+                }
+
                 if (!(fov > 0)) fov = 90;
                 if (fov > 360) fov = 360;
                 if (!(range > 0)) range = 10;
+
+                // krawędźL=/krawędźP= — przypnij jeden brzeg pola widzenia do punktu na canvasie.
+                // Brzeg leży pod kątem atan2(Δy,Δx); oś środkowa = brzeg ∓ kąt/2 (L: −, P: +),
+                // bo cone rozpina się symetrycznie ±kąt/2 wokół osi (CCW dodatnio). Zasięg —
+                // o ile nie podany jawnie — bierzemy jako odległość kamery do tego punktu.
+                if (edgeSide && edgeX != null) {
+                    var halfFovR = (fov * Math.PI / 180) / 2;
+                    var edgeAng = Math.atan2(edgeY - oy, edgeX - ox);
+                    dirRad = edgeSide === 'L' ? edgeAng - halfFovR : edgeAng + halfFovR;
+                    dirMode = 'krawędź';
+                    dirValue = ((dirRad * 180 / Math.PI) % 360 + 360) % 360; // kierunek matematyczny osi (0=prawo, CCW)
+                    if (!rangeExplicit) { var edgeDist = Math.hypot(edgeX - ox, edgeY - oy); if (edgeDist > 1e-9) range = edgeDist; }
+                    targetX = edgeX; targetY = edgeY; // marker w przypiętym punkcie (rysowany jak „cel")
+                }
 
                 // Pochylenie osi w pionie: jawne `pochył` ma pierwszeństwo; w przeciwnym razie
                 // policz je z celu na ziemi (kamera nad celem) — θ = atan(Δh / dystans poziomy).
@@ -4528,8 +4583,8 @@
                     var aTop = theta * Math.PI / 180 - fovVr / 2;    // najpłytszy promień (daleki brzeg)
                     var dNear = aBottom >= Math.PI / 2 ? 0 : oz / Math.tan(aBottom);
                     if (!(dNear >= 0) || !isFinite(dNear)) dNear = 0;
-                    var dFar, farClamped = false;
-                    if (aTop <= 1e-6) { dFar = range; farClamped = true; }      // brzeg po horyzont
+                    var dFar, farClamped = false, farHorizon = false;
+                    if (aTop <= 1e-6) { dFar = range; farClamped = true; farHorizon = true; } // górny promień ≥ poziom → brzeg po horyzont (cięty zasięgiem)
                     else {
                         dFar = oz / Math.tan(aTop);
                         if (dFar > range) { dFar = range; farClamped = true; }    // ucięte do zasięgu sensora
@@ -4581,14 +4636,15 @@
                     var poly = [nA, nB].concat(farEdge.slice().reverse()), area2 = 0;
                     for (var qi = 0; qi < poly.length; qi++) { var q1 = poly[qi], q2 = poly[(qi + 1) % poly.length]; area2 += q1.x * q2.y - q2.x * q1.y; }
 
-                    footprint = { dNear: dNear, dFar: dFar, farClamped: farClamped,
+                    footprint = { dNear: dNear, dFar: dFar, farClamped: farClamped, farHorizon: farHorizon,
                                   nA: nA, nB: nB, fA: fA, fB: fB, farEdge: farEdge, farArc: farArc, range: range,
                                   nearWidth: nearWidth, farWidth: farWidth, area: Math.abs(area2) / 2 };
                 }
 
                 return { type: 'widok', ox: ox, oy: oy, fov: fov, range: range, dir: dirRad,
                          dirMode: dirMode, dirValue: dirValue, targetTxt: targetTxt, label: label, markDists: markDists,
-                         targetX: targetX, targetY: targetY,
+                         targetX: targetX, targetY: targetY, edgeSide: edgeSide,
+                         fovFromLens: fovFromLens, focal: focal, sensorW: sensorW, sensorH: sensorH,
                          oz: oz, fovV: fovV, tilt: theta, tiltMode: tiltMode, targetZ: targetZ,
                          footprint: footprint, groundVanished: groundVanished };
             }
@@ -4683,9 +4739,15 @@
             var dirTxt;
             if (geo.dirMode === 'cel') dirTxt = 'cel (' + geo.targetTxt + ')';
             else if (geo.dirMode === 'azymut') dirTxt = 'azymut ' + formatNum(geo.dirValue) + '°';
+            else if (geo.dirMode === 'krawędź') dirTxt = 'brzeg ' + (geo.edgeSide === 'L' ? 'lewy' : 'prawy')
+                + ' (' + formatNum(geo.targetX) + ', ' + formatNum(geo.targetY) + ') → oś ' + formatNum(geo.dirValue) + '°';
             else dirTxt = 'kierunek ' + formatNum(geo.dirValue) + '°';
             var lines = [];
-            lines.push('📷 Pole widzenia (poziom) ' + formatNum(geo.fov) + '° → ' + dirTxt);
+            var fovTxt = formatNum(geo.fov) + '°';
+            if (geo.fovFromLens) fovTxt += ' (z ogniskowej ' + formatNum(geo.focal) + ' mm'
+                + (geo.sensorW > 0 ? ', matryca ' + formatNum(geo.sensorW) + (geo.sensorH > 0 ? '×' + formatNum(geo.sensorH) : '') + ' mm' : ', pełna klatka 36×24 mm')
+                + ')';
+            lines.push('📷 Pole widzenia (poziom) ' + fovTxt + ' → ' + dirTxt);
             var mountTxt = 'Montaż: (' + formatNum(geo.ox) + ', ' + formatNum(geo.oy) + ')';
             if (geo.oz > 0) mountTxt += ' na wys. ' + formatNum(geo.oz);
             mountTxt += ', zasięg ' + formatNum(geo.range);
@@ -4714,7 +4776,7 @@
                 var pochSrc = geo.tiltMode === 'cel' ? ' (z celu)' : '';
                 lines.push('Oś pionowo: ' + vAimTxt(geo.tilt) + pochSrc + ', pionowy FOV ' + formatNum(geo.fovV) + '°');
                 lines.push('Pokrycie na ziemi: od ' + formatNum(f.dNear) + ' do ' + formatNum(f.dFar)
-                    + (f.farClamped ? ' (ucięte do zasięgu)' : '') + ' — głębokość ' + formatNum(f.dFar - f.dNear));
+                    + (f.farClamped ? (f.farHorizon ? ' (do horyzontu, ucięte zasięgiem)' : ' (ucięte do zasięgu)') : '') + ' — głębokość ' + formatNum(f.dFar - f.dNear));
                 if (f.dNear > 0) lines.push('Martwa strefa pod kamerą: 0 – ' + formatNum(f.dNear));
                 lines.push('Szerokość pokrycia: bliski brzeg ' + formatNum(f.nearWidth)
                     + ', daleki brzeg ' + formatNum(f.farWidth) + (f.farArc ? ' (łuk zasięgu)' : ''));
@@ -5127,9 +5189,11 @@
                         ctx.beginPath(); ctx.arc(tp.x, tp.y, 5, 0, Math.PI * 2);
                         ctx.fillStyle = color; ctx.fill();
                         ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5; ctx.stroke();
-                        var celTxt = 'cel (' + formatNum(geo.targetX) + ', ' + formatNum(geo.targetY)
-                            + (geo.targetZ ? ', ' + formatNum(geo.targetZ) : '') + ')';
-                        // Cel — drugorzędny (anty-kolizja, znika przy tłoku, wraca przy zoomie).
+                        var celTxt = (geo.dirMode === 'krawędź')
+                            ? ('brzeg ' + (geo.edgeSide === 'L' ? 'L' : 'P') + ' (' + formatNum(geo.targetX) + ', ' + formatNum(geo.targetY) + ')')
+                            : ('cel (' + formatNum(geo.targetX) + ', ' + formatNum(geo.targetY)
+                                + (geo.targetZ ? ', ' + formatNum(geo.targetZ) : '') + ')');
+                        // Cel/brzeg — drugorzędny (anty-kolizja, znika przy tłoku, wraca przy zoomie).
                         drawSmartLabel(ctx, celTxt, tp.x, tp.y, { font: lblFont('600', 10), fill: color, bg: GRAPH_LABEL_PLATE, anchorR: 5, gap: 4, key: 'cel' + item.si });
                     }
                 }
@@ -8354,6 +8418,47 @@
                 return { name: 'F: bez wysokości → płaski wycinek (footprint null)',
                     pass: g.footprint == null && near(g.oz, 0) && !g.groundVanished,
                     got: 'oz=' + g.oz + ' footprint=' + (g.footprint ? 'jest' : 'null') };
+            });
+
+            // G) krawędźP — przypięcie PRAWEGO brzegu w (10;0) przy kąt=90: oś = brzeg + 45° = 45°,
+            //    zasięg = odległość do punktu = 10 (bo zasięg= nie podany).
+            T.push(function() {
+                var g = geoOf('kamera=0;0 ,, kąt=90 ,, krawędźP=10;0');
+                var degDir = ((g.dir * 180 / Math.PI) % 360 + 360) % 360;
+                return { name: 'G: krawędźP=10;0 @kąt90 → oś 45°, zasięg 10',
+                    pass: g.dirMode === 'krawędź' && g.edgeSide === 'P' && near(degDir, 45, 1e-6) && near(g.range, 10, 1e-6),
+                    got: 'oś=' + degDir.toFixed(3) + '° zasięg=' + g.range.toFixed(3) + ' tryb=' + g.dirMode };
+            });
+
+            // H) krawędźL — LEWY brzeg w (0;10) przy kąt=90: oś = brzeg − 45° = 90 − 45 = 45°.
+            //    Ten sam stożek co w G (środek 45°, rozpięty 0…90°), tylko przypięty drugą krawędzią.
+            T.push(function() {
+                var g = geoOf('kamera=0;0 ,, kąt=90 ,, krawędźL=0;10');
+                var degDir = ((g.dir * 180 / Math.PI) % 360 + 360) % 360;
+                return { name: 'H: krawędźL=0;10 @kąt90 → oś 45°',
+                    pass: g.dirMode === 'krawędź' && g.edgeSide === 'L' && near(degDir, 45, 1e-6) && near(g.range, 10, 1e-6),
+                    got: 'oś=' + degDir.toFixed(3) + '° zasięg=' + g.range.toFixed(3) };
+            });
+
+            // I) „z ogniskowej": ogniskowa=50, matryca=36;24 → poziomy FOV = 2·atan(36/100),
+            //    pionowy FOV = 2·atan(24/100). Jawny zasięg ma zostać nietknięty przez tryb optyki.
+            T.push(function() {
+                var g = geoOf('kamera=0;0 ,, ogniskowa=50 ,, matryca=36;24 ,, zasięg=25');
+                var expH = 2 * Math.atan(36 / (2 * 50)) * 180 / Math.PI;
+                var expV = 2 * Math.atan(24 / (2 * 50)) * 180 / Math.PI;
+                return { name: 'I: kąt z ogniskowej 50 mm + matryca 36×24',
+                    pass: g.fovFromLens === true && near(g.fov, expH, 1e-4) && near(g.fovV, expV, 1e-4) && near(g.range, 25, 1e-9),
+                    got: 'fov=' + g.fov.toFixed(3) + ' (oczek. ' + expH.toFixed(3) + ') fovV=' + g.fovV.toFixed(3) };
+            });
+
+            // J) Etykieta „do horyzontu": górny promień kadru ≥ poziom (pochył 10° < pionowy FOV/2 = 15°)
+            //    → daleki brzeg sięga horyzontu i jest ucięty zasięgiem (farHorizon).
+            T.push(function() {
+                var g = geoOf('kamera=0;0;10 ,, kierunek=0 ,, kąt=60;30 ,, pochył=10 ,, zasięg=100');
+                var f = g.footprint;
+                return { name: 'J: daleki brzeg do horyzontu (farHorizon)',
+                    pass: !!f && f.farHorizon === true && f.farClamped === true && near(f.dFar, 100, 1e-6) && !g.groundVanished,
+                    got: f ? 'farHorizon=' + f.farHorizon + ' dFar=' + f.dFar.toFixed(3) : 'brak footprint' };
             });
 
             return T.map(function(fn) {
