@@ -3315,8 +3315,8 @@
             fov: 'kąt', fov_h: 'kąt', angle: 'kąt',
             range: 'zasięg', zasieg: 'zasięg', tilt: 'pochył', pochyl: 'pochył', pochylenie: 'pochył', spad: 'pochył', 'spąd': 'pochył',
             wys: 'z', wysokosc: 'z', 'wysokość': 'z', h: 'z', target: 'cel', patrz: 'cel', bearing: 'azymut', kompas: 'azymut', dir: 'kierunek', kat_kier: 'kierunek',
-            krawedzl: 'krawędźL', lewy: 'krawędźL', lewa: 'krawędźL', brzegl: 'krawędźL', rogl: 'krawędźL', left: 'krawędźL',
-            krawedzp: 'krawędźP', prawy: 'krawędźP', prawa: 'krawędźP', brzegp: 'krawędźP', rogp: 'krawędźP', right: 'krawędźP',
+            krawedzl: 'krawędźL', 'krawędźl': 'krawędźL', lewy: 'krawędźL', lewa: 'krawędźL', brzegl: 'krawędźL', rogl: 'krawędźL', left: 'krawędźL', edgel: 'krawędźL',
+            krawedzp: 'krawędźP', 'krawędźp': 'krawędźP', prawy: 'krawędźP', prawa: 'krawędźP', brzegp: 'krawędźP', rogp: 'krawędźP', right: 'krawędźP', edger: 'krawędźP',
             ognisk: 'ogniskowa', ogn: 'ogniskowa', focal: 'ogniskowa', matrica: 'matryca', sensor: 'matryca', przetwornik: 'matryca', ccd: 'matryca', cmos: 'matryca',
             opis: 'label', nazwa: 'label', step: 'co', krok: 'co', every: 'co', odstep: 'co', co_x: 'co', margin: 'm', margines: 'm',
             przy: 'na', odl: 'na', dystans: 'na',
@@ -3328,8 +3328,8 @@
             'cel':      { sig: 'cel=<b>x;y[;z]</b>', desc: 'wyceluj kamerę w punkt; z = wysokość celu.' },
             'azymut':   { sig: 'azymut=<b>A[;V]</b>', desc: 'A = kompas (0=płn., zgodnie z zegarem), V = pion (+ w górę).' },
             'kierunek': { sig: 'kierunek=<b>A[;V]</b>', desc: 'A = matematyczny (0=prawo, przeciwnie do zegara), V = pion (+ w górę).' },
-            'krawędźL': { sig: 'krawędźL=<b>x;y</b>', desc: 'przypnij LEWY brzeg FOV do punktu — oś dolicza parser (zasięg = odległość, o ile nie podasz zasięg=).' },
-            'krawędźP': { sig: 'krawędźP=<b>x;y</b>', desc: 'przypnij PRAWY brzeg FOV do punktu — oś dolicza parser (zasięg = odległość, o ile nie podasz zasięg=).' },
+            'krawędźL': { sig: 'krawędźL=<b>x;y</b>', desc: 'przypnij LEWY brzeg FOV do punktu (alias edgeL). Płasko: dolicza oś. Z z= i kąt=H;V: traktuje punkt jak bliski narożnik na ziemi i wylicza azymut, pochył ORAZ cel= (pokazany na rysunku).' },
+            'krawędźP': { sig: 'krawędźP=<b>x;y</b>', desc: 'przypnij PRAWY brzeg FOV do punktu (alias edgeR). Płasko: dolicza oś. Z z= i kąt=H;V: traktuje punkt jak bliski narożnik na ziemi i wylicza azymut, pochył ORAZ cel= (pokazany na rysunku).' },
             'ogniskowa': { sig: 'ogniskowa=<b>mm</b>', desc: 'kąt z optyki: w parze z matryca= liczy FOV = 2·atan(wymiar/(2·f)). Bez matryca= zakłada pełną klatkę 36×24.' },
             'matryca': { sig: 'matryca=<b>W[;H]</b>', desc: 'wymiary matrycy w mm (szer.;wys.) do trybu „z ogniskowej". Alias: sensor, przetwornik.' },
             'kąt':      { sig: 'kąt=<b>H[;V]</b>', desc: 'H = poziomy FOV, V = pionowy (skrót zamiast kątZ).' },
@@ -4458,6 +4458,7 @@
                 var dirTilt = null;           // pion z azymut=A,V / kierunek=A,V (down-positive po przeliczeniu z elewacji)
                 var targetZ = 0, targetHorizDist = null; // do auto-pochylenia z celu
                 var edgeX = null, edgeY = null, edgeSide = null; // krawędźL=/krawędźP= — przypnij jeden brzeg FOV do punktu
+                var edgeSolvedTilt = null, edgeCelX = null, edgeCelY = null; // tryb 3D: rozwiązany pochył + wyliczony cel osi na ziemi
                 var focal = 0, sensorW = 0, sensorH = 0;         // tryb „z ogniskowej": kąt z ogniskowej (mm) i matrycy (mm)
                 parts.slice(1).forEach(function(p) {
                     var pl = p.toLowerCase();
@@ -4537,17 +4538,38 @@
                 if (!(range > 0)) range = 10;
 
                 // krawędźL=/krawędźP= — przypnij jeden brzeg pola widzenia do punktu na canvasie.
-                // Brzeg leży pod kątem atan2(Δy,Δx); oś środkowa = brzeg ∓ kąt/2 (L: −, P: +),
-                // bo cone rozpina się symetrycznie ±kąt/2 wokół osi (CCW dodatnio). Zasięg —
-                // o ile nie podany jawnie — bierzemy jako odległość kamery do tego punktu.
+                // DWA tryby:
+                //  • płaski (z=0 lub brak pionowego FOV): brzeg = azymut poziomy; oś = brzeg ∓ kąt/2
+                //    (L: −, P: +, bo cone rozpina się symetrycznie ±kąt/2 wokół osi, CCW dodatnio).
+                //  • 3D (z>0 i pionowy FOV>0): punkt to realny BLISKI narożnik pokrycia na ziemi.
+                //    Mając wysokość h, poziomy H i pionowy V, rozwiązujemy azymut φ i pochył θ
+                //    tak, by promień narożnika (sh=±1, sv=−1=dół) trafił dokładnie w ten punkt
+                //    (2 równania = x,y; 2 niewiadome = φ,θ). Z orientacji liczymy CEL (oś na ziemi).
+                // Strona: krawędźL = +uH (CCW, sh=+1), krawędźP = −uH (CW, sh=−1) — spójnie z płaskim.
                 if (edgeSide && edgeX != null) {
-                    var halfFovR = (fov * Math.PI / 180) / 2;
-                    var edgeAng = Math.atan2(edgeY - oy, edgeX - ox);
-                    dirRad = edgeSide === 'L' ? edgeAng - halfFovR : edgeAng + halfFovR;
+                    var sh3d = edgeSide === 'L' ? 1 : -1;
+                    var pose = (oz > 0 && fovV > 0) ? solveEdgePose(ox, oy, oz, fov, fovV, edgeX, edgeY, sh3d) : null;
                     dirMode = 'krawędź';
-                    dirValue = ((dirRad * 180 / Math.PI) % 360 + 360) % 360; // kierunek matematyczny osi (0=prawo, CCW)
-                    if (!rangeExplicit) { var edgeDist = Math.hypot(edgeX - ox, edgeY - oy); if (edgeDist > 1e-9) range = edgeDist; }
-                    targetX = edgeX; targetY = edgeY; // marker w przypiętym punkcie (rysowany jak „cel")
+                    if (pose) {
+                        dirRad = pose.phi;
+                        dirValue = ((dirRad * 180 / Math.PI) % 360 + 360) % 360;
+                        edgeSolvedTilt = pose.th * 180 / Math.PI; // pochył (w dół dodatni), °
+                        if (pose.th > 1e-6) { // oś patrzy w dół → trafia w ziemię = wyliczony cel
+                            edgeCelX = ox + oz * Math.cos(pose.phi) / Math.tan(pose.th);
+                            edgeCelY = oy + oz * Math.sin(pose.phi) / Math.tan(pose.th);
+                        }
+                        if (!rangeExplicit) { // domyślny zasięg tak, by footprint (do celu) był widoczny
+                            var dCel = edgeCelX != null ? Math.hypot(edgeCelX - ox, edgeCelY - oy) : Math.hypot(edgeX - ox, edgeY - oy);
+                            if (dCel > 1e-9) range = dCel * 1.4;
+                        }
+                    } else { // płaski: azymut z brzegu, oś = brzeg ∓ kąt/2
+                        var halfFovR = (fov * Math.PI / 180) / 2;
+                        var edgeAng = Math.atan2(edgeY - oy, edgeX - ox);
+                        dirRad = edgeSide === 'L' ? edgeAng - halfFovR : edgeAng + halfFovR;
+                        dirValue = ((dirRad * 180 / Math.PI) % 360 + 360) % 360;
+                        if (!rangeExplicit) { var edgeDist = Math.hypot(edgeX - ox, edgeY - oy); if (edgeDist > 1e-9) range = edgeDist; }
+                    }
+                    targetX = edgeX; targetY = edgeY; // marker w przypiętym brzegu (rysowany jak „cel", podpis „brzeg L/P")
                 }
 
                 // Pochylenie osi w pionie: jawne `pochył` ma pierwszeństwo; w przeciwnym razie
@@ -4558,6 +4580,8 @@
                     theta = tilt;
                 } else if (dirTilt != null) {
                     theta = dirTilt; tiltMode = 'jawny';
+                } else if (edgeSolvedTilt != null) {
+                    theta = edgeSolvedTilt; tiltMode = 'krawędź'; // pochył rozwiązany z przypiętego narożnika
                 } else if (oz > 0 && targetHorizDist != null && targetHorizDist > 1e-9) {
                     theta = Math.atan2(oz - targetZ, targetHorizDist) * 180 / Math.PI;
                     tiltMode = 'cel';
@@ -4644,6 +4668,7 @@
                 return { type: 'widok', ox: ox, oy: oy, fov: fov, range: range, dir: dirRad,
                          dirMode: dirMode, dirValue: dirValue, targetTxt: targetTxt, label: label, markDists: markDists,
                          targetX: targetX, targetY: targetY, edgeSide: edgeSide,
+                         celCalcX: edgeCelX, celCalcY: edgeCelY, // wyliczony cel osi (3D edge) — TYLKO do rysunku/opisu
                          fovFromLens: fovFromLens, focal: focal, sensorW: sensorW, sensorH: sensorH,
                          oz: oz, fovV: fovV, tilt: theta, tiltMode: tiltMode, targetZ: targetZ,
                          footprint: footprint, groundVanished: groundVanished };
@@ -4733,6 +4758,53 @@
             return lines.join('\n');
         }
 
+        // [EN] Rozwiązuje orientację kamery (azymut φ, pochył θ) tak, by BLISKI narożnik kadru
+        // (poziomy znak sh, pionowy sv=−1 = dół) trafił dokładnie w punkt na ziemi (ex,ey).
+        // Mając wysokość h oraz poziomy/pionowy FOV (fov,fovV) to 2 równania (x,y) na 2 niewiadome.
+        // Newton 2D z numerycznym Jakobianem. Zwraca null, gdy nie zbiega albo narożnik wypada
+        // nad horyzont (brak realnego rozwiązania — wtedy świadomie NIE udajemy wyniku).
+        // Wektory fwd/uH/vUp i znaki IDENTYCZNE jak w rzucie footprintu, więc rozwiązany narożnik
+        // pokrywa się 1:1 z rysowanym narożnikiem pokrycia.
+        function solveEdgePose(ox, oy, h, fov, fovV, ex, ey, sh) {
+            var bh = fov * Math.PI / 360, bv = fovV * Math.PI / 360;
+            var tex = ex - ox, tey = ey - oy;
+            function cornerGround(phi, th) {
+                var cph = Math.cos(phi), sph = Math.sin(phi), cth = Math.cos(th), sth = Math.sin(th);
+                var fwd = [cph * cth, sph * cth, -sth];
+                var uH = [-sph, cph, 0];
+                var vUp = [fwd[1] * uH[2] - fwd[2] * uH[1], fwd[2] * uH[0] - fwd[0] * uH[2], fwd[0] * uH[1] - fwd[1] * uH[0]];
+                var d0 = fwd[0] + Math.tan(bh) * sh * uH[0] - Math.tan(bv) * vUp[0]; // sv = −1 (dolny narożnik)
+                var d1 = fwd[1] + Math.tan(bh) * sh * uH[1] - Math.tan(bv) * vUp[1];
+                var d2 = fwd[2] + Math.tan(bh) * sh * uH[2] - Math.tan(bv) * vUp[2];
+                if (d2 >= -1e-9) return null;              // promień nad horyzontem — nie dotyka ziemi
+                var t = h / (-d2);
+                return [t * d0, t * d1];
+            }
+            var horiz = Math.hypot(tex, tey) || 1e-6;
+            var phi = Math.atan2(tey, tex);               // start: oś mniej-więcej ku punktowi
+            var th = Math.atan2(h, horiz);
+            for (var it = 0; it < 80; it++) {
+                var g = cornerGround(phi, th);
+                if (!g) { th += 0.05; if (th > Math.PI / 2 - 1e-4) th = Math.PI / 2 - 1e-4; continue; }
+                var rx = g[0] - tex, ry = g[1] - tey;
+                if (Math.abs(rx) < 1e-10 && Math.abs(ry) < 1e-10) break;
+                var eps = 1e-6;
+                var gp = cornerGround(phi + eps, th), gt = cornerGround(phi, th + eps);
+                if (!gp || !gt) { th -= 0.02; continue; }
+                var j00 = (gp[0] - g[0]) / eps, j01 = (gt[0] - g[0]) / eps;
+                var j10 = (gp[1] - g[1]) / eps, j11 = (gt[1] - g[1]) / eps;
+                var det = j00 * j11 - j01 * j10;
+                if (Math.abs(det) < 1e-14) break;
+                phi -= (j11 * rx - j01 * ry) / det;
+                th -= (-j10 * rx + j00 * ry) / det;
+                if (th > Math.PI / 2 - 1e-4) th = Math.PI / 2 - 1e-4;
+                if (th < -Math.PI / 2 + 1e-4) th = -Math.PI / 2 + 1e-4;
+            }
+            var gF = cornerGround(phi, th);
+            if (!gF || Math.hypot(gF[0] - tex, gF[1] - tey) > 1e-3) return null;
+            return { phi: phi, th: th };
+        }
+
         // [EN] Opis pola widzenia (stożka/wycinka) — kąt, kierunek, szerokość pokrycia, pole, łuk.
         function describeFov(geo) {
             var rad = geo.fov * Math.PI / 180;
@@ -4752,6 +4824,9 @@
             if (geo.oz > 0) mountTxt += ' na wys. ' + formatNum(geo.oz);
             mountTxt += ', zasięg ' + formatNum(geo.range);
             lines.push(mountTxt);
+            // Tryb krawędź 3D: parser rozwiązał orientację z przypiętego narożnika → pokaż wyliczony cel.
+            if (geo.dirMode === 'krawędź' && geo.celCalcX != null)
+                lines.push('🎯 Wyliczony cel (oś na ziemi): (' + formatNum(geo.celCalcX) + ', ' + formatNum(geo.celCalcY) + ')');
 
             // Pionowy opis osi (tilt jest down-positive → tekst góra/dół).
             function vAimTxt(tiltDown) {
@@ -5195,6 +5270,17 @@
                                 + (geo.targetZ ? ', ' + formatNum(geo.targetZ) : '') + ')');
                         // Cel/brzeg — drugorzędny (anty-kolizja, znika przy tłoku, wraca przy zoomie).
                         drawSmartLabel(ctx, celTxt, tp.x, tp.y, { font: lblFont('600', 10), fill: color, bg: GRAPH_LABEL_PLATE, anchorR: 5, gap: 4, key: 'cel' + item.si });
+                    }
+
+                    // Wyliczony CEL osi (tryb krawędź 3D) — kropka + współrzędne, dokładnie jak gdy
+                    // cel= podano w komendzie. Liczony przez parser z orientacji, NIE wpisywany do pola.
+                    if (geo.celCalcX != null && geo.celCalcY != null) {
+                        var cp = graphToScreen(geo.celCalcX, geo.celCalcY, bounds, w, h, pad);
+                        ctx.beginPath(); ctx.arc(cp.x, cp.y, 5, 0, Math.PI * 2);
+                        ctx.fillStyle = color; ctx.fill();
+                        ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5; ctx.stroke();
+                        drawSmartLabel(ctx, 'cel (' + formatNum(geo.celCalcX) + ', ' + formatNum(geo.celCalcY) + ')',
+                            cp.x, cp.y, { font: lblFont('600', 10), fill: color, bg: GRAPH_LABEL_PLATE, anchorR: 5, gap: 4, key: 'celc' + item.si });
                     }
                 }
 
@@ -8459,6 +8545,25 @@
                 return { name: 'J: daleki brzeg do horyzontu (farHorizon)',
                     pass: !!f && f.farHorizon === true && f.farClamped === true && near(f.dFar, 100, 1e-6) && !g.groundVanished,
                     got: f ? 'farHorizon=' + f.farHorizon + ' dFar=' + f.dFar.toFixed(3) : 'brak footprint' };
+            });
+
+            // K) Tryb krawędź 3D (round-trip): bierzemy znaną pozę (azymut 0°, pochył 30°), czytamy
+            //    jej BLISKI-LEWY narożnik na ziemi, podajemy go jako krawędźL — solver MUSI odzyskać
+            //    pochył 30°, oś 0° i wyliczyć cel = trafienie osi w ziemię = 10/tan(30°) = 17,3205.
+            T.push(function() {
+                var pl = function(n) { return n.toFixed(5).replace('.', ','); };
+                var base = geoOf('kamera=0;0;10 ,, kierunek=0 ,, kąt=60;40 ,, pochył=30 ,, zasięg=300');
+                if (!base.footprint) return { name: 'K: 3D edge round-trip', pass: false, got: 'brak base footprint' };
+                var nb = base.footprint.nB; // bliski-lewy narożnik (sh=+1)
+                var g = geoOf('kamera=0;0;10 ,, kąt=60;40 ,, krawędźL=' + pl(nb.x) + ';' + pl(nb.y));
+                var degDir = ((g.dir * 180 / Math.PI) % 360 + 360) % 360;
+                var dDir = Math.min(degDir, 360 - degDir); // odległość kątowa od 0°
+                var celExp = 10 / Math.tan(30 * Math.PI / 180);
+                var celOK = g.celCalcX != null && near(g.celCalcX, celExp, 1e-2) && near(g.celCalcY, 0, 1e-2);
+                return { name: 'K: krawędźL 3D odzyskuje pochył/azymut/cel z narożnika',
+                    pass: g.dirMode === 'krawędź' && g.tilt != null && near(g.tilt, 30, 1e-2) && near(dDir, 0, 1e-2) && celOK,
+                    got: 'tilt=' + (g.tilt == null ? 'null' : g.tilt.toFixed(3)) + ' oś=' + degDir.toFixed(3)
+                        + ' cel=(' + (g.celCalcX == null ? '—' : g.celCalcX.toFixed(3)) + ',' + (g.celCalcY == null ? '—' : g.celCalcY.toFixed(3)) + ')' };
             });
 
             return T.map(function(fn) {
