@@ -102,8 +102,12 @@
 
     // ── AUTODOBÓR czytelnej jednostki (opcja „Czytelnie" w ustawieniach) ─────────
     // Dla każdego wymiaru: drabinka „ładnych" jednostek (kanoniczne metryczne, bez aliasów).
-    // Wybieramy największą jednostkę, przy której |wartość| ≥ 1 (czyli np. 5 300 000 mm → 5,3 km,
-    // 1500 mm → 1,5 m, 500 mm → 50 cm). Brak drabinki / value 0 → pierwsza jednostka.
+    // Reguła „awansuj póki czytelnie": wspinamy się po drabince TAK DŁUGO, jak każda
+    // kolejna jednostka daje wartość |·| ≥ 1 ORAZ nadal czytelną (≤ 2 miejsca po przecinku).
+    // Pierwszy „brzydki" szczebel (≥ 3 cyfry po przecinku, np. 1008 m → 1,008 km) ZATRZYMUJE
+    // awans i zostajemy na poprzednim, czytelnym szczeblu (1008 m). Dzięki temu:
+    //   5 300 000 mm → 5,3 km, 1500 mm → 1,5 m, 500 mm → 50 cm,  ale  1 008 000 mm → 1008 m
+    //   (a nie mylące „1,008 km", które wygląda jak 1008 km). Brak drabinki / value 0 → pierwszy.
     var NICE_UNITS = {
         length: ['mm', 'cm', 'm', 'km'],
         mass: ['mg', 'g', 'kg', 't'],
@@ -114,6 +118,12 @@
         speed: ['m/s', 'km/h'],
         angle: ['deg']
     };
+    // „Czytelna" wartość = bez nadmiaru cyfr po przecinku (≤ 2). Awans na większą jednostkę,
+    // który robi z liczby coś z 3+ miejscami (1008 m → 1,008 km), uznajemy za nieczytelny.
+    function isCleanDisplay(v) {
+        var r = Math.round(v * 100) / 100;
+        return Math.abs(v - r) <= Math.abs(v) * 1e-9 + 1e-12;
+    }
     function chooseUnit(dim, baseValue) {
         var ladder = NICE_UNITS[dim];
         if (!ladder || !ladder.length) return null;
@@ -123,7 +133,10 @@
         for (var i = 0; i < ladder.length; i++) {
             var info = unitInfo(ladder[i]);
             if (!info) continue;
-            if (abs / info.factor >= 1) best = ladder[i]; else break; // drabinka rośnie → przerwij gdy spadło < 1
+            var disp = abs / info.factor;
+            if (disp < 1) break;                 // drabinka rośnie → poniżej 1 nie awansujemy
+            if (i > 0 && !isCleanDisplay(disp)) break; // awans psułby czytelność → zostań niżej
+            best = ladder[i];
         }
         return best;
     }

@@ -891,12 +891,29 @@
             var mixed = false; // wykryto jednostki z różnych kategorii (np. kg + cm)
             var expr = raw;
 
+            // Wartość liczbową WSTRZYKIWANĄ z powrotem w wyrażenie zapisujemy ZAWSZE jako
+            // zwykły dziesiętny zapis (bez notacji wykładniczej). Inaczej np. „1 ha + 1 mm²"
+            // dałoby intermediat 1e-10 → „1e-10", a parser wyrażeń traktuje „e" jak stałą
+            // Eulera i liczyłby kompletny śmieć (1ha+1mm2 → 171828 zamiast 10000,000001).
+            function _plainNum(x) {
+                if (!isFinite(x)) return '0';
+                var s = String(x);
+                if (s.indexOf('e') === -1 && s.indexOf('E') === -1) return s;
+                var neg = x < 0, es = Math.abs(x).toExponential();
+                var m = es.match(/^(\d)(?:\.(\d+))?e([+-]\d+)$/);
+                if (!m) return s;
+                var digits = m[1] + (m[2] || ''), exp = parseInt(m[3], 10), pointPos = 1 + exp, out;
+                if (pointPos <= 0) out = '0.' + '0'.repeat(-pointPos) + digits;
+                else if (pointPos >= digits.length) out = digits + '0'.repeat(pointPos - digits.length);
+                else out = digits.slice(0, pointPos) + '.' + digits.slice(pointPos);
+                return (neg ? '-' : '') + out;
+            }
             function _emitUnit(numStr, factor, catName, base) {
                 if (workFactor == null) workFactor = factor; // pierwsza jednostka = robocza
                 cat = catName; baseUnit = base; hasUnits = true;
                 var n = parseFloat(String(numStr).replace(',', '.'));
-                totalBase += n * factor;                 // suma bazowa (dla „na" przy sumach)
-                return String(n * factor / workFactor);  // wartość w jednostce roboczej
+                totalBase += n * factor;                  // suma bazowa (dla „na" przy sumach)
+                return _plainNum(n * factor / workFactor); // wartość w jednostce roboczej (bez 1e-…)
             }
 
             // Notacja stóp (N') i cali (N") — zawsze długość
@@ -8481,6 +8498,40 @@
             var rBad = evalCalcExpression('36 km/h');
             results.push({ expr: "36 km/h @speed='kg' (ignoruje)", pass: rBad.unit === 'm/s' && Math.abs(rBad.value - 10) < 1e-9, got: rBad.value + ' ' + rBad.unit });
             STATE.settings.defaultUnits = savedDU;
+            // REGRESJE jednostek (2026-06-27):
+            //  1) Autodobór NIE awansuje do większej jednostki, gdy psuje to czytelność:
+            //     „108 m + 900 m" = 1008 m (NIE mylące „1,008 km" wyglądające jak 1008 km).
+            //  2) Sumy jednostek o dużym rozstępie skali nie wstrzykują notacji 1e-… do
+            //     wyrażenia (parser brał „e" za stałą Eulera): „1 ha + 1 mm²" = 10000,000001 m².
+            (function() {
+                var savedDU2 = STATE.settings.defaultUnits;
+                STATE.settings.defaultUnits = { length: '__auto__', mass: '__auto__', volume: '__auto__', area: '', data: '', time: '', speed: '' };
+                var autoCases = [
+                    { expr: '108m+900m', value: 1008, unit: 'm' },
+                    { expr: '999m+10m', value: 1009, unit: 'm' },
+                    { expr: '1000m', value: 1, unit: 'km' },
+                    { expr: '500m+600m', value: 1.1, unit: 'km' },
+                    { expr: '5km+300m', value: 5.3, unit: 'km' },
+                    { expr: '1008g', value: 1008, unit: 'g' },
+                ];
+                autoCases.forEach(function(t) {
+                    var r = evalCalcExpression(t.expr);
+                    results.push({ expr: t.expr + ' (autodobór czytelny)', pass: r.unit === t.unit && Math.abs(r.value - t.value) <= 1e-9, got: r.value + ' ' + r.unit });
+                });
+                STATE.settings.defaultUnits = { length: '', mass: '', volume: '', area: '', data: '', time: '', speed: '' };
+                var sciCases = [
+                    { expr: '1ha+1mm2', value: 10000.000001 },
+                    { expr: '1km+1mm', value: 1000001 },
+                    { expr: '1t+1mg', value: 1000000.001 },
+                    { expr: '1GB+1B', value: 1073741825 },
+                    { expr: '1000km+1mm', value: 1000000001 },
+                ];
+                sciCases.forEach(function(t) {
+                    var r = evalCalcExpression(t.expr);
+                    results.push({ expr: t.expr + ' (bez 1e-… → Euler)', pass: Math.abs(r.value - t.value) <= Math.max(1e-6, Math.abs(t.value) * 1e-9), got: r.value + ' ' + r.unit });
+                });
+                STATE.settings.defaultUnits = savedDU2;
+            })();
             // „ans"/„wynik" — z zapisem i odtworzeniem stanu, by nie zaśmiecić STATE.calc.ans
             var savedAns = STATE.calc.ans;
             STATE.calc.ans = null;

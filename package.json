@@ -2,13 +2,15 @@
   "name": "smart-kalkulator-pwa",
   "private": true,
   "scripts": {
-    "test": "node test/smoke-node.js",
+    "test": "npm run test:all",
+    "test:smoke": "node test/smoke-node.js",
     "test:prop": "node test/property.js",
     "test:qty": "node test/quantity.js",
     "test:units": "node test/engine-units.js",
+    "test:oracle": "node test/units-oracle.js",
     "test:baseline": "node test/baseline.js",
     "test:baseline:gen": "node test/baseline-gen.js",
-    "test:all": "node test/smoke-node.js && node test/property.js && node test/quantity.js && node test/engine-units.js && node test/baseline.js"
+    "test:all": "node test/smoke-node.js && node test/property.js && node test/quantity.js && node test/engine-units.js && node test/units-oracle.js && node test/baseline.js"
   },
   "devDependencies": {
     "fast-check": "^3.23.2"
