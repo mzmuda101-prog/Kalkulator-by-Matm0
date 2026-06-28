@@ -2724,6 +2724,7 @@
             }
             #panel-calculator .calc-tools {
                 flex: 0 0 auto;
+                padding-bottom: max(8px, var(--safe-bottom));
             }
         }
 

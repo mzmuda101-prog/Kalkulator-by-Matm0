@@ -1390,6 +1390,8 @@
                 if (!curRes.hasCurrency && unitResult.workFactor) value = value * unitResult.workFactor;
                 // Waluty: wynik policzony w walucie roboczej → skala do domyślnej (po vat/%).
                 if (curRes.hasCurrency && curRes.curMul && isFinite(value)) value = value * curRes.curMul;
+                // Waluty: zaokrąglij do 2 miejsc po przecinku (grosze).
+                if (curRes.hasCurrency && isFinite(value)) value = Math.round(value * 100) / 100;
                 // Wartość jest teraz BAZOWA. Jeśli resolveCalcUnits wskazał preferowaną jednostkę
                 // wyświetlania (ustawienia), przelicz wartość.
                 if (!curRes.hasCurrency && unitResult.displayFactor) value = value / unitResult.displayFactor;
