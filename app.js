@@ -541,9 +541,19 @@
             var h = appHeaderEl.getBoundingClientRect().height;
             if (h) document.documentElement.style.setProperty('--header-h', Math.round(h) + 'px');
         }
+        // Guard: zwijanie/rozwijanie belki reflowuje treść → odpala scroll-eventy, które
+        // BEZ tej blokady napędzały pętlę (belka „nie wie" czy się otworzyć czy zamknąć =
+        // shuttering przy stykowych pozycjach). Po zmianie stanu ignorujemy scroll na czas
+        // tranzycji (0.28s + bufor), żeby reflow nie przełączał belki z powrotem.
+        var _headerAnimating = false, _headerAnimTimer = 0;
         function setHeaderCollapsed(on) {
             if (_narrowMQ && !_narrowMQ.matches) on = false; // desktop: zawsze rozwinięty
-            document.body.classList.toggle('header-collapsed', !!on);
+            on = !!on;
+            if (document.body.classList.contains('header-collapsed') === on) return; // bez zmiany → nie ruszaj
+            document.body.classList.toggle('header-collapsed', on);
+            _headerAnimating = true;
+            clearTimeout(_headerAnimTimer);
+            _headerAnimTimer = setTimeout(function() { _headerAnimating = false; }, 360);
         }
         if (appHeaderEl) {
             measureHeaderH();
@@ -560,9 +570,14 @@
                 var _lastScrollY = 0;
                 panelsEl.addEventListener('scroll', function() {
                     if (_narrowMQ && !_narrowMQ.matches) return;
+                    if (_headerAnimating) return;      // pomiń reflow-scroll w trakcie tranzycji
                     var y = panelsEl.scrollTop;
-                    if (y > _lastScrollY + 6 && y > 40) setHeaderCollapsed(true);
-                    else if (y < _lastScrollY - 6) setHeaderCollapsed(false);
+                    var dy = y - _lastScrollY;
+                    // Histereza: zwiń dopiero po wyraźnym ruchu w dół poniżej progu; rozwiń tylko
+                    // przy ruchu w górę blisko szczytu — między progami jest martwa strefa, więc
+                    // drobny jitter na „stykowej" pozycji już nie przełącza belki.
+                    if (dy > 8 && y > 48) setHeaderCollapsed(true);
+                    else if (dy < -8) setHeaderCollapsed(false);
                     _lastScrollY = y;
                 }, { passive: true });
             }
@@ -8895,7 +8910,7 @@
             ];
             var unitCases = [
                 { expr: 'cena * 12',  value: 57.6, unit: 'zł' },   // 4,80 zł × 12 = 57,6 zł
-                { expr: 'cena na eur', value: 4.80 / 4.30, unit: 'EUR' }, // konwersja waluty
+                { expr: 'cena na eur', value: Math.round(4.80 / 4.30 * 100) / 100, unit: 'EUR' }, // konwersja waluty (grosze: 2 miejsca)
                 { expr: 'dł na m',    value: 1.2,  unit: 'm' },    // 120 cm = 1,2 m
                 { expr: 'sztuk * 12', value: 60,   unit: null },   // „szt" ignorowane → czysta liczba
             ];
@@ -9067,7 +9082,7 @@
             results.push({ expr: '12 zł + 20 eur', pass: Math.abs(evalCalcExpression('12 zł + 20 eur').value - 98) < 1e-9, got: evalCalcExpression('12 zł + 20 eur').value });
             results.push({ expr: '20 eur na zł', pass: Math.abs(evalCalcExpression('20 eur na zł').value - 86) < 1e-9, got: evalCalcExpression('20 eur na zł').value });
             var cUnit = evalCalcExpression('100 zł na eur');
-            results.push({ expr: '100 zł na eur (jednostka)', pass: cUnit.unit === 'EUR' && Math.abs(cUnit.value - 23.255813953) < 1e-6, got: cUnit.value + ' ' + cUnit.unit });
+            results.push({ expr: '100 zł na eur (jednostka)', pass: cUnit.unit === 'EUR' && Math.abs(cUnit.value - Math.round(100 / 4.30 * 100) / 100) < 1e-6, got: cUnit.value + ' ' + cUnit.unit });
             // Miks waluty z jednostką fizyczną — NIE liczymy na siłę (value i unit = null).
             ['12 gb - 12 zł', '12 zł + 5 kg', '12 zł / 2 kg'].forEach(function(ex) {
                 var r = evalCalcExpression(ex);
@@ -9075,12 +9090,12 @@
             });
             // Waluta KOMPONUJE się z finansami/procentami (waluta liczona PRZED parserem naturalnym).
             var compCases = [
-                { expr: '12pln - vat', value: 12 / 1.23, unit: 'zł' },     // VAT z kwoty walutowej (glued token)
+                { expr: '12pln - vat', value: Math.round(12 / 1.23 * 100) / 100, unit: 'zł' },     // VAT z kwoty walutowej (glued token)
                 { expr: 'brutto 12pln', value: 12 * 1.23, unit: 'zł' },    // brutto + glued token
                 { expr: 'brutto 12 zł', value: 12 * 1.23, unit: 'zł' },    // brutto + token ze spacją
                 { expr: 'netto 1230 zł', value: 1000, unit: 'zł' },        // netto na kwocie walutowej
                 { expr: '1000 zł + vat', value: 1000 * 1.23, unit: 'zł' }, // dodaj VAT do kwoty walutowej
-                { expr: '100 usd - vat', value: (100 * 3.95) / 1.23, unit: 'zł' }, // obca waluta: VAT po przeliczeniu na PLN
+                { expr: '100 usd - vat', value: Math.round((100 * 3.95) / 1.23 * 100) / 100, unit: 'zł' }, // obca waluta: VAT po przeliczeniu na PLN
                 { expr: '20% z 100 zł', value: 20, unit: 'zł' },           // procent z kwoty walutowej
                 { expr: 'połowa 100 zł', value: 50, unit: 'zł' },          // ułamek z kwoty walutowej
             ];
@@ -9093,7 +9108,7 @@
             });
             // Kurs krzyżowy (para bez PLN) — przez pivot PLN: 100 USD → EUR = 100*3,95/4,30.
             var cross = evalCalcExpression('100 usd na eur');
-            results.push({ expr: '100 usd na eur (cross)', pass: cross.unit === 'EUR' && Math.abs(cross.value - (100 * 3.95 / 4.30)) < 1e-6, got: cross.value + ' ' + cross.unit });
+            results.push({ expr: '100 usd na eur (cross)', pass: cross.unit === 'EUR' && Math.abs(cross.value - Math.round(100 * 3.95 / 4.30 * 100) / 100) < 1e-6, got: cross.value + ' ' + cross.unit });
             // Domyślna waluta — gołe sumy zwijają się do ustawionej waluty (nie PLN).
             var savedDef = STATE.settings.defaultCurrency;
             STATE.settings.defaultCurrency = 'EUR';

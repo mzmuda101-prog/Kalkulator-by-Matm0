@@ -89,9 +89,10 @@ const properties = [
     run: () => fc.assert(fc.property(posA, (a) =>
       approx(val(`${a} EUR na PLN`), a * FX.EUR)), { numRuns: NUM_RUNS }) },
 
-  { name: 'waluta: konwersja krzyżowa "a EUR na USD" == a*(EUR/USD)',
+  { name: 'waluta: konwersja krzyżowa "a EUR na USD" == round2(a*(EUR/USD))',
+    // Wyniki walutowe są zaokrąglane do groszy (2 miejsca) — model oczekiwany też.
     run: () => fc.assert(fc.property(posA, (a) =>
-      approx(val(`${a} EUR na USD`), a * (FX.EUR / FX.USD))), { numRuns: NUM_RUNS }) },
+      approx(val(`${a} EUR na USD`), Math.round(a * (FX.EUR / FX.USD) * 100) / 100)), { numRuns: NUM_RUNS }) },
 
   { name: 'waluta: konwersja na tę samą walutę jest tożsamością: "a EUR na EUR" == a',
     run: () => fc.assert(fc.property(posA, (a) =>

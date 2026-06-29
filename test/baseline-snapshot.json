@@ -621,7 +621,7 @@
   },
   {
     "expr": "100 zł na eur",
-    "value": 23.2558139534884,
+    "value": 23.26,
     "unit": "EUR",
     "text": null,
     "kind": "money",
@@ -631,7 +631,7 @@
   },
   {
     "expr": "100 usd na eur",
-    "value": 91.8604651162791,
+    "value": 91.86,
     "unit": "EUR",
     "text": null,
     "kind": "money",
@@ -651,11 +651,11 @@
   },
   {
     "expr": "12pln - vat",
-    "value": 9.75609756097561,
+    "value": 9.76,
     "unit": "zł",
     "text": null,
     "kind": "money",
-    "exact": false,
+    "exact": true,
     "big": false,
     "bigStr": null
   },
