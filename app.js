@@ -583,6 +583,41 @@
             }
         }
 
+        // [EN] Most bezpiecznego dołu (safe-area). env(safe-area-inset-bottom) bywa chwilowo 0
+        // zaraz po PROGRAMOWYM reloadzie (po „Odśwież" z banera aktualizacji) — zanim chrome PWA
+        // zaraportuje inserty. Skutek: dolne przyciski/obwódka kalkulatora minimalnie wchodzą pod
+        // belkę nawigacji, a wyjście+wejście do apki to naprawia (resize re-mierzy inset). Tu robimy
+        // to automatycznie: mierzymy realny inset SONDĄ i zapisujemy do --safe-bottom (inline na
+        // <html> wygrywa z :root env), re-mierząc po każdym sygnale ustabilizowania widoku oraz w
+        // kilku opóźnionych klatkach po starcie. Rotacja/klawiatura też trafiają (resize/vv/orient).
+        (function setupSafeBottomSync() {
+            var probe = document.createElement('div');
+            probe.setAttribute('aria-hidden', 'true');
+            probe.style.cssText = 'position:fixed;left:0;bottom:0;width:1px;' +
+                'height:env(safe-area-inset-bottom,0px);visibility:hidden;pointer-events:none;z-index:-1;';
+            document.body.appendChild(probe);
+            var _lastSB = -1;
+            function syncSafeBottom() {
+                var h = Math.round(probe.getBoundingClientRect().height * 100) / 100;
+                if (h === _lastSB) return;                 // bez zmiany → nie dotykaj layoutu
+                _lastSB = h;
+                document.documentElement.style.setProperty('--safe-bottom', h + 'px');
+            }
+            ['resize', 'orientationchange', 'pageshow'].forEach(function(ev) {
+                window.addEventListener(ev, syncSafeBottom, { passive: true });
+            });
+            document.addEventListener('visibilitychange', function() {
+                if (document.visibilityState === 'visible') syncSafeBottom();
+            });
+            if (window.visualViewport) window.visualViewport.addEventListener('resize', syncSafeBottom, { passive: true });
+            // Opóźnione próby — inset bywa 0 przez 1-2 klatki po reloadzie; re-pomiar wymusza repaint.
+            requestAnimationFrame(function() { requestAnimationFrame(syncSafeBottom); });
+            setTimeout(syncSafeBottom, 150);
+            setTimeout(syncSafeBottom, 500);
+            setTimeout(syncSafeBottom, 1200);
+            syncSafeBottom();
+        })();
+
         /* ============================================================
            [EN] STANDARD CALCULATOR — Button Layout
            ============================================================ */
