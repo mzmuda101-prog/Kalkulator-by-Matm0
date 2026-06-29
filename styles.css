@@ -10,6 +10,11 @@
             --primary-light: #dbeafe;
             --bg: #f1f5f9;
             --card-bg: #ffffff;
+            /* [EN] Powierzchnie pochodne — ztokenizowane, by tryb dark mógł je nadpisać jednym miejscem.
+               --surface = wyniesiona (panele otwarte, modale, focus, aktywne przełączniki).
+               --surface-2 = wklęsła/drugorzędna (pola, chipy, listy, panele zwinięte). */
+            --surface: #ffffff;
+            --surface-2: #f8fafc;
             --text: #0f172a;
             --text-secondary: #475569;
             --text-muted: #94a3b8;
@@ -43,6 +48,64 @@
             --safe-left: env(safe-area-inset-left, 0px);
             --safe-right: env(safe-area-inset-right, 0px);
         }
+
+        /* ============================================================
+           [EN] TRYB CIEMNY — nadpisuje WYŁĄCZNIE tokeny (i kilka twardych hex,
+           których nie dało się ztokenizować bez ryzyka). Sterowane atrybutem
+           [data-theme="dark"] na <html> (JS: motyw 'auto' śledzi system, lub
+           ręczny wybór z nagłówka). Jasny tryb pozostaje bez zmian.
+           ============================================================ */
+        [data-theme="dark"] {
+            color-scheme: dark;
+            --primary: #4f8df9;
+            --primary-hover: #6ba2fb;
+            --primary-light: rgba(79, 141, 249, 0.18);
+            --bg: #0e1217;
+            --card-bg: #171d26;
+            --surface: #1c232e;
+            --surface-2: #131922;
+            --text: #e8edf3;
+            --text-secondary: #a8b3c1;
+            --text-muted: #6b7884;
+            --border: #2a323d;
+            --border-focus: #3b6fb0;
+            --danger: #f87171;
+            --danger-hover: #ef4444;
+            --success: #34d399;
+            --success-light: rgba(16, 185, 129, 0.16);
+            --warning: #fbbf24;
+            /* Cienie na ciemnym muszą być głębsze (czarne), inaczej elewacja znika. */
+            --shadow-sm: 0 1px 3px rgba(0,0,0,0.4);
+            --shadow: 0 6px 22px rgba(0,0,0,0.5), 0 2px 6px rgba(0,0,0,0.4);
+            --shadow-lg: 0 18px 48px rgba(0,0,0,0.6), 0 6px 16px rgba(0,0,0,0.45);
+            --shadow-primary: 0 8px 20px rgba(79,141,249,0.35), 0 2px 6px rgba(79,141,249,0.25);
+            /* „Odwrócone" pigułki (toast/podpowiedź/baner) w jasnym = ciemne tło + biały tekst.
+               W dark zamiast tokena --text (jasnego!) używamy własnej, elewowanej powierzchni. */
+            --inverse-surface: #283341;
+        }
+        /* Twarde hex, których nie obejmują tokeny — celowane nadpisania na ciemny. */
+        [data-theme="dark"] .calc-display { background: var(--surface-2); border-color: var(--border); }
+        [data-theme="dark"] .calc-btn--number:active { background: #2b3440; }
+        [data-theme="dark"] .calc-btn--operator:active { background: rgba(79,141,249,0.32); }
+        [data-theme="dark"] .calc-btn--fn { background: #2b3440; }
+        [data-theme="dark"] .calc-btn--fn:active { background: #374151; }
+        [data-theme="dark"] .calc-btn--clear { background: rgba(248,113,113,0.18); }
+        [data-theme="dark"] .calc-btn--clear:active { background: rgba(248,113,113,0.30); }
+        [data-theme="dark"] .calc-help-btn:active { background: rgba(79,141,249,0.30); }
+        [data-theme="dark"] .calc-btn--number:active { background: #2b3440; }
+        [data-theme="dark"] .history-count { background: #2b3440; }
+        [data-theme="dark"] .drawer-handle { background: #3a444f; }
+        [data-theme="dark"] .legend-chip.is-hidden .legend-dot { background: #3a444f !important; }
+        [data-theme="dark"] .graph-result { background: rgba(79,141,249,0.14); color: #bcd0ff; }
+        [data-theme="dark"] .eng-result { color: #6ee7b7; }
+        [data-theme="dark"] .toast,
+        [data-theme="dark"] .cursor-hint-scaler,
+        [data-theme="dark"] .update-banner { background: var(--inverse-surface); }
+        [data-theme="dark"] #helpSearch { color: var(--text); }
+        /* Nagłówek ma własne półprzezroczyste tło (pod backdrop-blur) — nie czyta tokenów. */
+        [data-theme="dark"] .app-header { background: rgba(23, 29, 38, 0.92); }
+        /* Canvas wizualizacji RYSUJE osie/etykiety w JS zakładając jasne tło — zostaje jasny
+           (czytelny „papier") także w dark, by nie zniknęły czarne elementy rysunku. */
 
         /* ============================================================
            [EN] CSS Reset & Base
@@ -731,7 +794,7 @@
             min-height: 48px;
             border: 1px solid var(--border);
             border-radius: var(--radius);
-            background: #f8fafc;
+            background: var(--surface-2);
             color: var(--text-secondary);
             font-family: var(--font);
             font-size: 0.9375rem;
@@ -1035,7 +1098,7 @@
             font-family: var(--font);
             font-size: 1rem;
             color: var(--text);
-            background: #f8fafc;
+            background: var(--surface-2);
             transition: all var(--transition);
             -webkit-appearance: none;
             appearance: none;
@@ -1047,7 +1110,7 @@
             outline: none;
             border-color: var(--border-focus);
             box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
-            background: #fff;
+            background: var(--surface);
         }
         /* Pole komendy — wyższe, z zawijaniem długiego tekstu i scrollem jako fallback */
         #graphCommand {
@@ -1118,7 +1181,7 @@
             overflow: hidden;
             pointer-events: none;
             color: transparent;               /* tekst nakładki niewidoczny — liczą się tylko tła spanów */
-            background: #f8fafc;
+            background: var(--surface-2);
         }
         .cmd-hl span { border-radius: 3px; }
         .cmd-hl .sep-series { background: rgba(219, 39, 119, 0.22); }  /* ;; — dzielnik serii (magenta) */
@@ -1240,7 +1303,7 @@
         .command-panel {
             border: 1px solid var(--border);
             border-radius: var(--radius);
-            background: #f8fafc;
+            background: var(--surface-2);
             padding: 0 12px;
             margin-bottom: 14px;
         }
@@ -1256,7 +1319,7 @@
         }
         .command-panel[open] {
             padding-bottom: 12px;
-            background: #fff;
+            background: var(--surface);
         }
         .help-open-btn {
             width: 100%;
@@ -1264,7 +1327,7 @@
             min-height: 42px;
             border: 1px solid var(--border);
             border-radius: var(--radius-sm);
-            background: #f8fafc;
+            background: var(--surface-2);
             color: var(--primary);
             font-family: var(--font);
             font-size: 0.875rem;
@@ -1330,7 +1393,7 @@
         .recent-command-btn {
             border: 1px solid var(--border);
             border-radius: 999px;
-            background: #f8fafc;
+            background: var(--surface-2);
             color: var(--text-secondary);
             padding: 6px 10px;
             font-family: var(--font-mono);
@@ -1482,7 +1545,7 @@
             min-height: 40px;
         }
         .unit-btn.active {
-            background: #fff;
+            background: var(--surface);
             color: var(--primary);
             box-shadow: var(--shadow-sm);
         }
@@ -1511,7 +1574,7 @@
             transition: all var(--transition);
         }
         .mode-btn.active {
-            background: #fff;
+            background: var(--surface);
             color: var(--primary);
             box-shadow: var(--shadow-sm);
         }
@@ -1533,7 +1596,7 @@
             padding: 12px;
             border: 2px solid var(--border);
             border-radius: var(--radius);
-            background: #fff;
+            background: var(--surface);
             font-family: var(--font);
             font-size: 0.875rem;
             font-weight: 600;
@@ -1671,7 +1734,7 @@
         .example-chip {
             border: 1px solid var(--border);
             border-radius: 999px;
-            background: #f8fafc;
+            background: var(--surface-2);
             color: var(--text-secondary);
             min-height: 36px;
             padding: 0 12px;
@@ -1702,7 +1765,7 @@
             padding: 3px 10px 3px 8px;
             border: 1px solid var(--border);
             border-radius: 999px;
-            background: #f8fafc;
+            background: var(--surface-2);
             color: var(--text-secondary);
             font-family: var(--font);
             font-size: 0.75rem;
@@ -1751,7 +1814,7 @@
             color: inherit;
         }
         .graph-canvas-wrap {
-            background: #f8fafc;
+            background: var(--surface-2);
             border: 1px solid var(--border);
             border-radius: var(--radius);
             overflow: hidden;
@@ -1814,13 +1877,13 @@
             font-family: var(--font);
             font-size: 0.9375rem;
             min-height: 48px;
-            background: #f8fafc;
+            background: var(--surface-2);
         }
         .const-form input:not([type="checkbox"]):focus {
             outline: none;
             border-color: var(--border-focus);
             box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
-            background: #fff;
+            background: var(--surface);
         }
         .btn {
             padding: 12px 20px;
@@ -1861,7 +1924,7 @@
             gap: 8px;
         }
         .const-item {
-            background: #f8fafc;
+            background: var(--surface-2);
             border-radius: var(--radius);
             padding: 14px 16px;
             display: flex;
@@ -1896,7 +1959,7 @@
             padding: 11px 12px;
             border: 1.5px solid var(--border);
             border-radius: var(--radius);
-            background: #f8fafc;
+            background: var(--surface-2);
             font-size: .82rem;
             line-height: 1.45;
             color: var(--text);
@@ -1932,7 +1995,7 @@
             font-family: var(--font);
             font-size: 0.9375rem;
             min-height: 44px;
-            background: #f8fafc;
+            background: var(--surface-2);
         }
         .quick-calc .quick-result {
             font-family: var(--font-mono);
@@ -1944,7 +2007,7 @@
         .section-panel {
             border: 1px solid var(--border);
             border-radius: var(--radius);
-            background: #f8fafc;
+            background: var(--surface-2);
             padding: 0 12px;
             margin-bottom: 14px;
         }
@@ -1960,7 +2023,7 @@
         }
         .section-panel[open] {
             padding-bottom: 12px;
-            background: #fff;
+            background: var(--surface);
         }
         /* ============================================================
            [EN] Toast / Notifications
@@ -2423,7 +2486,7 @@
             transition: all var(--transition);
         }
         .settings-seg-btn.active {
-            background: #fff;
+            background: var(--surface);
             color: var(--primary);
             box-shadow: var(--shadow-sm);
         }

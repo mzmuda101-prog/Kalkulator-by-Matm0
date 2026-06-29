@@ -4,16 +4,28 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-    <!-- Apka jest zaprojektowana na JASNO (zahardkodowane kolory). Deklaracja „light" mówi
-         przeglądarce, by NIE przyciemniała natywnych kontrolek (selecty/inputy/scrollbary/
-         textarea) w systemowym trybie ciemnym → spójny wygląd, bez pomniejszych usterek.
-         TODO na przyszłość: prawdziwy tryb dark (@media prefers-color-scheme: dark). -->
-    <meta name="color-scheme" content="light">
+    <!-- Apka wspiera tryb jasny i ciemny. CSS steruje wyglądem natywnych kontrolek przez
+         color-scheme na :root / [data-theme="dark"], więc selecty/inputy/scrollbary pasują
+         do wybranego motywu (nie do systemu). -->
+    <meta name="color-scheme" content="light dark">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <meta name="apple-mobile-web-app-title" content="Smart Kalkulator">
     <meta name="mobile-web-app-capable" content="yes">
-    <meta name="theme-color" content="#2563eb">
+    <meta name="theme-color" content="#2563eb" id="metaThemeColor">
+    <!-- Ustaw motyw NATYCHMIAST (przed CSS/paint), by splash i pierwsza klatka nie mignęły
+         jasnym tłem przy wybranym/systemowym dark. Lekki klucz osobny (matm0_theme):
+         'dark' | 'light' | brak = auto (śledzi system). -->
+    <script>
+        (function () {
+            try {
+                var pref = localStorage.getItem('matm0_theme');
+                var dark = pref === 'dark' || (pref !== 'light' &&
+                    window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
+                if (dark) document.documentElement.setAttribute('data-theme', 'dark');
+            } catch (e) {}
+        })();
+    </script>
     <meta name="application-name" content="Smart Kalkulator">
     <meta name="format-detection" content="telephone=no">
     <meta name="description" content="Szwajcarski scyzoryk do obliczeń codziennych i technicznych">
@@ -54,6 +66,8 @@
                     title="Zainstaluj aplikację" hidden>📲</button>
                 <button class="settings-btn notepad-btn" id="notepadBtn" type="button"
                     aria-label="Notatnik" title="Notatnik">📝</button>
+                <button class="settings-btn" id="themeToggleBtn" type="button"
+                    aria-label="Przełącz tryb jasny/ciemny" title="Tryb jasny/ciemny" aria-pressed="false">🌙</button>
                 <button class="settings-btn" id="settingsBtn" type="button"
                     aria-label="Ustawienia" title="Ustawienia">⚙️</button>
                 <button class="cache-refresh-btn" id="cacheRefreshBtn" type="button"

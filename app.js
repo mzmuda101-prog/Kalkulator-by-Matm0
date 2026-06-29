@@ -304,11 +304,69 @@
                 toast.classList.remove('show');
                 toastTimer = null;
             }, 2000);
+            // Haptyka TYLKO przy znaczących zdarzeniach: potwierdzenie (sukces) i błąd.
+            // Neutralne info ('') nie wibruje — żeby nie była natrętna. Cyfry/operatory
+            // mają już natywny feedback systemu, więc tu ich celowo nie dublujemy.
+            if (type === 'success') hapticTap(12);
+            else if (type === 'error') hapticTap([0, 28, 50, 28]);
         }
 
-        function hapticTap(strength) {
+        // Wzór wibracji jako sygnał dotykowy — łagodny, opcjonalny. Akceptuje liczbę
+        // (ms) lub wzór (tablica). Respektuje „ogranicz ruch/animacje" (dostępność).
+        var _prefersReducedMotion = window.matchMedia &&
+            window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        function hapticTap(pattern) {
+            if (_prefersReducedMotion) return;
             if (navigator.vibrate) {
-                navigator.vibrate(strength || 15);
+                navigator.vibrate(pattern == null ? 15 : pattern);
+            }
+        }
+
+        /* ============================================================
+           [EN] Tryb ciemny. Atrybut [data-theme="dark"] na <html> ustawia już
+           wczesny skrypt inline w <head> (anty-FOUC) — tu tylko: synchronizacja
+           ikony przycisku, przełączanie, zapis wyboru i kolor paska przeglądarki.
+           Klucz 'matm0_theme': 'dark' | 'light' | brak = auto (śledzi system).
+           ============================================================ */
+        var THEME_PREF_KEY = 'matm0_theme';
+        var THEME_META_COLOR = { light: '#2563eb', dark: '#0e1217' };
+        function isDarkTheme() {
+            return document.documentElement.getAttribute('data-theme') === 'dark';
+        }
+        function applyTheme(dark, persist) {
+            document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
+            var btn = $('#themeToggleBtn');
+            if (btn) {
+                // Pokazujemy ikonę DOCELOWĄ (co zrobi tap): w ciemnym → słońce (włącz jasny).
+                btn.textContent = dark ? '☀️' : '🌙';
+                btn.setAttribute('aria-pressed', dark ? 'true' : 'false');
+                btn.title = dark ? 'Tryb jasny' : 'Tryb ciemny';
+                btn.setAttribute('aria-label', 'Przełącz na ' + (dark ? 'tryb jasny' : 'tryb ciemny'));
+            }
+            var meta = document.getElementById('metaThemeColor');
+            if (meta) meta.setAttribute('content', dark ? THEME_META_COLOR.dark : THEME_META_COLOR.light);
+            if (persist) {
+                try { localStorage.setItem(THEME_PREF_KEY, dark ? 'dark' : 'light'); } catch (e) {}
+            }
+        }
+        function initTheme() {
+            // Inline-skrypt już ustawił atrybut; tu dociągamy ikonę/meta do realnego stanu.
+            applyTheme(isDarkTheme(), false);
+            var btn = $('#themeToggleBtn');
+            if (btn) btn.addEventListener('click', function() {
+                applyTheme(!isDarkTheme(), true);   // ręczny wybór = zapamiętaj
+                hapticTap(12);
+            });
+            // Bez ręcznego wyboru śledź zmianę motywu systemu na żywo.
+            if (window.matchMedia) {
+                var mq = window.matchMedia('(prefers-color-scheme: dark)');
+                var onSys = function(e) {
+                    var pref = null;
+                    try { pref = localStorage.getItem(THEME_PREF_KEY); } catch (e2) {}
+                    if (pref !== 'dark' && pref !== 'light') applyTheme(e.matches, false);
+                };
+                if (mq.addEventListener) mq.addEventListener('change', onSys);
+                else if (mq.addListener) mq.addListener(onSys);
             }
         }
 
@@ -8340,6 +8398,7 @@
             if (graphFsExitEl && graphContainer) graphContainer.appendChild(graphFsExitEl);
 
             loadFromStorage();
+            initTheme(); // tryb ciemny: synchronizuj ikonę przełącznika + podłącz reakcje
             registerCustomUnits(); // własne jednostki użytkownika rozpoznawalne od razu w kalkulatorze
 
             // [EN] FAZA 1 — tylko kalkulator standardowy. Stawiamy go natychmiast, żeby był
