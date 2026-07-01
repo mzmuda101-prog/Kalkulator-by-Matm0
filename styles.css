@@ -2666,6 +2666,22 @@
             transform: translateX(4px);
             opacity: 0.85;
         }
+        .help-lang-note {
+            font-size: 0.9em;
+            opacity: 0.85;
+            margin-bottom: 12px;
+        }
+        .help-pair code {
+            font-weight: 600;
+        }
+        .help-sep {
+            margin: 0 0.35em;
+            opacity: 0.45;
+        }
+        .help-pair .help-en,
+        .help-pair code + .help-sep + code {
+            opacity: 0.9;
+        }
 
         /* ===== HELP SEARCH ===== */
 

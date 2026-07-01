@@ -692,6 +692,12 @@
             raw = raw.replace(/\bjedna\s+czwarta\s+([\d.,]+)/gi,   '($1/4)');
             raw = raw.replace(/\bczwarta\s+([\d.,]+)/gi,           '($1/4)');
 
+            raw = raw.replace(/\bhalf\s+of\s+([\d.,]+)/gi,        '($1/2)');
+            raw = raw.replace(/\bone\s+third\s+of\s+([\d.,]+)/gi, '($1/3)');
+            raw = raw.replace(/\ba\s+third\s+of\s+([\d.,]+)/gi,   '($1/3)');
+            raw = raw.replace(/\bone\s+fourth\s+of\s+([\d.,]+)/gi,'($1/4)');
+            raw = raw.replace(/\ba\s+fourth\s+of\s+([\d.,]+)/gi,  '($1/4)');
+
             // --- Matematyka naturalna PL + EN ---
             raw = raw.replace(/(?:square\s+root\s+of|pierwiastek\s+(?:kwadratowy\s+)?z)\s+([\d.,]+)/gi,
                 function(_, n) { return 'sqrt(' + n.replace(',', '.') + ')'; });
@@ -748,6 +754,8 @@
 
             // "dodaj X% do Y"
             raw = raw.replace(/dodaj\s+([\d.,]+)%\s+do\s+([\d.,]+)/gi,
+                function(_, p, b) { return '(' + b.replace(',', '.') + '*(1+' + p.replace(',', '.') + '/100))'; });
+            raw = raw.replace(/add\s+([\d.,]+)%\s+to\s+([\d.,]+)/gi,
                 function(_, p, b) { return '(' + b.replace(',', '.') + '*(1+' + p.replace(',', '.') + '/100))'; });
             // "X% z Y" / "X% of Y"
             raw = raw.replace(/([\d.,]+)%\s+(?:z|of)\s+([\d.,]+)/gi, '($2*$1/100)');
@@ -1373,19 +1381,27 @@
         }
         function evalPercentQuery(raw) {
             var s = String(raw || '').trim().toLowerCase();
-            if (!s || (s.indexOf('%') === -1 && s.indexOf('procent') === -1) || s.indexOf('ile') === -1) return null;
-            var P = '([\\d.,]+)', PCT = '(?:%|procent[a-ząćęłńóśźż]*)';
+            if (!s || (s.indexOf('%') === -1 && s.indexOf('procent') === -1 && s.indexOf('percent') === -1)) return null;
+            var P = '([\\d.,]+)', PCT = '(?:%|procent[a-ząćęłńóśźż]*|percent)';
             var m;
-            // „ile % [to|stanowi] A z B"
-            if ((m = s.match(new RegExp('^ile\\s+' + PCT + '\\s+(?:to\\s+|stanowi\\s+)?' + P + '\\s+z\\s+' + P + '\\s*$')))) {
+            // PL: „ile % [to|stanowi] A z B"
+            if (s.indexOf('ile') !== -1 && (m = s.match(new RegExp('^ile\\s+' + PCT + '\\s+(?:to\\s+|stanowi\\s+)?' + P + '\\s+z\\s+' + P + '\\s*$')))) {
                 return _pctFrac(m[1], m[2]);
             }
-            // „A z B to ile %"
+            // PL: „A z B to ile %"
             if ((m = s.match(new RegExp('^' + P + '\\s+z\\s+' + P + '\\s+to\\s+ile\\s+' + PCT + '\\s*$')))) {
                 return _pctFrac(m[1], m[2]);
             }
-            // „A to ile % z B"
-            if ((m = s.match(new RegExp('^' + P + '\\s+to\\s+ile\\s+' + PCT + '\\s+z\\s+' + P + '\\s*$')))) {
+            // PL: „A to ile % z B" · EN: „A is what % of B"
+            if ((m = s.match(new RegExp('^' + P + '\\s+(?:to\\s+ile\\s+' + PCT + '\\s+z|is\\s+what\\s+' + PCT + '\\s+of)\\s+' + P + '\\s*$')))) {
+                return _pctFrac(m[1], m[2]);
+            }
+            // EN: „what % is A of B" / „what percent is A of B"
+            if ((m = s.match(new RegExp('^what\\s+' + PCT + '\\s+is\\s+' + P + '\\s+of\\s+' + P + '\\s*$')))) {
+                return _pctFrac(m[1], m[2]);
+            }
+            // EN: „A of B is what %"
+            if ((m = s.match(new RegExp('^' + P + '\\s+of\\s+' + P + '\\s+is\\s+what\\s+' + PCT + '\\s*$')))) {
                 return _pctFrac(m[1], m[2]);
             }
             return null;
@@ -1403,7 +1419,7 @@
             var s = String(raw || '').trim().toLowerCase().replace(',', ',');
             if (!s) return null;
             var dist = s.match(/([\d.,]+)\s*km\b/);
-            var cons = s.match(/([\d.,]+)\s*l(?:itr[a-ząćęłńóśźż]*)?\s*\/?\s*(?:na\s*)?100/);  // 7 l/100, 7l/100km, 6 l na 100
+            var cons = s.match(/([\d.,]+)\s*l(?:itr[a-ząćęłńóśźż]*)?\s*\/?\s*(?:(?:na|per)\s*)?100/);
             var price = s.match(/([\d.,]+)\s*(?:zł|zl|pln)\s*\/?\s*(?:l\b|litr[a-ząćęłńóśźż]*)/); // 6,50 zł/l, 6.29 zł/litr
             if (!dist || !cons || !price) return null;
             var D = parseFloat(dist[1].replace(',', '.')), C = parseFloat(cons[1].replace(',', '.')), P = parseFloat(price[1].replace(',', '.'));

@@ -96,8 +96,8 @@
         if (!s) return null;
         var low = s.toLowerCase();
         var m;
-        // „od HH:MM do HH:MM" → czas trwania (z przeskokiem przez północ)
-        if ((m = low.match(/^od\s+(.+?)\s+do\s+(.+)$/))) {
+        // „od HH:MM do HH:MM" / „from HH:MM to HH:MM" → czas trwania
+        if ((m = low.match(/^(?:od|from)\s+(.+?)\s+(?:do|to)\s+(.+)$/))) {
             var a = _parseClockToken(m[1]), b = _parseClockToken(m[2]);
             if (a != null && b != null) {
                 var diff = b - a; if (diff < 0) diff += 1440;
@@ -173,16 +173,16 @@
     function _fmtDays(n) { return n + ' ' + (Math.abs(n) === 1 ? 'dzień' : 'dni'); }
     function _isDateUnit(u) {
         // [a-ząćęłńóśźż] zamiast \w — \w nie obejmuje polskich liter (miesiące, miesięcy).
-        return /^(dni|dnia|dzie[nń]|tydzie[nń]|tygodni[a-ząćęłńóśźż]*|tyg|miesi[a-ząćęłńóśźż]*|lat[a-ząćęłńóśźż]*|rok[a-ząćęłńóśźż]*|roku)$/i.test(u);
+        return /^(dni|dnia|dzie[nń]|tydzie[nń]|tygodni[a-ząćęłńóśźż]*|tyg|miesi[a-ząćęłńóśźż]*|lat[a-ząćęłńóśźż]*|rok[a-ząćęłńóśźż]*|roku|days?|weeks?|months?|years?)$/i.test(u);
     }
     function _applyDateUnit(d, n, u, sign) {
         n = Math.round(n) * sign;
         u = u.toLowerCase();
         // Konstruktor Date(y,m,d) — unika przesunięć DST przy setDate/setMonth (regresja 1.01+90dni).
         var y = d.getFullYear(), mo = d.getMonth(), da = d.getDate();
-        if (/^tyg|^tydzie/.test(u)) da += n * 7;
-        else if (/^miesi/.test(u)) mo += n;
-        else if (/^(lat|rok|roku)/.test(u)) y += n;
+        if (/^tyg|^tydzie|^week/.test(u)) da += n * 7;
+        else if (/^miesi|^month/.test(u)) mo += n;
+        else if (/^(lat|rok|roku|year)/.test(u)) y += n;
         else da += n;
         d.setTime(new Date(y, mo, da).getTime());
     }
@@ -190,9 +190,9 @@
     function _applyDateUnitKeepTime(d, n, u, sign) {
         n = Math.round(n) * sign;
         u = u.toLowerCase();
-        if (/^tyg|^tydzie/.test(u)) d.setDate(d.getDate() + n * 7);
-        else if (/^miesi/.test(u)) d.setMonth(d.getMonth() + n);
-        else if (/^(lat|rok|roku)/.test(u)) d.setFullYear(d.getFullYear() + n);
+        if (/^tyg|^tydzie|^week/.test(u)) d.setDate(d.getDate() + n * 7);
+        else if (/^miesi|^month/.test(u)) d.setMonth(d.getMonth() + n);
+        else if (/^(lat|rok|roku|year)/.test(u)) d.setFullYear(d.getFullYear() + n);
         else d.setDate(d.getDate() + n);
     }
     // Prawa strona „+/- offsetu" daty: „5dni", „5 dni", „20h", „1h30" (spacje opcjonalne).
@@ -218,10 +218,10 @@
     function _parseDateToken(str) {
         var s = String(str).trim().toLowerCase();
         if (s === 'teraz' || s === 'now') return { d: _now(), hasYear: true, moment: true };
-        if (/^dzi[sś]$|^dzisiaj$/.test(s)) return { d: _today(), hasYear: true };
-        if (s === 'jutro')    { var j = _today(); j.setDate(j.getDate() + 1); return { d: j, hasYear: true }; }
+        if (/^dzi[sś]$|^dzisiaj$|^today$/.test(s)) return { d: _today(), hasYear: true };
+        if (s === 'jutro' || s === 'tomorrow')    { var j = _today(); j.setDate(j.getDate() + 1); return { d: j, hasYear: true }; }
         if (s === 'pojutrze') { var p = _today(); p.setDate(p.getDate() + 2); return { d: p, hasYear: true }; }
-        if (s === 'wczoraj')  { var w = _today(); w.setDate(w.getDate() - 1); return { d: w, hasYear: true }; }
+        if (s === 'wczoraj' || s === 'yesterday')  { var w = _today(); w.setDate(w.getDate() - 1); return { d: w, hasYear: true }; }
         var m = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/); // ISO
         if (m) { var y = +m[1], mo = +m[2], da = +m[3]; if (_validDMY(da, mo, y)) return { d: new Date(y, mo - 1, da), hasYear: true }; return null; }
         m = s.match(/^(\d{1,2})\.(\d{1,2})(?:\.(\d{2,4}))?$/); // DD.MM(.YYYY)
@@ -241,13 +241,13 @@
     }
     // PL dzień tygodnia (odmiany / bez diakrytyków) → indeks Date.getDay() (0=niedziela).
     var _WD = [
-        { i: 0, re: /^niedziel/ },        // niedziela/niedzielę/niedziel
-        { i: 1, re: /^poniedzia[łl]/ },   // poniedziałek/poniedziałku
-        { i: 2, re: /^wtork?/ },          // wtorek/wtorku
-        { i: 3, re: /^[śs]rod/ },         // środa/środę/sroda
-        { i: 4, re: /^czwart/ },          // czwartek/czwartku
-        { i: 5, re: /^pi[ąa]t/ },         // piątek/piatek
-        { i: 6, re: /^sobot/ }            // sobota/sobotę
+        { i: 0, re: /^niedziel|^sunday/ },
+        { i: 1, re: /^poniedzia[łl]|^mon(day)?/ },
+        { i: 2, re: /^wtork?|^tue(s(day)?)?/ },
+        { i: 3, re: /^[śs]rod|^wed(nesday)?/ },
+        { i: 4, re: /^czwart|^thu(rs(day)?)?/ },
+        { i: 5, re: /^pi[ąa]t|^fri(day)?/ },
+        { i: 6, re: /^sobot|^sat(urday)?/ }
     ];
     function _parseWeekday(w) {
         w = String(w).toLowerCase();
@@ -268,29 +268,28 @@
         if (!s) return null;
         var low = s.toLowerCase();
         var m;
-        // DNI TYGODNIA — „najbliższy/następny/przyszły <wd>" → następne wystąpienie;
-        // „poprzedni/ostatni/miniony <wd>" → poprzednie. (PRZED matematyką dat.)
-        if ((m = low.match(/^(?:najbli[żz]sz[ayąeę]|nast[eę]pn[ayąeę]|przysz[łl][ayąeę])\s+([a-ząćęłńóśźż]+)\s*$/))) {
+        // DNI TYGODNIA — PL: najbliższy/następny; EN: next/nearest; wstecz: poprzedni/last
+        if ((m = low.match(/^(?:najbli[żz]sz[ayąeę]|nast[eę]pn[ayąeę]|przysz[łl][ayąeę]|next|nearest)\s+([a-ząćęłńóśźż]+)\s*$/))) {
             var wdN = _parseWeekday(m[1]);
             if (wdN >= 0) return { text: _fmtDate(_weekdayDate(wdN, 1)), value: null };
         }
-        if ((m = low.match(/^(?:poprzedni[aą]?|ostatni[aą]?|minion[ayąeę])\s+([a-ząćęłńóśźż]+)\s*$/))) {
+        if ((m = low.match(/^(?:poprzedni[aą]?|ostatni[aą]?|minion[ayąeę]|last|previous)\s+([a-ząćęłńóśźż]+)\s*$/))) {
             var wdP = _parseWeekday(m[1]);
             if (wdP >= 0) return { text: _fmtDate(_weekdayDate(wdP, -1)), value: null };
         }
-        // „jaki/który dzień [tygodnia] [jest|to|wypada] <data>" → data z nazwą dnia.
-        if ((m = low.match(/^(?:jaki|kt[oó]ry)\s+(?:to\s+)?dzie[nń](?:\s+tygodnia)?\s+(?:jest\s+|to\s+|wypada\s+|b[eę]dzie\s+)?(.+)$/))) {
+        // „jaki/który/which/what day … <data>"
+        if ((m = low.match(/^(?:jaki|kt[oó]ry|which|what)\s+(?:to\s+)?(?:day(?:\s+of\s+week)?|dzie[nń](?:\s+tygodnia)?)\s+(?:jest\s+|is\s+|to\s+|wypada\s+|b[eę]dzie\s+)?(.+)$/))) {
             var dWd = _parseDateToken(m[1].trim());
             if (dWd) return { text: _fmtDate(dWd.d), value: null };
         }
-        // „ile dni od A do B"
-        if ((m = low.match(/^ile\s+dni\s+od\s+(.+?)\s+do\s+(.+)$/))) {
+        // „ile dni od A do B" / „how many days from A to B"
+        if ((m = low.match(/^(?:ile\s+dni|how\s+many\s+days)\s+(?:od|from)\s+(.+?)\s+(?:do|to)\s+(.+)$/))) {
             var a = _parseDateToken(m[1]), b = _parseDateToken(m[2]);
             if (a && b) { var n = Math.round((b.d - a.d) / 86400000); return { text: _fmtDays(n), value: n }; }
             return null;
         }
-        // „ile dni do B" (z przeskokiem na przyszły rok, gdy bez roku i data minęła)
-        if ((m = low.match(/^ile\s+dni\s+(?:do|zosta[łl]o\s+do|pozosta[łl]o\s+do)\s+(.+)$/))) {
+        // „ile dni do B" / „how many days until B"
+        if ((m = low.match(/^(?:ile\s+dni|how\s+many\s+days)\s+(?:(?:do|zosta[łl]o\s+do|pozosta[łl]o\s+do)|(?:until|to|left\s+to))\s+(.+)$/))) {
             var b2 = _parseDateToken(m[1]);
             if (b2) {
                 if (!b2.hasYear && b2.d < _today()) b2.d.setFullYear(b2.d.getFullYear() + 1);
@@ -299,18 +298,18 @@
             }
             return null;
         }
-        // „za N <jednostka>" — spacje opcjonalne („za3dni", „za 3 dni")
-        if ((m = low.match(/^za\s*([\d.,]+)\s*([a-ząćęłńóśźż]+)\s*$/)) && _isDateUnit(m[2])) {
+        // „za N …" / „in N …"
+        if ((m = low.match(/^(?:za|in)\s*([\d.,]+)\s*([a-ząćęłńóśźż]+)\s*$/)) && _isDateUnit(m[2])) {
             var d3 = _today(); _applyDateUnit(d3, parseFloat(m[1].replace(',', '.')), m[2], 1);
             return { text: _fmtDate(d3), value: null };
         }
-        // „N <jednostka> temu" — spacje opcjonalne („3dnitemu", „3 dni temu")
-        if ((m = low.match(/^([\d.,]+)\s*([a-ząćęłńóśźż]+)\s*temu\s*$/)) && _isDateUnit(m[2])) {
+        // „N … temu" / „N … ago"
+        if ((m = low.match(/^([\d.,]+)\s*([a-ząćęłńóśźż]+)\s*(?:temu|ago)\s*$/)) && _isDateUnit(m[2])) {
             var d4 = _today(); _applyDateUnit(d4, parseFloat(m[1].replace(',', '.')), m[2], -1);
             return { text: _fmtDate(d4), value: null };
         }
-        // „dziś / teraz / jutro …" samodzielnie
-        if ((m = low.match(/^(teraz|now|dzi[sś]|dzisiaj|jutro|pojutrze|wczoraj)\s*$/))) {
+        // „dziś / teraz / today …" samodzielnie
+        if ((m = low.match(/^(teraz|now|dzi[sś]|dzisiaj|today|jutro|tomorrow|pojutrze|wczoraj|yesterday)\s*$/))) {
             var d6 = _parseDateToken(m[1]);
             if (d6) return { text: d6.moment ? _fmtNow(d6.d) : _fmtDate(d6.d), value: null };
         }
@@ -365,8 +364,8 @@
     function evalTimezoneExpression(raw) {
         var s = String(raw || '').trim(); if (!s) return null;
         var low = s.toLowerCase(); var m;
-        // „HH:MM w <A> na/do <B>" — czas zegarowy w strefie A → strefa B.
-        if ((m = low.match(/^(\d{1,2}:\d{2})\s+(?:w|we)\s+(.+?)\s+(?:na|do)\s+(.+?)\s*$/))) {
+        // „HH:MM w <A> na/do <B>" / „HH:MM in <A> to <B>"
+        if ((m = low.match(/^(\d{1,2}:\d{2})\s+(?:w|we|in)\s+(.+?)\s+(?:na|do|to)\s+(.+?)\s*$/))) {
             var tzA = _tzLookup(m[2]), tzB = _tzLookup(m[3]);
             var baseMin = _parseClockToken(m[1]);
             if (tzA == null || tzB == null || baseMin == null) return null;
@@ -376,8 +375,8 @@
             var resMin = baseMin + (offB - offA);
             return { text: _fmtClock(resMin) + ' (' + _tzLabel(m[3]) + ')', value: null, kind: 'clock', exact: true };
         }
-        // „która [jest] godzina w <A>" / „czas w <A>" → aktualny czas w strefie A.
-        if ((m = low.match(/^(?:kt[oó]ra\s+(?:jest\s+)?godzina|czas|godzina)\s+(?:w|we)\s+(.+?)\s*$/))) {
+        // „która godzina w <A>" / „what time in <A>"
+        if ((m = low.match(/^(?:(?:kt[oó]ra\s+(?:jest\s+)?godzina|czas|godzina)|(?:what(?:'s|\s+is)?\s+(?:the\s+)?time|what\s+time|time))\s+(?:w|we|in)\s+(.+?)\s*$/))) {
             var tz = _tzLookup(m[1]); if (tz == null) return null;
             var d = new Date();
             var off = _tzOffsetMin(tz, d); if (off == null) return null;
