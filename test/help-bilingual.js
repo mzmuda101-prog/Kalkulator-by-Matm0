@@ -42,6 +42,10 @@ const PAIRS = [
   { pl: 'połowa 300', en: 'half of 300', sameValue: true },
   { pl: 'proporcja 3 do 5', en: 'ratio of 3 to 5', sameValue: true },
   { pl: 'pierwiastek z 144', en: 'square root of 144', sameValue: true },
+  { pl: '8,5% to 20, ile 100%', en: '20 is 8.5% of what', sameValue: true },
+  { pl: '8,5%=20;100%', en: 'what is 100% if 8.5% is 20', sameValue: true },
+  { pl: 'brutto 1000', en: 'gross 1000', sameValue: true },
+  { pl: 'vat od 1000', en: 'tax on 1000', sameValue: true },
 ];
 
 let pass = 0, fail = 0;

@@ -730,26 +730,27 @@
             // Gołe „vat" (alias 23%) USUNIĘTE — eliminuje dwuznaczne „1500 vat". (Użytkownik może i tak
             // zdefiniować własną stałą o nazwie „vat" — rozwija się wcześniej i ją nadpisze.)
             function _vatRate(r) { var v = r != null ? parseFloat(String(r).replace(',', '.')) : 23; return isFinite(v) && v >= 0 ? v : 23; }
-            // brutto = netto + VAT (×). „brutto 1000", „brutto 1000 8%", „1000 brutto"
-            raw = raw.replace(/\bbrutto\s+([\d.,]+)(?:\s+([\d.,]+)\s*%)?/gi,
-                function(_, x, r) { return '(' + x.replace(',', '.') + '*(1+' + _vatRate(r) + '/100))'; });
-            raw = raw.replace(/([\d.,]+)\s+brutto\b(?:\s+([\d.,]+)\s*%)?/gi,
-                function(_, x, r) { return '(' + x.replace(',', '.') + '*(1+' + _vatRate(r) + '/100))'; });
-            // netto = brutto − VAT (÷). „netto 1230", „netto 1230 8%", „1230 netto"
-            raw = raw.replace(/\bnetto\s+([\d.,]+)(?:\s+([\d.,]+)\s*%)?/gi,
-                function(_, x, r) { return '(' + x.replace(',', '.') + '/(1+' + _vatRate(r) + '/100))'; });
-            raw = raw.replace(/([\d.,]+)\s+netto\b(?:\s+([\d.,]+)\s*%)?/gi,
-                function(_, x, r) { return '(' + x.replace(',', '.') + '/(1+' + _vatRate(r) + '/100))'; });
-            // „K ± vat [r%]" — operator. „-" USUWA VAT (÷1+stawka), „+" DODAJE VAT (×1+stawka).
-            // „1560 - vat" = 1560/1,23 = 1268,29; „1000 + vat 8%" = 1080. MUSI iść przed „vat od K".
-            raw = raw.replace(/([\d.,]+)\s*([+\-])\s*vat(?:\s+([\d.,]+)\s*%)?/gi,
+            function _vatBrutto(x, r) { return '(' + x.replace(',', '.') + '*(1+' + _vatRate(r) + '/100))'; }
+            function _vatNetto(x, r) { return '(' + x.replace(',', '.') + '/(1+' + _vatRate(r) + '/100))'; }
+            // brutto / gross = netto + VAT (×). „brutto 1000", „gross 1000 8%", „1000 brutto"
+            raw = raw.replace(/\b(?:brutto|gross)\s+([\d.,]+)(?:\s+([\d.,]+)\s*%)?/gi,
+                function(_, x, r) { return _vatBrutto(x, r); });
+            raw = raw.replace(/([\d.,]+)\s+(?:brutto|gross)\b(?:\s+([\d.,]+)\s*%)?/gi,
+                function(_, x, r) { return _vatBrutto(x, r); });
+            // netto / net = brutto − VAT (÷). „netto 1230", „net 1230 8%", „1230 net"
+            raw = raw.replace(/\b(?:netto|net)\s+([\d.,]+)(?:\s+([\d.,]+)\s*%)?/gi,
+                function(_, x, r) { return _vatNetto(x, r); });
+            raw = raw.replace(/([\d.,]+)\s+(?:netto|net)\b(?:\s+([\d.,]+)\s*%)?/gi,
+                function(_, x, r) { return _vatNetto(x, r); });
+            // „K ± vat/tax [r%]" — operator VAT
+            raw = raw.replace(/([\d.,]+)\s*([+\-])\s*(?:vat|tax)(?:\s+([\d.,]+)\s*%)?/gi,
                 function(_, a, op, r) {
                     a = a.replace(',', '.');
                     var f = '(1+' + _vatRate(r) + '/100)';
                     return '(' + a + (op === '-' ? '/' : '*') + f + ')';
                 });
-            // Sama kwota podatku: „vat od 1000" = 230, „vat 8% od 1000" = 80. Wymaga słowa „od".
-            raw = raw.replace(/\bvat(?:\s+([\d.,]+)\s*%)?\s+od\s+([\d.,]+)/gi,
+            // Kwota podatku: „vat od 1000" / „tax on 1000" / „vat from 1000"
+            raw = raw.replace(/\b(?:vat|tax)(?:\s+([\d.,]+)\s*%)?\s+(?:od|from|of|on)\s+([\d.,]+)/gi,
                 function(_, r, x) { return '(' + x.replace(',', '.') + '*' + _vatRate(r) + '/100)'; });
 
             // "dodaj X% do Y"
@@ -1412,6 +1413,53 @@
             return _pctResult(a / b * 100);
         }
 
+        // „Baza procentowa" — znasz ułamek (X% = Y), szukasz całości (100% = ?).
+        // PL: „8,5% to 20, ile 100%", „20 to 8,5% z czego", „ile to 100% gdy 8,5% to 20"
+        // EN: „20 is 8.5% of what", „what is 100% if 8.5% is 20", „8.5%=20;100%"
+        function _pctBaseResult(pctStr, valStr) {
+            var pct = parseFloat(String(pctStr).replace(',', '.'));
+            var val = parseFloat(String(valStr).replace(',', '.'));
+            if (!isFinite(pct) || !isFinite(val) || pct === 0) return null;
+            var base = val * 100 / pct;
+            if (isFinite(base) && base !== 0 && !(Number.isInteger(base) && Math.abs(base) <= Number.MAX_SAFE_INTEGER)) {
+                base = parseFloat(base.toPrecision(15));
+            }
+            var approx = false, ex = null;
+            if (isFinite(base) && !Number.isInteger(base)) {
+                var d = Number(base.toFixed(10));
+                if (Math.abs(base - d) > Math.abs(base) * 1e-12) { approx = true; ex = formatLocaleNumber(base, 15); }
+            }
+            STATE.calc.lastResult = base; STATE.calc.lastUnit = null;
+            return makeVal({
+                value: base, unit: null, kind: 'number', exact: !approx, exactText: ex,
+                text: '100% = ' + formatLocaleNumber(base, approx ? 6 : undefined)
+            });
+        }
+        function evalPercentBaseQuery(raw) {
+            var s = String(raw || '').trim().toLowerCase();
+            if (!s || s.indexOf('%') === -1) return null;
+            s = s.replace(/→|->/g, ';').replace(/\s+/g, ' ').trim();
+            var P = '([\\d.,]+)', PC = '([\\d.,]+)\\s*(?:%|procent[a-ząćęłńóśźż]*|percent)';
+            var m;
+            // „8,5% = 20" [; 100%]  ·  „8,5% to 20"
+            if ((m = s.match(new RegExp('^' + PC + '\\s*(?:=|to|jest|is)\\s*' + P + '(?:\\s*;\\s*100\\s*%\\s*(?:=)?\\s*\\??)?\\s*$')))) {
+                return _pctBaseResult(m[1], m[2]);
+            }
+            // „20 is 8.5% of what" · „20 to 8,5% z czego"
+            if ((m = s.match(new RegExp('^' + P + '\\s+(?:is\\s+)?' + PC + '\\s+(?:of\\s+what|z\\s+czego)\\s*$')))) {
+                return _pctBaseResult(m[2], m[1]);
+            }
+            // „ile to 100% gdy 8,5% to 20" · „what is 100% if 8.5% is 20"
+            if ((m = s.match(new RegExp('^(?:ile\\s+(?:to|wynosi)\\s+|what\\s+is\\s+)?100\\s*%\\s+(?:gdy|jak|if)\\s+' + PC + '\\s+(?:to|jest|is|=)\\s*' + P + '\\s*$')))) {
+                return _pctBaseResult(m[1], m[2]);
+            }
+            // „8,5% to 20, ile 100%" · „8.5% is 20, what is 100%"
+            if ((m = s.match(new RegExp('^' + PC + '\\s+(?:to|jest|is)\\s*' + P + '\\s*[,;]\\s*(?:ile\\s+)?100\\s*%\\s*$')))) {
+                return _pctBaseResult(m[1], m[2]);
+            }
+            return null;
+        }
+
         // KOSZT TRASY / PALIWA — dystans (km) + spalanie (l/100km) + cena (zł/l) → koszt.
         // Kolejność dowolna; np. „koszt trasy 300 km 7 l/100km 6,50 zł/l", „paliwo na 420 km
         // przy 6 l/100 i 6,29 zł/l". litry = dystans/100·spalanie; koszt = litry·cena.
@@ -1454,6 +1502,8 @@
                 return makeVal({ value: dateRes.value, text: dateRes.text, kind: 'date' });
             }
             // „ile % stanowi A z B" / „A z B to ile %" — kierunek ODWROTNY do „X% z Y" (wynik = procent).
+            var pctBaseQ = evalPercentBaseQuery(original);
+            if (pctBaseQ) return pctBaseQ;
             var pctQ = evalPercentQuery(original);
             if (pctQ) return pctQ;
             // Koszt trasy / paliwa: dystans + spalanie l/100km + cena zł/l → koszt (+ litry w dymku).
@@ -8738,6 +8788,10 @@
                 { expr: '1000 + vat 8%', value: 1080 },
                 { expr: 'vat od 1000', value: 230 },               // sama kwota podatku
                 { expr: 'vat 8% od 1000', value: 80 },
+                { expr: 'gross 1000', value: 1230 },
+                { expr: 'net 1230', value: 1000 },
+                { expr: 'tax on 1000', value: 230 },
+                { expr: '1560 - tax', value: 1560 / 1.23, tol: 1e-6 },
                 // procent OD bazy + operatory (regresja: procent nie może „gubić się", gdy coś idzie po nim)
                 { expr: '537 + 12%', value: 601.44, tol: 1e-6 },        // procent od liczby
                 { expr: '3*160 + 12%', value: 537.6, tol: 1e-6 },       // procent od DZIAŁANIA
@@ -8758,6 +8812,11 @@
                 { expr: '25 z 200 to ile %', value: 12.5, tol: 1e-6, unit: '%' },
                 { expr: '25 to ile % z 200', value: 12.5, tol: 1e-6, unit: '%' },
                 { expr: 'ile % stanowi 50 z 50', value: 100, tol: 1e-6, unit: '%' },
+                // baza procentowa — znasz X% = Y, szukasz 100%
+                { expr: '8,5% to 20, ile 100%', value: 20 * 100 / 8.5, tol: 1e-6 },
+                { expr: '8,5%=20;100%', value: 20 * 100 / 8.5, tol: 1e-6 },
+                { expr: '20 is 8.5% of what', value: 20 * 100 / 8.5, tol: 1e-6 },
+                { expr: 'ile to 100% gdy 8,5% to 20', value: 20 * 100 / 8.5, tol: 1e-6 },
                 { expr: '20% z 100', value: 20, tol: 1e-6 },            // FORWARD nadal liczba (nie %)
                 // daty — deterministyczny zakres
                 { expr: 'ile dni od 1.01.2026 do 1.02.2026', value: 31 },

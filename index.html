@@ -967,19 +967,21 @@
                     <p class="help-command" data-command="dodaj 15% do 200"><span class="help-pair"><code>dodaj 15% do 200</code><span class="help-sep">·</span><code>add 15% to 200</code></span> = 230</p>
                     <p class="help-command" data-command="15% napiwek na 42"><span class="help-pair"><code>15% napiwek na 42</code><span class="help-sep">·</span><code>15% tip on 42</code></span> = 48,30</p>
                     <p class="help-command" data-command="ile % stanowi 25 z 200"><span class="help-pair"><code>ile % stanowi 25 z 200</code><span class="help-sep">·</span><code>what percent is 25 of 200</code></span> = 12,5%</p>
-                    <p class="help-command" data-command="25 z 200 to ile %"><span class="help-pair"><code>25 z 200 to ile %</code><span class="help-sep">·</span><code>25 of 200 is what percent</code></span> to samo</p>
+                    <p class="help-command" data-command="25 z 200 to ile %"><span class="help-pair"><code>25 z 200 to ile %</code><span class="help-sep">·</span><code>25 of 200 is what percent</code></span> jaki % stanowi A z B</p>
+                    <p class="help-command" data-command="8,5% to 20, ile 100%"><span class="help-pair"><code>8,5% to 20, ile 100%</code><span class="help-sep">·</span><code>20 is 8.5% of what</code></span> baza — gdy znasz tylko ułamek (8,5%=20 → całość ≈235,29)</p>
+                    <p class="help-command" data-command="8,5%=20;100%"><span class="help-pair"><code>8,5%=20;100%</code><span class="help-sep">·</span><code>what is 100% if 8.5% is 20</code></span> skrót tego samego</p>
                 </section>
                 <section>
                     <h4>Finanse — VAT (domyślnie 23%, własna stawka z <code>%</code> na końcu)</h4>
-                    <p class="help-command" data-command="brutto 1000"><code>brutto 1000</code> netto → brutto (×1,23) = 1230</p>
-                    <p class="help-command" data-command="netto 1230"><code>netto 1230</code> brutto → netto (÷1,23) = 1000</p>
-                    <p class="help-command" data-command="brutto 1000 8%"><code>brutto 1000 8%</code> własna stawka = 1080</p>
-                    <p class="help-command" data-command="netto 1230 8%"><code>netto 1230 8%</code> własna stawka ≈ 1138,89</p>
-                    <p class="help-command" data-command="1560 - vat"><code>1560 - vat</code> usuń VAT z brutta (÷1,23) ≈ 1268,29</p>
-                    <p class="help-command" data-command="1000 + vat"><code>1000 + vat</code> dodaj VAT do netta (×1,23) = 1230</p>
-                    <p class="help-command" data-command="1560 - vat 8%"><code>1560 - vat 8%</code> usuń VAT 8% (÷1,08) ≈ 1444,44</p>
-                    <p class="help-command" data-command="vat od 1000"><code>vat od 1000</code> sama kwota podatku = 230</p>
-                    <p class="help-command" data-command="vat 8% od 1000"><code>vat 8% od 1000</code> = 80</p>
+                    <p class="help-command" data-command="brutto 1000"><span class="help-pair"><code>brutto 1000</code><span class="help-sep">·</span><code>gross 1000</code></span> netto → brutto (×1,23) = 1230</p>
+                    <p class="help-command" data-command="netto 1230"><span class="help-pair"><code>netto 1230</code><span class="help-sep">·</span><code>net 1230</code></span> brutto → netto (÷1,23) = 1000</p>
+                    <p class="help-command" data-command="brutto 1000 8%"><span class="help-pair"><code>brutto 1000 8%</code><span class="help-sep">·</span><code>gross 1000 8%</code></span> własna stawka = 1080</p>
+                    <p class="help-command" data-command="netto 1230 8%"><span class="help-pair"><code>netto 1230 8%</code><span class="help-sep">·</span><code>net 1230 8%</code></span> własna stawka ≈ 1138,89</p>
+                    <p class="help-command" data-command="1560 - vat"><span class="help-pair"><code>1560 - vat</code><span class="help-sep">·</span><code>1560 - tax</code></span> usuń VAT z brutta (÷1,23)</p>
+                    <p class="help-command" data-command="1000 + vat"><span class="help-pair"><code>1000 + vat</code><span class="help-sep">·</span><code>1000 + tax</code></span> dodaj VAT do netta (×1,23) = 1230</p>
+                    <p class="help-command" data-command="1560 - vat 8%"><span class="help-pair"><code>1560 - vat 8%</code><span class="help-sep">·</span><code>1560 - tax 8%</code></span> usuń VAT 8% (÷1,08) ≈ 1444,44</p>
+                    <p class="help-command" data-command="vat od 1000"><span class="help-pair"><code>vat od 1000</code><span class="help-sep">·</span><code>tax on 1000</code></span> sama kwota podatku = 230</p>
+                    <p class="help-command" data-command="vat 8% od 1000"><span class="help-pair"><code>vat 8% od 1000</code><span class="help-sep">·</span><code>tax 8% on 1000</code></span> = 80</p>
                     <p>„minus VAT" to <strong>÷1,23</strong> (nie −23%) — bo VAT liczy się od netta. Samo słowo <code>vat</code> (bez <code>+</code>/<code>−</code> albo „od") nic nie policzy.</p>
                 </section>
                 <section>
@@ -1074,6 +1076,7 @@
                 </section>
             </div>
             <div class="help-section" data-help="engineering">
+            <p class="help-lang-note">Komendy inżynierskie — tokeny głównie uniwersalne (<code>@edges</code>, <code>origin</code>). Polskie aliasy: <code>@krawedzie</code>, <code>jednostka=</code>, <code>opis=</code>.</p>
             <section>
                 <h4>Najkrócej</h4>
                 <p><code>x=120/4</code> podziel długość 120 na 4 punkty na osi X.</p>
