@@ -7426,11 +7426,27 @@
             try { localStorage.setItem(STORAGE_KEYS.notepads, JSON.stringify({ notes: _npNotes, currentId: _npCurrentId })); }
             catch (e) { showToast('⚠️ Brak miejsca na notatnik', 'error'); }
         }
+        var _npPersistTimer = null;
+        function scheduleNotepadPersist() { // [EN] Debounce localStorage — npRecompute stays sync on each keystroke
+            if (_npPersistTimer) clearTimeout(_npPersistTimer);
+            _npPersistTimer = setTimeout(function() {
+                _npPersistTimer = null;
+                _npStashCurrent();
+                saveGlobals();
+                saveNotepad();
+            }, 450);
+        }
+        function flushNotepadPersist() {
+            if (_npPersistTimer) { clearTimeout(_npPersistTimer); _npPersistTimer = null; }
+            _npStashCurrent();
+            saveGlobals();
+            saveNotepad();
+        }
         function _npStashCurrent() { // zapisz treść z edytora do bieżącej notatki (bez przerysowania)
             var n = _npCurrentNote();
             if (n) { n.text = _npSerialize(); n.updatedAt = Date.now(); }
         }
-        function _npCommit() { _npStashCurrent(); _npRebuildGlobals(); saveGlobals(); npRecompute(); npRenderTitle(); saveNotepad(); }
+        function _npCommit() { _npStashCurrent(); _npRebuildGlobals(); npRecompute(); npRenderTitle(); scheduleNotepadPersist(); }
         function npRenderTitle() { if (npTitle) npTitle.textContent = _npTitle(_npCurrentNote()); }
         function _npLoadCurrent() {
             _npRebuildGlobals();   // świeże globalne (@nazwa z innych notatek) jako seed
@@ -7442,7 +7458,7 @@
             if (id === _npCurrentId) { npCloseList(); return; }
             _npStashCurrent();              // zachowaj bieżącą zanim przełączysz
             _npCurrentId = id;
-            saveNotepad();
+            flushNotepadPersist();
             _npLoadCurrent();
             npCloseList();
             var f = npEditor && npEditor.querySelector('.np-line');
@@ -7453,7 +7469,7 @@
             var n = { id: _npNewId(), text: '', updatedAt: Date.now() };
             _npNotes.unshift(n);
             _npCurrentId = n.id;
-            saveNotepad();
+            flushNotepadPersist();
             _npLoadCurrent();
             npCloseList();
             var f = npEditor && npEditor.querySelector('.np-line');
@@ -7464,7 +7480,7 @@
             _npNotes = _npNotes.filter(function(x) { return x.id !== id; });
             if (!_npNotes.length) _npNotes = [{ id: _npNewId(), text: '', updatedAt: Date.now() }];
             if (wasCurrent) _npCurrentId = _npNotes[0].id;
-            saveNotepad();
+            flushNotepadPersist();
             npRenderList();
             if (wasCurrent) _npLoadCurrent();
         }
@@ -7508,7 +7524,7 @@
         }
         function npOpenList() {
             if (!npListPanel) return;
-            _npStashCurrent(); saveNotepad();   // świeże tytuły na liście
+            _npStashCurrent(); flushNotepadPersist();   // świeże tytuły na liście
             npRenderList();
             npListPanel.classList.add('open');
             npListPanel.setAttribute('aria-hidden', 'false');
@@ -7689,7 +7705,7 @@
             // dopiero potem aria-hidden — inaczej ostrzeżenie „aria-hidden na elemencie z fokusem".
             npHideTip();
             _npUnbindViewport();   // przywróć pełną wysokość nakładki
-            _npStashCurrent(); saveNotepad();   // zapisz bieżącą treść przy wyjściu
+            _npStashCurrent(); flushNotepadPersist();   // zapisz bieżącą treść przy wyjściu
             npCloseList();
             var active = document.activeElement;
             if (notepadBtn && typeof notepadBtn.focus === 'function') notepadBtn.focus();
