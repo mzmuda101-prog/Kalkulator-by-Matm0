@@ -10,7 +10,8 @@
     "test:oracle": "node test/units-oracle.js",
     "test:baseline": "node test/baseline.js",
     "test:baseline:gen": "node test/baseline-gen.js",
-    "test:all": "node test/smoke-node.js && node test/property.js && node test/quantity.js && node test/engine-units.js && node test/units-oracle.js && node test/baseline.js"
+    "test:dates": "node test/dates-regression.js",
+    "test:all": "node test/smoke-node.js && node test/property.js && node test/quantity.js && node test/engine-units.js && node test/units-oracle.js && node test/baseline.js && node test/dates-regression.js"
   },
   "devDependencies": {
     "fast-check": "^3.23.2"

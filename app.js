@@ -9095,6 +9095,11 @@
             results.push({ expr: 'za 3 tygodnie (data)', pass: !!evalCalcExpression('za 3 tygodnie').text, got: evalCalcExpression('za 3 tygodnie').text });
             results.push({ expr: 'jutro (data)', pass: !!evalCalcExpression('jutro').text, got: evalCalcExpression('jutro').text });
             results.push({ expr: 'ile dni do 1.09 (liczba)', pass: typeof evalCalcExpression('ile dni do 1.09').value === 'number', got: evalCalcExpression('ile dni do 1.09').text });
+            // regresja: kompaktowe zapisy i godziny na „dziś" (wcześniej zwracały null)
+            ['dziś + 90 dni', 'dzis+5dni', 'dzis-2dni', 'dziś + 20h', 'dzis + 20h', 'za3tygodnie', '3dnitemu'].forEach(function(ex) {
+                var rd = evalCalcExpression(ex);
+                results.push({ expr: ex + ' (data/kompakt)', pass: rd && rd.kind === 'date' && !!rd.text, got: rd && rd.text });
+            });
             // waluty — z zamockowanymi kursami (zapis/odtworzenie stanu fx)
             var savedFx = STATE.fx.rates, savedFxTs = STATE.fx.ts;
             STATE.fx.rates = { PLN: 1, EUR: 4.30, USD: 3.95 }; STATE.fx.ts = Date.now();

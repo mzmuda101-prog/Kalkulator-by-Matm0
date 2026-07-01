@@ -143,10 +143,24 @@
     var _PL_MONTHS = DATA.PL_MONTHS || {};
     var _PL_WEEKDAYS = DATA.PL_WEEKDAYS || [];
 
-    function _today() { var d = new Date(); d.setHours(0, 0, 0, 0); return d; }
+    var _todayOverride = null; // [EN] test hook — pin „today" for deterministic date tests
+    function _today() {
+        if (_todayOverride) return new Date(_todayOverride.getTime());
+        var d = new Date(); d.setHours(0, 0, 0, 0); return d;
+    }
     function _validDMY(d, m, y) { return m >= 1 && m <= 12 && d >= 1 && d <= 31 && y >= 1 && y <= 9999; }
     function _fmtDate(d) {
         return d.getDate() + '.' + (d.getMonth() + 1) + '.' + d.getFullYear() + ' (' + _PL_WEEKDAYS[d.getDay()] + ')';
+    }
+    // Data z godziną — gdy offset czasowy nie kończy się o północy.
+    function _fmtDateTime(d) {
+        var h = d.getHours(), mi = d.getMinutes();
+        var p = function(n) { return (n < 10 ? '0' : '') + n; };
+        return d.getDate() + '.' + (d.getMonth() + 1) + '.' + d.getFullYear() + ' ' + p(h) + ':' + p(mi)
+            + ' (' + _PL_WEEKDAYS[d.getDay()] + ')';
+    }
+    function _fmtDateResult(d) {
+        return (d.getHours() || d.getMinutes() || d.getSeconds()) ? _fmtDateTime(d) : _fmtDate(d);
     }
     function _fmtDays(n) { return n + ' ' + (Math.abs(n) === 1 ? 'dzień' : 'dni'); }
     function _isDateUnit(u) {
@@ -156,10 +170,29 @@
     function _applyDateUnit(d, n, u, sign) {
         n = Math.round(n) * sign;
         u = u.toLowerCase();
-        if (/^tyg|^tydzie/.test(u)) d.setDate(d.getDate() + n * 7);
-        else if (/^miesi/.test(u)) d.setMonth(d.getMonth() + n);
-        else if (/^(lat|rok|roku)/.test(u)) d.setFullYear(d.getFullYear() + n);
-        else d.setDate(d.getDate() + n); // dni
+        // Konstruktor Date(y,m,d) — unika przesunięć DST przy setDate/setMonth (regresja 1.01+90dni).
+        var y = d.getFullYear(), mo = d.getMonth(), da = d.getDate();
+        if (/^tyg|^tydzie/.test(u)) da += n * 7;
+        else if (/^miesi/.test(u)) mo += n;
+        else if (/^(lat|rok|roku)/.test(u)) y += n;
+        else da += n;
+        d.setTime(new Date(y, mo, da).getTime());
+    }
+    // Prawa strona „+/- offsetu" daty: „5dni", „5 dni", „20h", „1h30" (spacje opcjonalne).
+    function _parseDateOffsetOperand(str) {
+        var raw = String(str || '').trim();
+        if (!raw) return null;
+        var low = raw.toLowerCase();
+        // Kalendarz PRZED parseSeconds — „dni"/„tyg" są też w UNIT_CATS.time (86400 s).
+        var m = low.match(/^([\d.,]+)\s*([a-ząćęłńóśźż]+)$/);
+        if (m && _isDateUnit(m[2])) return { amount: parseFloat(m[1].replace(',', '.')), dateUnit: m[2] };
+        var sec = _TIME.parseSeconds(raw);
+        if (sec != null) return { seconds: sec };
+        return null;
+    }
+    function _applyDateOffset(d, offset, sign) {
+        if (offset.seconds != null) d.setTime(d.getTime() + sign * offset.seconds * 1000);
+        else if (offset.dateUnit != null) _applyDateUnit(d, offset.amount, offset.dateUnit, sign);
     }
     // → { d: Date, hasYear: bool } albo null
     function _parseDateToken(str) {
@@ -245,13 +278,13 @@
             }
             return null;
         }
-        // „za N <jednostka>"
-        if ((m = low.match(/^za\s+([\d.,]+)\s+([a-ząćęłńóśźż]+)\s*$/)) && _isDateUnit(m[2])) {
+        // „za N <jednostka>" — spacje opcjonalne („za3dni", „za 3 dni")
+        if ((m = low.match(/^za\s*([\d.,]+)\s*([a-ząćęłńóśźż]+)\s*$/)) && _isDateUnit(m[2])) {
             var d3 = _today(); _applyDateUnit(d3, parseFloat(m[1].replace(',', '.')), m[2], 1);
             return { text: _fmtDate(d3), value: null };
         }
-        // „N <jednostka> temu"
-        if ((m = low.match(/^([\d.,]+)\s+([a-ząćęłńóśźż]+)\s+temu\s*$/)) && _isDateUnit(m[2])) {
+        // „N <jednostka> temu" — spacje opcjonalne („3dnitemu", „3 dni temu")
+        if ((m = low.match(/^([\d.,]+)\s*([a-ząćęłńóśźż]+)\s*temu\s*$/)) && _isDateUnit(m[2])) {
             var d4 = _today(); _applyDateUnit(d4, parseFloat(m[1].replace(',', '.')), m[2], -1);
             return { text: _fmtDate(d4), value: null };
         }
@@ -259,12 +292,14 @@
         if ((m = low.match(/^(dzi[sś]|dzisiaj|jutro|pojutrze|wczoraj)\s*$/))) {
             var d6 = _parseDateToken(m[1]); if (d6) return { text: _fmtDate(d6.d), value: null };
         }
-        // „<data> + N <jednostka>" / „<data> - N <jednostka>"
-        if ((m = low.match(/^(.+?)\s*([+\-])\s*([\d.,]+)\s+([a-ząćęłńóśźż]+)\s*$/)) && _isDateUnit(m[4])) {
-            var left = _parseDateToken(m[1]);
-            if (left) {
-                var d5 = left.d; _applyDateUnit(d5, parseFloat(m[3].replace(',', '.')), m[4], m[2] === '-' ? -1 : 1);
-                return { text: _fmtDate(d5), value: null };
+        // „<data> + offset" / „<data> - offset" — dni/tyg/mies + trwania czasowe (20h, 90min)
+        if ((m = low.match(/^(.+?)\s*([+\-])\s*(.+)$/))) {
+            var left = _parseDateToken(m[1].trim());
+            var offset = _parseDateOffsetOperand(m[3].trim());
+            if (left && offset) {
+                var d5 = new Date(left.d.getTime());
+                _applyDateOffset(d5, offset, m[2] === '-' ? -1 : 1);
+                return { text: _fmtDateResult(d5), value: null };
             }
         }
         return null;
@@ -337,7 +372,9 @@
         evalClockExpression: evalClockExpression,
         evalDateExpression: evalDateExpression,
         evalTimezoneExpression: evalTimezoneExpression,
-        isDateUnit: _isDateUnit            // app.js używa go też w rozpoznawaniu tokenów notatnika
+        isDateUnit: _isDateUnit,           // app.js używa go też w rozpoznawaniu tokenów notatnika
+        setTodayForTests: function(d) { _todayOverride = d ? new Date(d.getTime()) : null; },
+        clearTodayForTests: function() { _todayOverride = null; }
     };
     if (typeof window !== 'undefined') window.MATM0_PARSER = API;
     if (typeof self !== 'undefined') self.MATM0_PARSER = API;
