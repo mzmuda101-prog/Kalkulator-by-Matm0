@@ -44,6 +44,14 @@ window.__matm0.getHelpCoverageReport()
 
 Sciaga komend jest w pliku `command-definitions.js`. Ten plik opisuje tylko UI i dokumentacje; parser w `app.js` nadal decyduje, jakie komendy aplikacja realnie obsluguje. Jesli parser umie cos, czego nie ma w sciadze, aplikacja pokazuje to w sekcji `Parser umie wiecej`.
 
+## Wersjonowanie
+
+Jedno źródło prawdy: `version.js` → `APP_VERSION` (cache SW, napis w ustawieniach).
+
+Do v99 bumpuj po prostu: `v94` → `v95` → … → `v99`.
+
+**Przy kolejnym wydaniu po v99 nie używaj `v100`** — wpisz `v1.00` (reset numeracji, jak sensowna „1.0”). Szczegóły i notatka na przyszłość są w komentarzu na górze `version.js`.
+
 ## Live demo
 
 https://kalkulator-by-matm0.vercel.app

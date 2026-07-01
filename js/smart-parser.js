@@ -96,7 +96,7 @@
         if (!s) return null;
         var low = s.toLowerCase();
         var m;
-        // „od HH:MM do HH:MM" / „from HH:MM to HH:MM" → czas trwania
+        // „od HH:MM do HH:MM" / „from HH:MM to HH:MM" / „between A and B" → czas trwania
         if ((m = low.match(/^(?:od|from)\s+(.+?)\s+(?:do|to)\s+(.+)$/))) {
             var a = _parseClockToken(m[1]), b = _parseClockToken(m[2]);
             if (a != null && b != null) {
@@ -105,12 +105,36 @@
             }
             return null;
         }
-        // „HH:MM - HH:MM" → różnica (oba muszą być zegarem) — przed regułą odejmowania trwania
+        if ((m = low.match(/^(?:pomi[eę]dzy|mi[eę]dzy|between)\s+(.+?)\s+(?:a|and)\s+(.+)$/))) {
+            var ab = _parseClockToken(m[1]), bb = _parseClockToken(m[2]);
+            if (ab != null && bb != null) {
+                var diffB = bb - ab; if (diffB < 0) diffB += 1440;
+                return { text: _fmtDuration(diffB), value: diffB, kind: 'duration', exact: true };
+            }
+            return null;
+        }
+        if ((m = low.match(/^(?:od|from)\s+(.+?)\s+(?:until|aż\s+do)\s+(.+)$/))) {
+            var au = _parseClockToken(m[1]), bu = _parseClockToken(m[2]);
+            if (au != null && bu != null) {
+                var diffU = bu - au; if (diffU < 0) diffU += 1440;
+                return { text: _fmtDuration(diffU), value: diffU, kind: 'duration', exact: true };
+            }
+            return null;
+        }
+        // „HH:MM - HH:MM" / „HH:MM to HH:MM" → różnica
         if ((m = low.match(/^(\d{1,2}:\d{2})\s*-\s*(\d{1,2}:\d{2})$/))) {
             var a2 = _parseClockToken(m[1]), b2 = _parseClockToken(m[2]);
             if (a2 != null && b2 != null) {
                 var diff2 = a2 - b2; if (diff2 < 0) diff2 += 1440;
                 return { text: _fmtDuration(diff2), value: diff2, kind: 'duration', exact: true };
+            }
+            return null;
+        }
+        if ((m = low.match(/^(\d{1,2}:\d{2})\s+to\s+(\d{1,2}:\d{2})$/))) {
+            var a3 = _parseClockToken(m[1]), b3 = _parseClockToken(m[2]);
+            if (a3 != null && b3 != null) {
+                var diff3 = b3 - a3; if (diff3 < 0) diff3 += 1440;
+                return { text: _fmtDuration(diff3), value: diff3, kind: 'duration', exact: true };
             }
             return null;
         }
@@ -288,8 +312,8 @@
             if (a && b) { var n = Math.round((b.d - a.d) / 86400000); return { text: _fmtDays(n), value: n }; }
             return null;
         }
-        // „ile dni do B" / „how many days until B"
-        if ((m = low.match(/^(?:ile\s+dni|how\s+many\s+days)\s+(?:(?:do|zosta[łl]o\s+do|pozosta[łl]o\s+do)|(?:until|to|left\s+to))\s+(.+)$/))) {
+        // „ile dni do B" / „how many days until B" / „ile dni od dziś do B"
+        if ((m = low.match(/^(?:ile\s+dni|how\s+many\s+days)\s+(?:(?:od|from)\s+(?:dzi[sś]|dzisiaj|today|teraz|now)\s+)?(?:(?:do|zosta[łl]o\s+do|pozosta[łl]o\s+do)|(?:until|to|left\s+to))\s+(.+)$/))) {
             var b2 = _parseDateToken(m[1]);
             if (b2) {
                 if (!b2.hasYear && b2.d < _today()) b2.d.setFullYear(b2.d.getFullYear() + 1);
@@ -312,6 +336,16 @@
         if ((m = low.match(/^(teraz|now|dzi[sś]|dzisiaj|today|jutro|tomorrow|pojutrze|wczoraj|yesterday)\s*$/))) {
             var d6 = _parseDateToken(m[1]);
             if (d6) return { text: d6.moment ? _fmtNow(d6.d) : _fmtDate(d6.d), value: null };
+        }
+        // „90 dni + dziś" / „3 weeks + today" — offset przed kotwicą
+        if ((m = low.match(/^([\d.,]+)\s*([a-ząćęłńóśźż]+)\s*\+\s*(teraz|now|dzi[sś]|dzisiaj|today|jutro|tomorrow|pojutrze|wczoraj|yesterday)\s*$/))) {
+            var offRev = _parseDateOffsetOperand(m[1] + ' ' + m[2]);
+            var anch = _parseDateToken(m[3]);
+            if (offRev && anch) {
+                var dRev = new Date(anch.d.getTime());
+                _applyDateOffset(dRev, offRev, 1, !!anch.moment);
+                return { text: _fmtDateResult(dRev, !!anch.moment), value: null };
+            }
         }
         // „<data> + offset" / „<data> - offset" — dni/tyg/mies + trwania czasowe (20h, 90min)
         if ((m = low.match(/^(.+?)\s*([+\-])\s*(.+)$/))) {

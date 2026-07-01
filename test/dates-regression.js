@@ -49,6 +49,7 @@ const CASES = [
   { expr: 'dziś - 2 dni', text: '29.6.2026 (poniedziałek)', kind: 'date' },
   { expr: 'dzis-2dni', text: '29.6.2026 (poniedziałek)', kind: 'date' },
   { expr: 'dziś + 90 dni', text: '29.9.2026 (wtorek)', kind: 'date' },
+  { expr: '90 dni + dziś', text: '29.9.2026 (wtorek)', kind: 'date' },
   // kompaktowe warianty
   { expr: 'dziś+90dni', text: '29.9.2026 (wtorek)', kind: 'date' },
   { expr: 'dzis-2 dni', text: '29.6.2026 (poniedziałek)', kind: 'date' },

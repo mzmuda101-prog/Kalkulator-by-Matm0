@@ -697,6 +697,11 @@
             raw = raw.replace(/\ba\s+third\s+of\s+([\d.,]+)/gi,   '($1/3)');
             raw = raw.replace(/\bone\s+fourth\s+of\s+([\d.,]+)/gi,'($1/4)');
             raw = raw.replace(/\ba\s+fourth\s+of\s+([\d.,]+)/gi,  '($1/4)');
+            // odwrócona kolejność: „300 połowa", „300 half"
+            raw = raw.replace(/\b([\d.,]+)\s+(?:po[łl]owa|pó[łl]|pol)\b/gi, '($1/2)');
+            raw = raw.replace(/\b([\d.,]+)\s+half\b/gi, '($1/2)');
+            raw = raw.replace(/\b([\d.,]+)\s+(?:trzecia|third)\b/gi, '($1/3)');
+            raw = raw.replace(/\b([\d.,]+)\s+(?:czwarta|fourth)\b/gi, '($1/4)');
 
             // --- Matematyka naturalna PL + EN ---
             raw = raw.replace(/(?:square\s+root\s+of|pierwiastek\s+(?:kwadratowy\s+)?z)\s+([\d.,]+)/gi,
@@ -705,20 +710,32 @@
                 function(_, n) { return '(' + n.replace(',', '.') + '^(1/3))'; });
             raw = raw.replace(/([\d.,]+)\s+(?:power|do\s+pot[eę]gi|podniesiony\s+do\s+pot[eę]gi)\s+([\d.,]+)/gi,
                 function(_, b, e) { return '(' + b.replace(',', '.') + '^' + e.replace(',', '.') + ')'; });
+            raw = raw.replace(/pot[eę]gi\s+([\d.,]+)\s+z\s+([\d.,]+)/gi,
+                function(_, e, b) { return '(' + b.replace(',', '.') + '^' + e.replace(',', '.') + ')'; });
+            raw = raw.replace(/([\d.,]+)\s+raised\s+to\s+(?:the\s+)?power\s+([\d.,]+)/gi,
+                function(_, b, e) { return '(' + b.replace(',', '.') + '^' + e.replace(',', '.') + ')'; });
 
             // --- Proporcja / ratio ---
             raw = raw.replace(/(?:ratio\s+of|proporcja|stosunek)\s+([\d.,]+)\s+(?:to|do)\s+([\d.,]+)/gi,
                 function(_, a, b) { return '(' + a.replace(',', '.') + '/' + b.replace(',', '.') + ')'; });
+            raw = raw.replace(/([\d.,]+)\s+(?:to|do)\s+([\d.,]+)\s+(?:proporcja|stosunek|ratio)/gi,
+                function(_, a, b) { return '(' + a.replace(',', '.') + '/' + b.replace(',', '.') + ')'; });
 
             // --- Procenty (od najbardziej szczegółowych) ---
-            // napiwek / tip
+            // napiwek / tip — „15% napiwek na 42" lub „napiwek 15% na 42"
             raw = raw.replace(/([\d.,]+)%\s+(?:tip|napiwek)\s+(?:on|na)\s+([\d.,]+)/gi,
+                function(_, p, b) { return '(' + b.replace(',', '.') + '*(1+' + p.replace(',', '.') + '/100))'; });
+            raw = raw.replace(/\b(?:tip|napiwek)\s+([\d.,]+)%\s+(?:on|na)\s+([\d.,]+)/gi,
                 function(_, p, b) { return '(' + b.replace(',', '.') + '*(1+' + p.replace(',', '.') + '/100))'; });
             // rabat / zniżka / off
             raw = raw.replace(/([\d.,]+)%\s+(?:off|rabat[u]?|zni[zż]k[aię]?)\s+(?:na|od|z|on)?\s*([\d.,]+)/gi,
                 function(_, p, b) { return '(' + b.replace(',', '.') + '*(1-' + p.replace(',', '.') + '/100))'; });
+            raw = raw.replace(/\b(?:off|rabat[u]?|zni[zż]k[aię]?)\s+([\d.,]+)%\s+(?:na|od|z|on)?\s*([\d.,]+)/gi,
+                function(_, p, b) { return '(' + b.replace(',', '.') + '*(1-' + p.replace(',', '.') + '/100))'; });
             // narzut / marża / markup
             raw = raw.replace(/([\d.,]+)%\s+(?:narzut[u]?|mar[zż][ae]?|markup)\s+(?:na|od|do|on)?\s*([\d.,]+)/gi,
+                function(_, p, b) { return '(' + b.replace(',', '.') + '*(1+' + p.replace(',', '.') + '/100))'; });
+            raw = raw.replace(/\b(?:narzut[u]?|mar[zż][ae]?|markup)\s+([\d.,]+)%\s+(?:na|od|do|on)?\s*([\d.,]+)/gi,
                 function(_, p, b) { return '(' + b.replace(',', '.') + '*(1+' + p.replace(',', '.') + '/100))'; });
             // --- Finanse PL: brutto / netto / VAT (domyślna stawka 23%, własna ze znakiem „%" na końcu).
             // „vat" znaczy POPRAWNĄ matematycznie operację, NIE alias 23% (patrz: minus VAT z brutta to
@@ -749,17 +766,29 @@
                     var f = '(1+' + _vatRate(r) + '/100)';
                     return '(' + a + (op === '-' ? '/' : '*') + f + ')';
                 });
-            // Kwota podatku: „vat od 1000" / „tax on 1000" / „vat from 1000"
+            // Kwota podatku: „vat od 1000" / „tax on 1000" / „vat from 1000" / „1000 vat"
             raw = raw.replace(/\b(?:vat|tax)(?:\s+([\d.,]+)\s*%)?\s+(?:od|from|of|on)\s+([\d.,]+)/gi,
                 function(_, r, x) { return '(' + x.replace(',', '.') + '*' + _vatRate(r) + '/100)'; });
+            raw = raw.replace(/([\d.,]+)\s+(?:vat|tax)(?:\s+([\d.,]+)\s*%)?\s+(?:od|from|of|on)\b/gi,
+                function(_, x, r) { return '(' + x.replace(',', '.') + '*' + _vatRate(r) + '/100)'; });
 
-            // "dodaj X% do Y"
+            // "dodaj X% do Y" / "odejmij X% od Y"
             raw = raw.replace(/dodaj\s+([\d.,]+)%\s+do\s+([\d.,]+)/gi,
                 function(_, p, b) { return '(' + b.replace(',', '.') + '*(1+' + p.replace(',', '.') + '/100))'; });
             raw = raw.replace(/add\s+([\d.,]+)%\s+to\s+([\d.,]+)/gi,
                 function(_, p, b) { return '(' + b.replace(',', '.') + '*(1+' + p.replace(',', '.') + '/100))'; });
-            // "X% z Y" / "X% of Y"
+            raw = raw.replace(/odejmij\s+([\d.,]+)%\s+od\s+([\d.,]+)/gi,
+                function(_, p, b) { return '(' + b.replace(',', '.') + '*(1-' + p.replace(',', '.') + '/100))'; });
+            raw = raw.replace(/subtract\s+([\d.,]+)%\s+from\s+([\d.,]+)/gi,
+                function(_, p, b) { return '(' + b.replace(',', '.') + '*(1-' + p.replace(',', '.') + '/100))'; });
+            // "Y + dodaj X%" — odwrócona kolejność słów
+            raw = raw.replace(/([\d.,]+)\s*\+\s*dodaj\s+([\d.,]+)%/gi,
+                function(_, b, p) { return '(' + b.replace(',', '.') + '*(1+' + p.replace(',', '.') + '/100))'; });
+            raw = raw.replace(/([\d.,]+)\s*\+\s*add\s+([\d.,]+)%/gi,
+                function(_, b, p) { return '(' + b.replace(',', '.') + '*(1+' + p.replace(',', '.') + '/100))'; });
+            // "X% z Y" / "X% of Y" / "Y z X%" (odwrócona kolejność — to samo)
             raw = raw.replace(/([\d.,]+)%\s+(?:z|of)\s+([\d.,]+)/gi, '($2*$1/100)');
+            raw = raw.replace(/([\d.,]+)\s+(?:z|of)\s+([\d.,]+)%/gi, '($1*$2/100)');
             // "X% od Y" (rabat skrótowy)
             raw = raw.replace(/([\d.,]+)%\s+od\s+([\d.,]+)/gi, '($2*(1-$1/100))');
             // „<wyrażenie> ± N%" — procent liczony OD CAŁEJ lewej bazy (jak w kalkulatorze telefonu i jak
@@ -791,7 +820,7 @@
         // nie da rezultatu (zamiast cichego podstawienia 0).
         function resolveCalcAnswer(raw) {
             if (STATE.calc.ans === null || !isFinite(STATE.calc.ans)) return raw;
-            return raw.replace(/\b(?:ans|wynik|poprzedni)\b/gi, '(' + String(STATE.calc.ans) + ')');
+            return raw.replace(/\b(?:ans|wynik|poprzedni|ostatni|last|previous)\b/gi, '(' + String(STATE.calc.ans) + ')');
         }
 
         // Stała może mieć wartość-LICZBĘ albo wartość-WYRAŻENIE/KOMENDĘ (np. „23%", „5+5*2",
@@ -1405,6 +1434,13 @@
             if ((m = s.match(new RegExp('^' + P + '\\s+of\\s+' + P + '\\s+is\\s+what\\s+' + PCT + '\\s*$')))) {
                 return _pctFrac(m[1], m[2]);
             }
+            // PL: „25 z 200 stanowi ile %" · „jaki procent stanowi 25 z 200"
+            if ((m = s.match(new RegExp('^' + P + '\\s+z\\s+' + P + '\\s+(?:stanowi\\s+)?(?:to\\s+)?ile\\s+' + PCT + '\\s*$')))) {
+                return _pctFrac(m[1], m[2]);
+            }
+            if ((m = s.match(new RegExp('^jaki\\s+(?:procent[a-ząćęłńóśźż]*|' + PCT + ')\\s+(?:stanowi\\s+|to\\s+)?' + P + '\\s+z\\s+' + P + '\\s*$')))) {
+                return _pctFrac(m[1], m[2]);
+            }
             return null;
         }
         function _pctFrac(aStr, bStr) {
@@ -1450,7 +1486,7 @@
         }
         function evalPercentBaseQuery(raw) {
             var s = String(raw || '').trim().toLowerCase();
-            if (!s || s.indexOf('%') === -1) return null;
+            if (!s || (s.indexOf('%') === -1 && s.indexOf('procent') === -1 && s.indexOf('percent') === -1)) return null;
             s = s.replace(/→|->/g, ';').replace(/\s+/g, ' ').trim();
             var P = '([\\d.,]+)', PC = '([\\d.,]+)\\s*(?:%|procent[a-ząćęłńóśźż]*|percent)';
             var curTok = _currencyTokenRe();
@@ -1458,20 +1494,33 @@
                 ? P + '(?:\\s*(' + curTok + ')(?![a-ząćęłńóśźż0-9]))?'
                 : P;
             var m;
-            // „8,5% = 80 pln" [; 50%]  ·  „8,5% to 80pln" — bez sufiksu = 100%
+            // „8,5% to 80 pln" [; 50%]  ·  „8,5% to 80pln" — bez sufiksu = 100%
             if ((m = s.match(new RegExp('^' + PC + '\\s*(?:=|to|jest|is)\\s*' + PV + '(?:\\s*;\\s*([\\d.,]+)\\s*%\\s*(?:=)?\\s*\\??)?\\s*$', 'i')))) {
                 return _pctBaseResult(m[1], m[2], m[4], m[3]);
+            }
+            // „80pln to 8,5%" · „20pln=10%" — wartość przed procentem (kolejność dowolna)
+            if ((m = s.match(new RegExp('^' + PV + '\\s*=\\s*' + PC + '(?:\\s*;\\s*([\\d.,]+)\\s*%\\s*(?:=)?\\s*\\??)?\\s*$', 'i')))) {
+                return _pctBaseResult(m[3], m[1], m[4], m[2]);
+            }
+            if ((m = s.match(new RegExp('^' + PV + '\\s+(?:to|jest|is)\\s+' + PC + '(?:\\s*[,;]\\s*|\\s+)(?:ile\\s+|what\\s+is\\s+)?([\\d.,]+)\\s*%\\s*$', 'i')))) {
+                return _pctBaseResult(m[3], m[1], m[4], m[2]);
+            }
+            if ((m = s.match(new RegExp('^' + PV + '\\s+(?:to|jest|is)\\s+' + PC + '\\s*$', 'i')))) {
+                return _pctBaseResult(m[3], m[1], 100, m[2]);
             }
             // „80 pln to 8,5% z czego" · „80 pln is 8.5% of what"
             if ((m = s.match(new RegExp('^' + PV + '\\s+(?:(?:is|to)\\s+)?' + PC + '\\s+(?:of\\s+what|z\\s+czego)\\s*$', 'i')))) {
                 return _pctBaseResult(m[3], m[1], 100, m[2]);
             }
-            // „ile to 50% gdy 8,5% to 80 pln"
+            // „ile to 50% gdy 8,5% to 80 pln" · „ile to 50% gdy 80 pln to 8,5%"
             if ((m = s.match(new RegExp('^(?:ile\\s+(?:to|wynosi)\\s+|what\\s+is\\s+)?([\\d.,]+)\\s*%\\s+(?:gdy|jak|if)\\s+' + PC + '\\s+(?:to|jest|is|=)\\s*' + PV + '\\s*$', 'i')))) {
                 return _pctBaseResult(m[2], m[3], m[1], m[4]);
             }
-            // „8,5% to 80 pln, ile 50%"
-            if ((m = s.match(new RegExp('^' + PC + '\\s+(?:to|jest|is)\\s*' + PV + '\\s*[,;]\\s*(?:ile\\s+|what\\s+is\\s+)?([\\d.,]+)\\s*%\\s*$', 'i')))) {
+            if ((m = s.match(new RegExp('^(?:ile\\s+(?:to|wynosi)\\s+|what\\s+is\\s+)?([\\d.,]+)\\s*%\\s+(?:gdy|jak|if)\\s+' + PV + '\\s+(?:to|jest|is)\\s+' + PC + '\\s*$', 'i')))) {
+                return _pctBaseResult(m[4], m[2], m[1], m[3]);
+            }
+            // „8,5% to 80 pln, ile 50%" · „8,5% to 80 pln ile 50%"
+            if ((m = s.match(new RegExp('^' + PC + '\\s+(?:to|jest|is)\\s*' + PV + '(?:\\s*[,;]\\s*|\\s+)(?:ile\\s+|what\\s+is\\s+)?([\\d.,]+)\\s*%\\s*$', 'i')))) {
                 return _pctBaseResult(m[1], m[2], m[4], m[3]);
             }
             return null;
@@ -1719,6 +1768,7 @@
             var display = hasResult ? formatCalcResult(res) : (calcExpr.value === '' ? '0' : '');
             renderCalcResult(calcResult.textContent, display);
             _setApproxMark(hasResult && res.exact === false, res.exactText);
+            fitCalcResultSize();
         }
         // Znacznik „≈" (wynik zaokrąglony stratnie, np. sekundy → minuta). Dymek na tap/hover
         // (cursor-hint) pokazuje dokładną wartość. on=false → chowamy. [[A2]]
@@ -1735,25 +1785,29 @@
                 delete calcApprox.dataset.exact;
             }
         }
-        // [EN] Shrink result font until it fits one line — avoids mid-digit wraps on narrow screens.
+        // [EN] Fit result: grow with free display height first; only mild width shrink (readable floor).
         function fitCalcResultSize() {
             if (!calcResult) return;
             calcResult.style.fontSize = '';
+            calcResult.classList.remove('small', 'xsmall', 'xxsmall');
             var row = calcResult.closest('.calc-result-row');
-            if (!row) return;
+            var display = calcResult.closest('.calc-display');
+            if (!row || !display) return;
             var maxW = row.clientWidth;
             if (calcApprox && !calcApprox.hidden) maxW -= calcApprox.offsetWidth + 8;
             if (maxW <= 0) return;
-            var text = calcResult.textContent || '';
-            calcResult.classList.remove('small', 'xsmall', 'xxsmall');
-            if (text.length > 10) calcResult.classList.add('small');
-            if (text.length > 14) calcResult.classList.add('xsmall');
-            if (text.length > 20) calcResult.classList.add('xxsmall');
-            var fs = parseFloat(getComputedStyle(calcResult).fontSize) || 16;
-            var minPx = 11, guard = 0;
+            var rootFs = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
+            var basePx = parseFloat(getComputedStyle(calcResult).fontSize) || rootFs * 2.5;
+            var minPx = Math.max(20, rootFs * 1.3); // nie schodź poniżej ~20px — czytelność
+            var maxPx = Math.max(basePx, rootFs * 3.5);
+            var exprWrap = display.querySelector('.calc-expr-wrap');
+            var freeH = display.clientHeight - (exprWrap ? exprWrap.offsetHeight : 0) - 12;
+            var fs = basePx;
+            if (freeH > basePx * 1.2) fs = Math.min(maxPx, Math.max(basePx, freeH * 0.42)); // najpierw wykorzystaj wysokość wyświetlacza
             calcResult.style.fontSize = fs + 'px';
-            while (calcResult.scrollWidth > maxW + 1 && fs > minPx && guard++ < 36) {
-                fs = Math.max(minPx, fs * 0.9);
+            var guard = 0;
+            while (calcResult.scrollWidth > maxW + 1 && fs > minPx && guard++ < 16) {
+                fs = Math.max(minPx, fs - 1.5); // łagodne kroki, nie skokowe ×0.9
                 calcResult.style.fontSize = fs + 'px';
             }
         }
@@ -8850,6 +8904,13 @@
                 { expr: '12%*100', value: 12, tol: 1e-6 },
                 // „ile %" — kierunek ODWROTNY (wynik = procent, unit '%')
                 { expr: 'ile % stanowi 25 z 200', value: 12.5, tol: 1e-6, unit: '%' },
+                { expr: '25 z 200 stanowi ile %', value: 12.5, tol: 1e-6, unit: '%' },
+                { expr: 'jaki procent stanowi 25 z 200', value: 12.5, tol: 1e-6, unit: '%' },
+                { expr: '150 z 20%', value: 30, tol: 1e-6 },
+                { expr: 'napiwek 15% na 42', value: 48.3, tol: 1e-6 },
+                { expr: 'odejmij 20% od 150', value: 120, tol: 1e-6 },
+                { expr: '300 połowa', value: 150 },
+                { expr: '3 do 5 proporcja', value: 0.6, tol: 1e-6 },
                 { expr: 'ile procent to 25 z 200', value: 12.5, tol: 1e-6, unit: '%' },
                 { expr: '25 z 200 to ile %', value: 12.5, tol: 1e-6, unit: '%' },
                 { expr: '25 to ile % z 200', value: 12.5, tol: 1e-6, unit: '%' },
@@ -8865,6 +8926,10 @@
                 { expr: 'what is 50% if 8.5% is 20', value: 20 * 50 / 8.5, tol: 1e-6 },
                 { expr: 'ile to 100% gdy 8,5% to 20', value: 20 * 100 / 8.5, tol: 1e-6 },
                 { expr: '8,5% to 80pln', value: Math.round(80 * 100 / 8.5 * 100) / 100, unit: 'zł' },
+                { expr: '80pln to 8,5%', value: Math.round(80 * 100 / 8.5 * 100) / 100, unit: 'zł' },
+                { expr: '80pln=8,5%', value: Math.round(80 * 100 / 8.5 * 100) / 100, unit: 'zł' },
+                { expr: '20pln to 8,5%', value: Math.round(20 * 100 / 8.5 * 100) / 100, unit: 'zł' },
+                { expr: 'ile to 50% gdy 20pln to 8,5%', value: Math.round(20 * 50 / 8.5 * 100) / 100, unit: 'zł' },
                 { expr: '8,5% to 80 pln, ile 50%', value: Math.round(80 * 50 / 8.5 * 100) / 100, unit: 'zł' },
                 { expr: '80 pln to 8,5% z czego', value: Math.round(80 * 100 / 8.5 * 100) / 100, unit: 'zł' },
                 { expr: '20% z 100', value: 20, tol: 1e-6 },            // FORWARD nadal liczba (nie %)
