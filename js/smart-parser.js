@@ -14,11 +14,10 @@
     var DATA = (typeof window !== 'undefined' && window.MATM0_DATA) || {};
     var UNIT_CATS = DATA.UNIT_CATEGORIES || {};
 
-    function _nowMinutes() { var d = new Date(); return d.getHours() * 60 + d.getMinutes(); }
-    // Token zegara → minuty doby (0..1439) lub null. Akceptuje HH:MM oraz „teraz"/„now".
+    function _nowMinutes() { var d = _now(); return d.getHours() * 60 + d.getMinutes(); }
+    // Token zegara → minuty doby (0..1439) lub null. Akceptuje HH:MM (nie „teraz" — to datetime w evalDateExpression).
     function _parseClockToken(str) {
         var s = String(str).trim().toLowerCase();
-        if (s === 'teraz' || s === 'now') return _nowMinutes();
         var m = s.match(/^(\d{1,2}):(\d{2})$/);
         if (!m) return null;
         var h = +m[1], mi = +m[2];
@@ -91,8 +90,7 @@
         var p = function(n) { return (n < 10 ? '0' : '') + n; };
         return p(h) + ':' + p(mi) + ':' + p(s);
     }
-    // Czas zegarowy — „17:00 + 3h", „od 9:30 do 17:15", „teraz + 90 min", „17:00 - 9:30".
-    // Zwraca kanoniczny fragment wyniku { text, value, kind, exact } albo null (nie-zegar).
+    // Czas zegarowy — „17:00 + 3h", „od 9:30 do 17:15", „17:00 - 9:30". „teraz" → evalDateExpression.
     function evalClockExpression(raw) {
         var s = String(raw || '').trim();
         if (!s) return null;
@@ -108,7 +106,7 @@
             return null;
         }
         // „HH:MM - HH:MM" → różnica (oba muszą być zegarem) — przed regułą odejmowania trwania
-        if ((m = low.match(/^(\d{1,2}:\d{2}|teraz|now)\s*-\s*(\d{1,2}:\d{2}|teraz|now)$/))) {
+        if ((m = low.match(/^(\d{1,2}:\d{2})\s*-\s*(\d{1,2}:\d{2})$/))) {
             var a2 = _parseClockToken(m[1]), b2 = _parseClockToken(m[2]);
             if (a2 != null && b2 != null) {
                 var diff2 = a2 - b2; if (diff2 < 0) diff2 += 1440;
@@ -117,7 +115,7 @@
             return null;
         }
         // „HH:MM + <trwanie>" / „HH:MM - <trwanie>" → nowy czas zegarowy
-        if ((m = low.match(/^(\d{1,2}:\d{2}|teraz|now)\s*([+\-])\s*(.+)$/))) {
+        if ((m = low.match(/^(\d{1,2}:\d{2})\s*([+\-])\s*(.+)$/))) {
             var base = _parseClockToken(m[1]);
             var dur = _parseDuration(m[3]);
             if (base != null && dur != null) {
@@ -130,8 +128,6 @@
             }
             return null;
         }
-        // „teraz" / „now" samodzielnie → aktualny czas
-        if (low === 'teraz' || low === 'now') return { text: _fmtClock(_nowMinutes()), value: null, kind: 'clock', exact: true };
         return null;
     }
 
@@ -144,6 +140,11 @@
     var _PL_WEEKDAYS = DATA.PL_WEEKDAYS || [];
 
     var _todayOverride = null; // [EN] test hook — pin „today" for deterministic date tests
+    var _nowOverride = null;   // [EN] test hook — pin „teraz" (full datetime)
+    function _now() {
+        if (_nowOverride) return new Date(_nowOverride.getTime());
+        return new Date();
+    }
     function _today() {
         if (_todayOverride) return new Date(_todayOverride.getTime());
         var d = new Date(); d.setHours(0, 0, 0, 0); return d;
@@ -152,14 +153,21 @@
     function _fmtDate(d) {
         return d.getDate() + '.' + (d.getMonth() + 1) + '.' + d.getFullYear() + ' (' + _PL_WEEKDAYS[d.getDay()] + ')';
     }
-    // Data z godziną — gdy offset czasowy nie kończy się o północy.
+    // „teraz" i wyniki z godziną — krótki format: 1.7.26 14:35
+    function _fmtNow(d) {
+        var y = d.getFullYear() % 100;
+        var p = function(n) { return (n < 10 ? '0' : '') + n; };
+        return d.getDate() + '.' + (d.getMonth() + 1) + '.' + p(y) + ' ' + p(d.getHours()) + ':' + p(d.getMinutes());
+    }
+    // Data z godziną (pełny rok + dzień tygodnia) — offset czasowy na dacie bez „teraz".
     function _fmtDateTime(d) {
         var h = d.getHours(), mi = d.getMinutes();
         var p = function(n) { return (n < 10 ? '0' : '') + n; };
         return d.getDate() + '.' + (d.getMonth() + 1) + '.' + d.getFullYear() + ' ' + p(h) + ':' + p(mi)
             + ' (' + _PL_WEEKDAYS[d.getDay()] + ')';
     }
-    function _fmtDateResult(d) {
+    function _fmtDateResult(d, moment) {
+        if (moment) return _fmtNow(d);
         return (d.getHours() || d.getMinutes() || d.getSeconds()) ? _fmtDateTime(d) : _fmtDate(d);
     }
     function _fmtDays(n) { return n + ' ' + (Math.abs(n) === 1 ? 'dzień' : 'dni'); }
@@ -178,6 +186,15 @@
         else da += n;
         d.setTime(new Date(y, mo, da).getTime());
     }
+    // Kalendarz na pełnym momencie („teraz") — zachowuje godzinę (setDate, nie konstruktor).
+    function _applyDateUnitKeepTime(d, n, u, sign) {
+        n = Math.round(n) * sign;
+        u = u.toLowerCase();
+        if (/^tyg|^tydzie/.test(u)) d.setDate(d.getDate() + n * 7);
+        else if (/^miesi/.test(u)) d.setMonth(d.getMonth() + n);
+        else if (/^(lat|rok|roku)/.test(u)) d.setFullYear(d.getFullYear() + n);
+        else d.setDate(d.getDate() + n);
+    }
     // Prawa strona „+/- offsetu" daty: „5dni", „5 dni", „20h", „1h30" (spacje opcjonalne).
     function _parseDateOffsetOperand(str) {
         var raw = String(str || '').trim();
@@ -190,13 +207,17 @@
         if (sec != null) return { seconds: sec };
         return null;
     }
-    function _applyDateOffset(d, offset, sign) {
+    function _applyDateOffset(d, offset, sign, keepTime) {
         if (offset.seconds != null) d.setTime(d.getTime() + sign * offset.seconds * 1000);
-        else if (offset.dateUnit != null) _applyDateUnit(d, offset.amount, offset.dateUnit, sign);
+        else if (offset.dateUnit != null) {
+            if (keepTime) _applyDateUnitKeepTime(d, offset.amount, offset.dateUnit, sign);
+            else _applyDateUnit(d, offset.amount, offset.dateUnit, sign);
+        }
     }
-    // → { d: Date, hasYear: bool } albo null
+    // → { d: Date, hasYear: bool, moment?: bool } albo null. moment=true → kotwica z godziną („teraz").
     function _parseDateToken(str) {
         var s = String(str).trim().toLowerCase();
+        if (s === 'teraz' || s === 'now') return { d: _now(), hasYear: true, moment: true };
         if (/^dzi[sś]$|^dzisiaj$/.test(s)) return { d: _today(), hasYear: true };
         if (s === 'jutro')    { var j = _today(); j.setDate(j.getDate() + 1); return { d: j, hasYear: true }; }
         if (s === 'pojutrze') { var p = _today(); p.setDate(p.getDate() + 2); return { d: p, hasYear: true }; }
@@ -288,9 +309,10 @@
             var d4 = _today(); _applyDateUnit(d4, parseFloat(m[1].replace(',', '.')), m[2], -1);
             return { text: _fmtDate(d4), value: null };
         }
-        // „dziś / jutro / wczoraj / pojutrze" samodzielnie
-        if ((m = low.match(/^(dzi[sś]|dzisiaj|jutro|pojutrze|wczoraj)\s*$/))) {
-            var d6 = _parseDateToken(m[1]); if (d6) return { text: _fmtDate(d6.d), value: null };
+        // „dziś / teraz / jutro …" samodzielnie
+        if ((m = low.match(/^(teraz|now|dzi[sś]|dzisiaj|jutro|pojutrze|wczoraj)\s*$/))) {
+            var d6 = _parseDateToken(m[1]);
+            if (d6) return { text: d6.moment ? _fmtNow(d6.d) : _fmtDate(d6.d), value: null };
         }
         // „<data> + offset" / „<data> - offset" — dni/tyg/mies + trwania czasowe (20h, 90min)
         if ((m = low.match(/^(.+?)\s*([+\-])\s*(.+)$/))) {
@@ -298,8 +320,8 @@
             var offset = _parseDateOffsetOperand(m[3].trim());
             if (left && offset) {
                 var d5 = new Date(left.d.getTime());
-                _applyDateOffset(d5, offset, m[2] === '-' ? -1 : 1);
-                return { text: _fmtDateResult(d5), value: null };
+                _applyDateOffset(d5, offset, m[2] === '-' ? -1 : 1, !!left.moment);
+                return { text: _fmtDateResult(d5, !!left.moment), value: null };
             }
         }
         return null;
@@ -374,7 +396,9 @@
         evalTimezoneExpression: evalTimezoneExpression,
         isDateUnit: _isDateUnit,           // app.js używa go też w rozpoznawaniu tokenów notatnika
         setTodayForTests: function(d) { _todayOverride = d ? new Date(d.getTime()) : null; },
-        clearTodayForTests: function() { _todayOverride = null; }
+        clearTodayForTests: function() { _todayOverride = null; },
+        setNowForTests: function(d) { _nowOverride = d ? new Date(d.getTime()) : null; },
+        clearNowForTests: function() { _nowOverride = null; }
     };
     if (typeof window !== 'undefined') window.MATM0_PARSER = API;
     if (typeof self !== 'undefined') self.MATM0_PARSER = API;

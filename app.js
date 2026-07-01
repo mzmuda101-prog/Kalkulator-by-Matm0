@@ -9096,10 +9096,14 @@
             results.push({ expr: 'jutro (data)', pass: !!evalCalcExpression('jutro').text, got: evalCalcExpression('jutro').text });
             results.push({ expr: 'ile dni do 1.09 (liczba)', pass: typeof evalCalcExpression('ile dni do 1.09').value === 'number', got: evalCalcExpression('ile dni do 1.09').text });
             // regresja: kompaktowe zapisy i godziny na „dziś" (wcześniej zwracały null)
+            function rdKind(ex) { try { var r = evalCalcExpression(ex); return r && r.kind || ''; } catch (e) { return 'ERR'; } }
             ['dziś + 90 dni', 'dzis+5dni', 'dzis-2dni', 'dziś + 20h', 'dzis + 20h', 'za3tygodnie', '3dnitemu'].forEach(function(ex) {
                 var rd = evalCalcExpression(ex);
                 results.push({ expr: ex + ' (data/kompakt)', pass: rd && rd.kind === 'date' && !!rd.text, got: rd && rd.text });
             });
+            // „teraz" — format DD.M.RR HH:MM (zależy od bieżącego momentu)
+            results.push({ expr: 'teraz → DD.M.RR HH:MM', pass: /^\d+\.\d+\.\d{2} \d{2}:\d{2}$/.test(wdText('teraz')), got: wdText('teraz') });
+            results.push({ expr: 'teraz - 2 dni (data)', pass: rdKind('teraz - 2 dni') === 'date' && !!wdText('teraz - 2 dni'), got: wdText('teraz - 2 dni') });
             // waluty — z zamockowanymi kursami (zapis/odtworzenie stanu fx)
             var savedFx = STATE.fx.rates, savedFxTs = STATE.fx.ts;
             STATE.fx.rates = { PLN: 1, EUR: 4.30, USD: 3.95 }; STATE.fx.ts = Date.now();

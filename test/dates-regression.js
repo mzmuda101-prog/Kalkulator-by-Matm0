@@ -19,6 +19,8 @@ if (!parser || typeof parser.setTodayForTests !== 'function') {
 // Kotwica — środa 1.07.2026, północ lokalna.
 const ANCHOR = new Date(2026, 6, 1, 0, 0, 0, 0);
 parser.setTodayForTests(ANCHOR);
+const NOW_ANCHOR = new Date(2026, 6, 1, 14, 35, 0, 0); // „teraz" — 1.7.26 14:35
+parser.setNowForTests(NOW_ANCHOR);
 
 function evalText(expr) {
   try {
@@ -73,6 +75,15 @@ const CASES = [
   // odliczanie / różnica (deterministyczne)
   { expr: 'ile dni od 1.01.2026 do 1.02.2026', text: '31 dni', kind: 'date', value: 31 },
   { expr: 'ile dni do 1.09', text: '62 dni', kind: 'date', value: 62 },
+  // „teraz" — pełny moment (kotwica 14:35)
+  { expr: 'teraz', text: '1.7.26 14:35', kind: 'date' },
+  { expr: 'now', text: '1.7.26 14:35', kind: 'date' },
+  { expr: 'teraz - 2 dni', text: '29.6.26 14:35', kind: 'date' },
+  { expr: 'teraz-2dni', text: '29.6.26 14:35', kind: 'date' },
+  { expr: 'teraz - 56h', text: '29.6.26 06:35', kind: 'date' },
+  { expr: 'teraz-56godzin', text: '29.6.26 06:35', kind: 'date' },
+  { expr: 'teraz + 90 min', text: '1.7.26 16:05', kind: 'date' },
+  { expr: 'teraz+90min', text: '1.7.26 16:05', kind: 'date' },
 ];
 
 let pass = 0, fail = 0;
@@ -109,6 +120,8 @@ const SPACING_PAIRS = [
   ['3dnitemu', '3 dni temu'],
   ['1.09.2026+7dni', '1.09.2026 + 7 dni'],
   ['dzis+20h', 'dzis + 20h'],
+  ['teraz-2dni', 'teraz - 2 dni'],
+  ['teraz+90min', 'teraz + 90 min'],
 ];
 
 let spPass = 0, spFail = 0;
@@ -150,6 +163,7 @@ MUST_NOT_DATE.forEach(function (expr) {
 console.log('  ' + (guardFail ? '✗' : '✓') + ' dates guard (nie-matma): ' + guardPass + '/' + (guardPass + guardFail) + ' PASS');
 
 parser.clearTodayForTests();
+parser.clearNowForTests();
 
 const totalFail = fail + spFail + (propFail ? 1 : 0) + guardFail;
 console.log('\n=== dates-regression: ' + (totalFail ? 'FAIL' : 'OK') + ' ===');
