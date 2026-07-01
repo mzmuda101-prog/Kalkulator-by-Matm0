@@ -487,7 +487,7 @@
                     _calcBtnScale = 1;
                     updatePlaceholderMarquee();
                     fitCalcLayout();
-                    fitCalcResultSize();
+                    fitCalcDisplay();
                 }, 0);
             } else {
                 document.body.classList.remove('calc-panel-active');
@@ -562,7 +562,7 @@
                 if (STATE.activeTab === 'calculator') {
                     _calcBtnScale = 1;
                     fitCalcLayout();
-                    fitCalcResultSize();
+                    fitCalcDisplay();
                 }
             }, 360);
         }
@@ -1703,22 +1703,45 @@
             try { input.setSelectionRange(start + text.length, start + text.length); } catch(e) {}
         }
 
-        // Placeholder-marquee pola wyrażenia: gdy podpowiedź nie mieści się (wąski ekran),
-        // przewijamy ją ping-pongiem (CSS), by dała się odczytać w całości. Pokazujemy TYLKO
-        // gdy pole puste; szerokość przewinięcia (--ph-shift) liczymy z realnego przepełnienia.
-        var _calcPh = null, _calcPhInner = null;
+        // Placeholder: na wąsko — marquee; gdy jest miejsce w pionie — zawijanie (2 linie, wyrównane do prawej).
+        var _calcPh = null, _calcPhInner = null, _calcPhWrapProbe = null;
         function updatePlaceholderMarquee() {
-            if (!_calcPh) return;
+            if (!_calcPh || !_calcPhInner) return;
+            var wrap = calcExpr && calcExpr.parentElement;
             var empty = !calcExpr.value;
             _calcPh.classList.toggle('is-visible', empty);
-            if (!empty) { _calcPh.classList.remove('is-scrolling'); return; }
-            var over = _calcPhInner.offsetWidth - _calcPh.clientWidth;
+            _calcPh.classList.remove('is-scrolling', 'is-wrapped');
+            _calcPh.style.removeProperty('--ph-shift');
+            if (wrap) wrap.style.minHeight = '';
+            if (!empty) return;
+            var phWidth = _calcPh.clientWidth;
+            if (phWidth <= 0) return;
+            if (!_calcPhWrapProbe) {
+                _calcPhWrapProbe = document.createElement('span');
+                _calcPhWrapProbe.setAttribute('aria-hidden', 'true');
+                _calcPhWrapProbe.style.cssText = 'position:absolute;left:-9999px;top:0;visibility:hidden;white-space:normal;text-align:right;';
+                _calcPh.appendChild(_calcPhWrapProbe);
+            }
+            _calcPhWrapProbe.style.width = phWidth + 'px';
+            _calcPhWrapProbe.style.font = getComputedStyle(_calcPh).font;
+            _calcPhWrapProbe.style.lineHeight = getComputedStyle(_calcPh).lineHeight;
+            _calcPhWrapProbe.textContent = _calcPhInner.textContent;
+            var wrappedH = _calcPhWrapProbe.offsetHeight;
+            var over = _calcPhInner.offsetWidth - phWidth;
+            var display = calcExpr.closest('.calc-display');
+            var resultRow = display && display.querySelector('.calc-result-row');
+            var availH = 9999;
+            if (display) {
+                availH = Math.max(28, _syncExprWrapBounds(display, resultRow));
+            }
+            if (over > 2 && wrappedH <= availH + 1) {
+                _calcPh.classList.add('is-wrapped');
+                if (wrap) wrap.style.minHeight = Math.max(28, Math.min(wrappedH, availH)) + 'px';
+                return;
+            }
             if (over > 2) {
                 _calcPh.style.setProperty('--ph-shift', over + 'px');
                 _calcPh.classList.add('is-scrolling');
-            } else {
-                _calcPh.classList.remove('is-scrolling');
-                _calcPh.style.removeProperty('--ph-shift');
             }
         }
         function setupPlaceholderMarquee() {
@@ -1728,13 +1751,9 @@
             if (calcExpr.parentElement) calcExpr.parentElement.classList.add('has-ph');
             // Zmiana szerokości zmienia zawijanie → przelicz też auto-wysokość pola.
             var onResize = function() {
-                _calcBtnScale = 1; // pełny rozmiar klawiszy po zmianie viewportu
+                _calcBtnScale = 1;
                 updatePlaceholderMarquee();
-                autoGrowExpr();
-                fitCalcExprFont();
-                autoGrowExpr();
                 fitCalcLayout();
-                fitCalcResultSize();
             };
             window.addEventListener('resize', onResize);
             window.addEventListener('orientationchange', onResize);
@@ -1752,30 +1771,122 @@
             setTimeout(onResize, 300); // po ustaleniu layoutu/fontów
         }
 
-        // Auto-wysokość pola wyrażenia (textarea): rośnie z treścią, by długie wyrażenie ZAWIJAŁO
-        // się w pionie zamiast przewijać poziomo. Kontener .calc-display ma overflow:hidden i trzyma
-        // treść u dołu, więc gdy miejsca brak (rozwinięty nagłówek) ucina się GÓRA (najstarszy fragment),
-        // a najnowszy wpisywany tekst zostaje widoczny tuż nad wynikiem. [[project_kalkulator_phone_calc_layout]]
-        function autoGrowExpr() {
-            if (!calcExpr) return;
-            // Pusty: zostaw min-height (1 linia) — natywny placeholder jest długi i zawijałby się,
-            // sztucznie pogrubiając puste pole; podpowiedź i tak rysuje nakładka .calc-ph.
-            if (!calcExpr.value) { calcExpr.style.height = ''; return; }
-            calcExpr.style.height = 'auto';
-            calcExpr.style.height = calcExpr.scrollHeight + 'px';
+        function autoGrowExpr() { fitCalcDisplay(); } // alias — starsze wywołania
+
+        function _calcDisplayPad(display) {
+            if (!display) return 0;
+            var cs = getComputedStyle(display);
+            return (parseFloat(cs.paddingTop) || 0) + (parseFloat(cs.paddingBottom) || 0);
         }
-        // [EN] Mild expr font shrink when many wrapped lines — keeps display readable without overflow.
-        function fitCalcExprFont() {
+        function _calcIsEmpty() {
+            return !calcExpr || !calcExpr.value;
+        }
+        function _calcDisplayInnerH(display) {
+            if (!display) return 0;
+            return Math.max(0, display.clientHeight - _calcDisplayPad(display));
+        }
+        function _calcResultReserve(display, resultRow) {
+            var t = getCalcLayoutTune();
+            var gap = t.exprResultGap != null ? t.exprResultGap : 6;
+            var rh = resultRow ? resultRow.offsetHeight : 0;
+            if (_calcIsEmpty()) {
+                if (t.resultReserveEmpty != null) return t.resultReserveEmpty;
+                var slackE = t.resultAnimSlackEmpty != null ? t.resultAnimSlackEmpty : 0;
+                return rh + gap + slackE;
+            }
+            if (t.resultReserveActive != null) return t.resultReserveActive;
+            var slack = t.resultAnimSlack != null ? t.resultAnimSlack : 6;
+            var minR = t.resultReserveMin != null ? t.resultReserveMin : 36;
+            return Math.max(minR, rh) + gap + slack;
+        }
+        function _syncResultReserve(display, resultRow) {
+            if (!display) return;
+            display.style.setProperty('--calc-result-reserve', _calcResultReserve(display, resultRow) + 'px');
+        }
+        // [EN] Expr-wrap max-height in px (not %) — % on flex child liczyłby źle i ucinał tekst od góry.
+        function _syncExprWrapBounds(display, resultRow) {
+            var wrap = calcExpr && calcExpr.parentElement;
+            if (!display) return;
+            var t = getCalcLayoutTune();
+            var innerH = _calcDisplayInnerH(display);
+            var reserve = _calcResultReserve(display, resultRow);
+            var boost = t.exprBudgetBoost != null ? t.exprBudgetBoost : 0;
+            var exprMin = t.exprMinHeight != null ? t.exprMinHeight : 28;
+            var maxH = Math.max(exprMin, innerH - reserve + boost);
+            if (wrap) {
+                wrap.style.maxHeight = maxH + 'px';
+                if (_calcIsEmpty()) {
+                    var phMin = t.placeholderAreaMin != null ? t.placeholderAreaMin : 28;
+                    wrap.style.minHeight = Math.min(maxH, phMin) + 'px';
+                } else {
+                    wrap.style.minHeight = '';
+                }
+            }
+            if (t.debug) {
+                console.log('[calc-expr-bounds]', { innerH: innerH, reserve: reserve, maxH: maxH, empty: _calcIsEmpty() });
+            }
+            return maxH;
+        }
+        // [EN] Last resort: wynik wyszedł poza .calc-display — zmniejsz textarea.
+        function _clampResultInDisplay() {
+            if (!calcExpr || !calcResult) return false;
+            var display = calcExpr.closest('.calc-display');
+            var resultRow = display && display.querySelector('.calc-result-row');
+            if (!display || !resultRow) return false;
+            var dr = display.getBoundingClientRect();
+            var rr = resultRow.getBoundingClientRect();
+            if (rr.bottom <= dr.bottom + 1) return false;
+            var over = Math.ceil(rr.bottom - dr.bottom) + 2;
+            var curMax = parseFloat(calcExpr.style.maxHeight);
+            if (!isFinite(curMax)) curMax = calcExpr.offsetHeight;
+            calcExpr.style.maxHeight = Math.max(22, curMax - over) + 'px';
+            calcExpr.style.height = 'auto';
+            var h = Math.min(calcExpr.scrollHeight, parseFloat(calcExpr.style.maxHeight));
+            calcExpr.style.height = h + 'px';
+            calcExpr.classList.toggle('is-clipped', calcExpr.scrollHeight > h + 1);
+            calcExpr.scrollTop = calcExpr.scrollHeight - h;
+            return true;
+        }
+        // [EN] Expr height: mieści się w wyświetlaczu; nadmiar ucinany od góry, wynik zawsze w boxie.
+        function fitCalcExpr() {
             if (!calcExpr) return;
+            var display = calcExpr.closest('.calc-display');
+            var resultRow = display && display.querySelector('.calc-result-row');
+            if (!calcExpr.value) {
+                calcExpr.style.height = '';
+                calcExpr.style.maxHeight = '';
+                calcExpr.style.fontSize = '';
+                calcExpr.classList.remove('is-clipped');
+                if (_calcPh) _calcPh.style.fontSize = '';
+                if (display && resultRow) {
+                    _syncResultReserve(display, resultRow);
+                    _syncExprWrapBounds(display, resultRow);
+                }
+                return;
+            }
             calcExpr.style.fontSize = '';
             if (_calcPh) _calcPh.style.fontSize = '';
-            if (!calcExpr.value) return;
-            var lh = parseFloat(getComputedStyle(calcExpr).lineHeight) || 20;
-            var lines = calcExpr.scrollHeight / lh;
-            if (lines <= 3.2) return;
-            var shrink = Math.max(1.05, 1.25 - (lines - 3) * 0.05); // rem — lekko, nie drastycznie
-            calcExpr.style.fontSize = shrink + 'rem';
-            if (_calcPh) _calcPh.style.fontSize = shrink + 'rem';
+            var maxExprH = 9999;
+            if (display) {
+                maxExprH = _syncExprWrapBounds(display, resultRow);
+            }
+            calcExpr.style.maxHeight = maxExprH + 'px';
+            calcExpr.style.height = 'auto';
+            var fs = 1.25;
+            var minFs = 0.9;
+            var sh = calcExpr.scrollHeight;
+            while (sh > maxExprH && fs > minFs) {
+                fs = Math.round((fs - 0.05) * 100) / 100;
+                calcExpr.style.fontSize = fs + 'rem';
+                if (_calcPh) _calcPh.style.fontSize = fs + 'rem';
+                calcExpr.style.height = 'auto';
+                sh = calcExpr.scrollHeight;
+            }
+            var h = Math.min(sh, maxExprH);
+            calcExpr.style.height = h + 'px';
+            var clipped = sh > maxExprH + 1;
+            calcExpr.classList.toggle('is-clipped', clipped);
+            calcExpr.scrollTop = clipped ? sh - h : 0;
         }
         var _calcFitProbe = null;
         function _calcResultFullText() {
@@ -1797,9 +1908,23 @@
             _calcFitProbe.textContent = text;
             return _calcFitProbe.offsetWidth;
         }
-        // [EN] Mobile: cap display (~33–37% panelu); klawisze w pełnym rozmiarze, skala ↓ tylko gdy brakuje miejsca.
-        var CALC_BTN_SCALE_MIN = 0.7;
+        // [EN] Mobile layout — values in js/calc-layout-tune.js (CALC_LAYOUT_TUNE.mobile).
         var _calcBtnScale = 1;
+        var _calcWasEmpty = true;
+        function getCalcLayoutTune() {
+            var root = window.CALC_LAYOUT_TUNE;
+            return (root && root.mobile) ? root.mobile : {};
+        }
+        function applyCalcLayoutTune(card) {
+            if (!card) return;
+            var t = getCalcLayoutTune();
+            var groups = t.groups || {};
+            ['fn', 'number', 'operator', 'equals', 'clear'].forEach(function(name) {
+                var cfg = groups[name] || {};
+                var mul = cfg.fontScale != null ? cfg.fontScale : 1;
+                card.style.setProperty('--calc-g-' + name + '-font', String(mul));
+            });
+        }
         function fitCalcLayout() {
             var panel = document.getElementById('panel-calculator');
             if (!panel || !calcGrid) return;
@@ -1809,48 +1934,68 @@
             if (window.innerWidth > 639 || !panel.classList.contains('active')) {
                 document.body.classList.remove('calc-panel-active');
                 card.style.removeProperty('--calc-btn-scale');
-                display.style.removeProperty('--calc-display-max');
+                ['fn', 'number', 'operator', 'equals', 'clear'].forEach(function(n) {
+                    card.style.removeProperty('--calc-g-' + n + '-font');
+                });
+                display.style.removeProperty('max-height');
+                display.style.removeProperty('min-height');
                 _calcBtnScale = 1;
                 return;
             }
             document.body.classList.add('calc-panel-active');
+            var t = getCalcLayoutTune();
             var availH = panel.clientHeight;
             if (availH < 120) return;
             var tools = card.querySelector('.calc-tools');
-            var toolsH = tools ? tools.offsetHeight : 52;
+            var toolsH = tools ? tools.offsetHeight : 48;
             var cardCs = getComputedStyle(card);
             var cardPad = (parseFloat(cardCs.paddingTop) || 0) + (parseFloat(cardCs.paddingBottom) || 0);
-            var btnRowBase = 56; // oryginalny rozmiar klawiszy przy skali 1
-            var gridGapBase = 10;
-            var gridMinH = 5 * btnRowBase * CALC_BTN_SCALE_MIN + 4 * gridGapBase * CALC_BTN_SCALE_MIN;
-            var layoutGap = 20;
-            var ratio = window.innerHeight <= 680 ? 0.33 : (window.innerHeight <= 760 ? 0.35 : 0.37);
-            var displayMax = Math.round(availH * ratio);
-            var displayMaxHard = availH - cardPad - toolsH - gridMinH - layoutGap;
-            displayMax = Math.max(64, Math.min(displayMax, displayMaxHard));
-            display.style.setProperty('--calc-display-max', displayMax + 'px');
-            // Stały slot na wyświetlacz — nie skacze przy wpisywaniu (treść ucina overflow w CSS).
-            card.style.setProperty('--calc-btn-scale', '1');
-            var displaySlot = displayMax;
-            var availableForGrid = availH - cardPad - displaySlot - toolsH - layoutGap;
-            var gridH = calcGrid.offsetHeight;
-            var targetScale = 1;
-            if (gridH > availableForGrid && availableForGrid > 0) {
-                targetScale = Math.max(CALC_BTN_SCALE_MIN, availableForGrid / gridH);
+            var btnRowBase = t.btnRowBase != null ? t.btnRowBase : 56;
+            var gridGapBase = t.gridGapBase != null ? t.gridGapBase : 8;
+            var rows = t.rows != null ? t.rows : 5;
+            var gaps = t.gaps != null ? t.gaps : 4;
+            var keypadBase = rows * btnRowBase + gaps * gridGapBase;
+            var isEmpty = !calcExpr || !calcExpr.value;
+            var displayMin = isEmpty
+                ? (t.displayMinEmpty != null ? t.displayMinEmpty : 88)
+                : (t.displayMinActive != null ? t.displayMinActive : 104);
+            var layoutGap = t.layoutGap != null ? t.layoutGap : 16;
+            var scaleMin = t.scaleMin != null ? t.scaleMin : 0.7;
+            var scaleMax = t.scaleMax != null ? t.scaleMax : 1.35;
+            var targetKeypad = availH - cardPad - toolsH - layoutGap - displayMin;
+            if (isEmpty && t.keypadBoostEmpty) targetKeypad += t.keypadBoostEmpty;
+            var scale = targetKeypad / keypadBase;
+            scale = Math.max(scaleMin, Math.min(scaleMax, scale));
+            scale = Math.round(scale * 1000) / 1000;
+            _calcBtnScale = scale;
+            applyCalcLayoutTune(card);
+            card.style.setProperty('--calc-btn-scale', String(scale));
+            display.style.minHeight = displayMin + 'px';
+            if (isEmpty && t.displayMaxEmptyRatio) {
+                display.style.maxHeight = Math.max(displayMin, Math.floor(availH * t.displayMaxEmptyRatio)) + 'px';
+            } else {
+                display.style.removeProperty('max-height');
             }
-            targetScale = Math.round(targetScale * 1000) / 1000;
-            // Histereza: nie „pompuj" klawiszy przy drobnych zmianach; pełny reset dopiero przy resize.
-            if (targetScale < _calcBtnScale - 0.025) _calcBtnScale = targetScale;
-            else if (targetScale > _calcBtnScale + 0.05) _calcBtnScale = Math.min(1, targetScale);
-            card.style.setProperty('--calc-btn-scale', String(_calcBtnScale));
+            if (t.debug) {
+                console.log('[calc-layout]', {
+                    empty: isEmpty, displayMin: displayMin, scale: scale,
+                    availH: availH, keypadPx: Math.round(keypadBase * scale),
+                    displayH: display.offsetHeight, maxH: display.style.maxHeight || '—'
+                });
+            }
+            requestAnimationFrame(function() {
+                fitCalcDisplay();
+            });
         }
 
         function liveEval() {
+            var empty = !calcExpr.value;
+            if (empty !== _calcWasEmpty) {
+                _calcWasEmpty = empty;
+                fitCalcLayout(); // pusty ↔ aktywny — inny budżet wyświetlacza (tune panel)
+            }
             updatePlaceholderMarquee();
-            autoGrowExpr();
-            fitCalcExprFont();
-            autoGrowExpr();
-            // fitCalcLayout tylko przy resize/zakładce — nie przy każdym znaku (unika skakania UI).
+            // fitCalcLayout poza zmianą pusty/aktywny tylko przy resize/zakładce (unika skakania UI).
             // Wyrażenia z samych liczb całkowitych i +,−,×,() liczymy BigInt-em (dokładnie,
             // dowolna długość) — NIE obcinamy ich. Pozostałe (ułamki/dzielenie/funkcje) idą
             // przez float: tam liczba > 16 cyfr przekracza dokładność JS, więc tniemy nadmiar.
@@ -1871,7 +2016,7 @@
                 calcResult.textContent = STATE.fx.error && !_fxReady() ? 'Kursy: brak połączenia' : 'Pobieram kursy…';
                 calcResult.classList.remove('small', 'xsmall', 'xxsmall');
                 calcResult.classList.add('small');
-                fitCalcResultSize();
+                fitCalcDisplay();
                 _setApproxMark(false);
                 return;
             }
@@ -1881,7 +2026,7 @@
             var display = hasResult ? formatCalcResult(res) : (calcExpr.value === '' ? '0' : '');
             renderCalcResult(calcResult.textContent, display);
             _setApproxMark(hasResult && res.exact === false, res.exactText);
-            fitCalcResultSize();
+            fitCalcDisplay();
         }
         // Znacznik „≈" (wynik zaokrąglony stratnie, np. sekundy → minuta). Dymek na tap/hover
         // (cursor-hint) pokazuje dokładną wartość. on=false → chowamy. [[A2]]
@@ -1940,6 +2085,18 @@
                 }
                 if (mobileCalc && fs2 >= basePx - 0.5) calcResult.style.fontSize = '';
                 else calcResult.style.fontSize = fs2 + 'px';
+                fitCalcExpr();
+                _clampResultInDisplay();
+            });
+        }
+        // [EN] Sync result + expr; drugi przebieg w rAF po ustabilizowaniu fontu wyniku.
+        function fitCalcDisplay() {
+            fitCalcResultSize();
+            fitCalcExpr();
+            updatePlaceholderMarquee();
+            requestAnimationFrame(function() {
+                fitCalcExpr();
+                _clampResultInDisplay();
             });
         }
         // *------------ Logika Animacji pojawiania się liczb/wyrażeń/wyniku* ----------------*
@@ -1951,7 +2108,6 @@
         function renderCalcResult(prev, next) {
             if (next === '' || next === prev) {
                 calcResult.textContent = next;
-                fitCalcResultSize();
                 return;
             }
             // Animujemy DOKŁADNIE te znaki, które się realnie zmieniły. Diff liczymy na RDZENIU
@@ -1963,7 +2119,7 @@
             var pCore = prev.replace(/\s/g, ''), nCore = next.replace(/\s/g, '');
             var c = 0, lim = Math.min(pCore.length, nCore.length);
             while (c < lim && pCore.charAt(c) === nCore.charAt(c)) c++;
-            if (c >= nCore.length) { calcResult.textContent = next; fitCalcResultSize(); return; }
+            if (c >= nCore.length) { calcResult.textContent = next; return; }
             // przelicz c (liczba niezmienionych znaczących znaków) na pozycję w SFORMATOWANYM next
             var idx = 0, counted = 0;
             while (idx < next.length && counted < c) {
@@ -1976,7 +2132,6 @@
             span.className = 'calc-result-new';
             span.textContent = next.slice(idx);           // świeży <span> sam odpala animację CSS
             calcResult.appendChild(span);
-            fitCalcResultSize();
         }
         // *---------------------------------------------------------------------------------*
         function handleCalcAction(action) {
@@ -9549,6 +9704,9 @@
         if (typeof window !== 'undefined') {
             window.__matm0 = {
                 state: STATE,
+                fitCalcLayout: fitCalcLayout,
+                fitCalcDisplay: fitCalcDisplay,
+                calcLayoutTune: function() { return window.CALC_LAYOUT_TUNE; },
                 switchTab: switchTab,
                 updateGraph: updateGraph,
                 renderConstants: renderConstants,
