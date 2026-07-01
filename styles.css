@@ -2841,8 +2841,11 @@
                 padding: 12px 14px;
                 --calc-btn-scale: 1;
             }
-            /* Wyświetlacz: flex:1; min/max-height z tune + fitCalcLayout(); min-height:0 = brak wypadania wyniku. */
+            /* Grid: wynik w dolnym wierszu (auto), wyrażenie w górnym (1fr) — zawijanie rośnie w górę. */
             #panel-calculator .calc-display {
+                display: grid;
+                grid-template-rows: minmax(0, 1fr) auto;
+                align-content: stretch;
                 flex: 1 1 auto;
                 min-height: 0;
                 max-height: 100%;
@@ -2851,12 +2854,12 @@
                 overflow: hidden;
             }
             #panel-calculator .calc-expr-wrap {
-                flex: 1 1 auto;
+                grid-row: 1;
                 min-height: 0;
-                /* max-height ustawia JS (_syncExprWrapBounds) — px, nie % */
+                overflow: hidden;
             }
             #panel-calculator .calc-result-row {
-                flex: 0 0 auto;
+                grid-row: 2;
                 flex-shrink: 0;
                 overflow: hidden;
             }

@@ -16,7 +16,8 @@
 
    TEKST WYŚWIETLACZA (najczęstsze na małych ekranach)
    • Ucięty placeholder lub wyrażenie od góry → ZWIĘKSZ displayMinEmpty / placeholderAreaMin
-   • Za mało miejsca na 2 linie wyrażenia → ZWIĘKSZ displayMinActive + exprBudgetBoost
+   • Zawinięte wyrażenie wypycha wynik → grid na mobile powinien użyć pustego miejsca U GÓRY
+     (sprawdź na XR: długie wyrażenie, wynik przy dolnej krawędzi boxa)
    • Za dużo miejsca na wynik, mało na wyrażenie → ZMNIEJSZ resultReserveActive
    • Pusty ekran za wysoki → ZMNIEJSZ displayMinEmpty (ostrożnie, min. ~96 na SE)
 

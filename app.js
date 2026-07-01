@@ -1803,29 +1803,39 @@
             if (!display) return;
             display.style.setProperty('--calc-result-reserve', _calcResultReserve(display, resultRow) + 'px');
         }
-        // [EN] Expr-wrap max-height in px (not %) — % on flex child liczyłby źle i ucinał tekst od góry.
+        // [EN] Pusty ekran: budżet placeholdera. Aktywny: grid przydziela wiersz — bez sztucznego max.
         function _syncExprWrapBounds(display, resultRow) {
             var wrap = calcExpr && calcExpr.parentElement;
-            if (!display) return;
+            if (!display || !wrap) return 0;
             var t = getCalcLayoutTune();
+            if (!_calcIsEmpty()) {
+                wrap.style.minHeight = '';
+                wrap.style.maxHeight = '';
+                return _calcExprMaxH(display, resultRow, wrap);
+            }
             var innerH = _calcDisplayInnerH(display);
             var reserve = _calcResultReserve(display, resultRow);
             var boost = t.exprBudgetBoost != null ? t.exprBudgetBoost : 0;
             var exprMin = t.exprMinHeight != null ? t.exprMinHeight : 28;
             var maxH = Math.max(exprMin, innerH - reserve + boost);
-            if (wrap) {
-                wrap.style.maxHeight = maxH + 'px';
-                if (_calcIsEmpty()) {
-                    var phMin = t.placeholderAreaMin != null ? t.placeholderAreaMin : 28;
-                    wrap.style.minHeight = Math.min(maxH, phMin) + 'px';
-                } else {
-                    wrap.style.minHeight = '';
-                }
-            }
+            wrap.style.maxHeight = maxH + 'px';
+            var phMin = t.placeholderAreaMin != null ? t.placeholderAreaMin : 28;
+            wrap.style.minHeight = Math.min(maxH, phMin) + 'px';
             if (t.debug) {
-                console.log('[calc-expr-bounds]', { innerH: innerH, reserve: reserve, maxH: maxH, empty: _calcIsEmpty() });
+                console.log('[calc-expr-bounds]', { innerH: innerH, reserve: reserve, maxH: maxH, empty: true });
             }
             return maxH;
+        }
+        // [EN] Active: wysokość z wiersza grid (wykorzystuje pustą przestrzeń u góry na dużych ekranach).
+        function _calcExprMaxH(display, resultRow, wrap) {
+            var t = getCalcLayoutTune();
+            var boost = t.exprBudgetBoost != null ? t.exprBudgetBoost : 0;
+            var exprMin = t.exprMinHeight != null ? t.exprMinHeight : 28;
+            var fromGrid = wrap ? wrap.clientHeight : 0;
+            if (fromGrid >= exprMin) return fromGrid;
+            var innerH = _calcDisplayInnerH(display);
+            var reserve = _calcResultReserve(display, resultRow);
+            return Math.max(exprMin, innerH - reserve + boost);
         }
         // [EN] Last resort: wynik wyszedł poza .calc-display — zmniejsz textarea.
         function _clampResultInDisplay() {
@@ -1866,8 +1876,10 @@
             }
             calcExpr.style.fontSize = '';
             if (_calcPh) _calcPh.style.fontSize = '';
+            var wrap = calcExpr.parentElement;
             var maxExprH = 9999;
             if (display) {
+                _syncResultReserve(display, resultRow);
                 maxExprH = _syncExprWrapBounds(display, resultRow);
             }
             calcExpr.style.maxHeight = maxExprH + 'px';
@@ -1882,11 +1894,19 @@
                 calcExpr.style.height = 'auto';
                 sh = calcExpr.scrollHeight;
             }
+            // [EN] Po zawinięciu scrollHeight rośnie — kilka przebiegów aż stabilne (nie wypycha wyniku).
             var h = Math.min(sh, maxExprH);
-            calcExpr.style.height = h + 'px';
-            var clipped = sh > maxExprH + 1;
+            var stable = 0;
+            while (stable < 4) {
+                calcExpr.style.height = h + 'px';
+                var sh2 = calcExpr.scrollHeight;
+                if (sh2 <= h + 1) break;
+                h = Math.min(sh2, maxExprH);
+                stable++;
+            }
+            var clipped = calcExpr.scrollHeight > h + 1;
             calcExpr.classList.toggle('is-clipped', clipped);
-            calcExpr.scrollTop = clipped ? sh - h : 0;
+            calcExpr.scrollTop = clipped ? calcExpr.scrollHeight - h : 0;
         }
         var _calcFitProbe = null;
         function _calcResultFullText() {
@@ -2089,12 +2109,13 @@
                 _clampResultInDisplay();
             });
         }
-        // [EN] Sync result + expr; drugi przebieg w rAF po ustabilizowaniu fontu wyniku.
+        // [EN] Sync result + expr; drugi przebieg w rAF po grid/layout (duże ekrany: miejsce u góry).
         function fitCalcDisplay() {
             fitCalcResultSize();
             fitCalcExpr();
             updatePlaceholderMarquee();
             requestAnimationFrame(function() {
+                fitCalcResultSize();
                 fitCalcExpr();
                 _clampResultInDisplay();
             });
