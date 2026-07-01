@@ -483,7 +483,13 @@
                 renderConstants();
             }
             if (tabName === 'calculator') {
-                setTimeout(updatePlaceholderMarquee, 0); // panel widoczny → poprawny pomiar szerokości
+                setTimeout(function() {
+                    updatePlaceholderMarquee();
+                    fitCalcLayout();
+                    fitCalcResultSize();
+                }, 0);
+            } else {
+                document.body.classList.remove('calc-panel-active');
             }
         }
 
@@ -550,7 +556,13 @@
             document.body.classList.toggle('header-collapsed', on);
             _headerAnimating = true;
             clearTimeout(_headerAnimTimer);
-            _headerAnimTimer = setTimeout(function() { _headerAnimating = false; }, 360);
+            _headerAnimTimer = setTimeout(function() {
+                _headerAnimating = false;
+                if (STATE.activeTab === 'calculator') {
+                    fitCalcLayout();
+                    fitCalcResultSize();
+                }
+            }, 360);
         }
         if (appHeaderEl) {
             measureHeaderH();
@@ -1725,10 +1737,12 @@
             window.addEventListener('orientationchange', onResize);
             if (document.fonts && document.fonts.ready) document.fonts.ready.then(onResize).catch(function(){});
             var calcDisplay = calcExpr.closest('.calc-display');
+            var calcPanel = document.getElementById('panel-calculator');
             if (calcDisplay && typeof ResizeObserver !== 'undefined') {
                 var ro = new ResizeObserver(function() { onResize(); });
                 ro.observe(calcDisplay);
                 if (calcGrid) ro.observe(calcGrid);
+                if (calcPanel) ro.observe(calcPanel); // zwinięcie belki zmienia wysokość panelu
             }
             updatePlaceholderMarquee();
             autoGrowExpr();
@@ -1780,7 +1794,8 @@
             _calcFitProbe.textContent = text;
             return _calcFitProbe.offsetWidth;
         }
-        // [EN] Mobile: grow display for expr+result; gently shrink keypad when vertical space is tight.
+        // [EN] Mobile: cap display (~33–37% panelu); siatka skaluje się łagodnie (min. 0.7).
+        var CALC_BTN_SCALE_MIN = 0.7;
         function fitCalcLayout() {
             var panel = document.getElementById('panel-calculator');
             if (!panel || !calcGrid) return;
@@ -1788,35 +1803,45 @@
             var display = card && card.querySelector('.calc-display');
             if (!card || !display) return;
             if (window.innerWidth > 639 || !panel.classList.contains('active')) {
+                document.body.classList.remove('calc-panel-active');
                 card.style.removeProperty('--calc-btn-scale');
                 display.style.removeProperty('--calc-display-min');
                 display.style.removeProperty('--calc-display-max');
                 display.style.removeProperty('min-height');
                 return;
             }
-            var cardH = card.clientHeight;
-            if (cardH < 100) return;
+            document.body.classList.add('calc-panel-active');
+            var availH = panel.clientHeight;
+            if (availH < 120) return;
             var tools = card.querySelector('.calc-tools');
-            var toolsH = tools ? tools.offsetHeight : 0;
+            var toolsH = tools ? tools.offsetHeight : 52;
+            var cardCs = getComputedStyle(card);
+            var cardPad = (parseFloat(cardCs.paddingTop) || 0) + (parseFloat(cardCs.paddingBottom) || 0);
+            var gridGap = parseFloat(getComputedStyle(calcGrid).gap) || 8;
+            var btnRowBase = 44; // px przy skali 1
+            var gridMinH = 5 * btnRowBase * CALC_BTN_SCALE_MIN + 4 * gridGap * CALC_BTN_SCALE_MIN;
+            var layoutGap = 20;
+            var ratio = window.innerHeight <= 680 ? 0.33 : (window.innerHeight <= 760 ? 0.35 : 0.37);
+            var displayMax = Math.round(availH * ratio);
+            var displayMaxHard = availH - cardPad - toolsH - gridMinH - layoutGap;
+            displayMax = Math.max(56, Math.min(displayMax, displayMaxHard));
             var exprWrap = display.querySelector('.calc-expr-wrap');
             var resultRow = display.querySelector('.calc-result-row');
-            var pad = 28;
+            var pad = 24;
             var contentH = (exprWrap ? exprWrap.offsetHeight : 0) + (resultRow ? resultRow.offsetHeight : 0) + pad;
-            var shortScreen = window.innerHeight <= 760;
-            var gridFloor = shortScreen ? 200 : 220;
-            var displayMax = Math.round(Math.min(cardH * (shortScreen ? 0.4 : 0.46), cardH - toolsH - gridFloor));
-            displayMax = Math.max(72, displayMax);
-            var displayMin = Math.max(64, Math.min(contentH, displayMax));
-            card.style.setProperty('--calc-btn-scale', '1'); // zmierz siatkę w pełnej skali
+            var displayMin = Math.max(56, Math.min(contentH, displayMax));
             display.style.setProperty('--calc-display-min', displayMin + 'px');
             display.style.setProperty('--calc-display-max', displayMax + 'px');
-            display.style.minHeight = displayMin + 'px';
-            var availableForGrid = cardH - displayMin - toolsH - 16;
+            // Lekkie zmniejszenie klawiszy gdy siatka nie mieści się pod wyświetlaczem (≥0.7).
+            card.style.setProperty('--calc-btn-scale', '1');
+            var displayH = Math.min(displayMax, Math.max(displayMin, display.offsetHeight || displayMin));
+            var availableForGrid = availH - cardPad - displayH - toolsH - layoutGap;
             var gridH = calcGrid.offsetHeight;
-            if (gridH > availableForGrid && availableForGrid > 120) {
-                var scale = Math.max(0.88, Math.min(1, availableForGrid / gridH));
-                card.style.setProperty('--calc-btn-scale', String(Math.round(scale * 1000) / 1000));
+            var scale = 1;
+            if (gridH > availableForGrid && availableForGrid > 0) {
+                scale = Math.max(CALC_BTN_SCALE_MIN, availableForGrid / gridH);
             }
+            card.style.setProperty('--calc-btn-scale', String(Math.round(scale * 1000) / 1000));
         }
 
         function liveEval() {

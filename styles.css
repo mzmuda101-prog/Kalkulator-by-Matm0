@@ -2785,80 +2785,59 @@
 
         /* ============================================================
            [EN] Kalkulator — dopasowanie do ekranu telefonu (bez scrolla)
-           Panel wypełnia dostępną wysokość. WOLNE MIEJSCE (np. po zwinięciu
-           górnej belki) pochłania WYŚWIETLACZ — klawisze trzymają naturalny,
-           kwadratowy rozmiar i już się nie powiększają (są dość duże).
+           Wyświetlacz ma twardy sufit (~33–37% panelu, JS). Siatka elastycznie
+           wypełnia resztę (1fr); Historia/Ściąga zawsze widoczne na dole karty.
            ============================================================ */
         @media (max-width: 639px) {
+            body.calc-panel-active .panels {
+                overflow: hidden; /* kalkulator mieści się w widoku — bez wpychania pod ekran */
+            }
             #panel-calculator.active {
                 display: flex;
                 flex-direction: column;
                 height: 100%;
+                min-height: 0;
+                overflow: hidden;
             }
             #panel-calculator .card {
                 display: flex;
                 flex-direction: column;
                 flex: 1 1 auto;
                 min-height: 0;
+                overflow: hidden;
                 margin-bottom: 0;
-            }
-            #panel-calculator .card {
+                padding: 14px 16px;
                 --calc-btn-scale: 1;
             }
-            /* Wyświetlacz rośnie i zabiera wolną przestrzeń; liczby trzymają się dołu
-               (calc-display ma justify-content:flex-end). JS ustawia --calc-display-min/max. */
+            /* Wyświetlacz: rośnie z treścią, ale nie zabiera miejsca klawiszom/narzędziom. */
             #panel-calculator .calc-display {
-                flex: 1 1 auto;
-                min-height: max(64px, var(--calc-display-min, 64px));
-                max-height: var(--calc-display-max, none);
-                margin-bottom: 12px;
-            }
-            /* Siatka przycisków: naturalna wysokość, NIE rozciąga się na wolne miejsce. */
-            #panel-calculator .calc-grid {
-                flex: 0 0 auto;
-            }
-            /* Klawisze kwadratowe — lekko skalują się w dół gdy brakuje miejsca (JS --calc-btn-scale). */
-            #panel-calculator .calc-btn {
-                aspect-ratio: 1;
-                height: auto;
-                min-height: calc(56px * var(--calc-btn-scale, 1));
-                font-size: calc(1.3rem * var(--calc-btn-scale, 1));
-            }
-            #panel-calculator .calc-tools {
-                flex: 0 0 auto;
-                padding-bottom: max(8px, var(--safe-bottom));
-            }
-        }
-
-        /* ============================================================
-           [EN] KRÓTKIE telefony (np. starsze iPhone'y, SE) — kalkulator MUSI
-           zmieścić się bez scrolla podczas wpisywania/używania. Wiążemy panel
-           wysokością widoku, wyświetlacz ODDAJE miejsce (nie rośnie), a siatka
-           wypełnia resztę — klawisze tracą sztywny kwadrat i dostają dolny limit
-           tappable. Wyższe ekrany zostają przy układzie „wyświetlacz rośnie,
-           klawisze kwadratowe" (blok wyżej).
-           ============================================================ */
-        @media (max-width: 639px) and (max-height: 760px) {
-            /* height:100% (nie min-height) → panel = wysokość .panels → brak przewijania. */
-            #panel-calculator.active { height: 100%; min-height: 0; }
-            #panel-calculator .calc-display {
-                flex: 1 1 auto;          /* rośnie do --calc-display-max (JS), nie oddaje całego miejsca */
+                flex: 0 1 auto;
                 min-height: max(56px, var(--calc-display-min, 56px));
-                max-height: var(--calc-display-max, 38vh);
-                padding: 12px 16px;
+                max-height: var(--calc-display-max, 35%);
                 margin-bottom: 8px;
             }
+            /* Siatka pochłania wolne miejsce; JS może lekko zmniejszyć klawisze (--calc-btn-scale ≥0.7). */
             #panel-calculator .calc-grid {
-                flex: 1 1 auto;          /* wypełnia dostępną wysokość */
+                flex: 1 1 auto;
                 min-height: 0;
-                grid-auto-rows: 1fr;     /* 5 równych rzędów dzielących wysokość */
+                grid-auto-rows: minmax(calc(44px * var(--calc-btn-scale, 1)), 1fr);
                 gap: calc(8px * var(--calc-btn-scale, 1));
             }
             #panel-calculator .calc-btn {
-                aspect-ratio: auto;      /* zdejmij kwadrat — wysokość z dostępnego miejsca */
+                aspect-ratio: auto;
                 height: auto;
-                min-height: max(44px, calc(44px * var(--calc-btn-scale, 1))); /* cel dotyku */
-                font-size: calc(1.2rem * var(--calc-btn-scale, 1));
+                min-height: calc(44px * var(--calc-btn-scale, 1));
+                max-height: calc(58px * var(--calc-btn-scale, 1));
+                font-size: calc(1.25rem * var(--calc-btn-scale, 1));
+            }
+            #panel-calculator .calc-tools {
+                flex: 0 0 auto;
+                margin-top: 8px;
+                padding-bottom: max(4px, var(--safe-bottom));
+            }
+            #panel-calculator .calc-help-btn,
+            #panel-calculator .history-open-btn {
+                min-height: 44px;
             }
         }
 
