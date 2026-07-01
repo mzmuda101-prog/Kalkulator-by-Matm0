@@ -959,6 +959,7 @@
                 </section>
                 <section>
                     <h4>Procenty</h4>
+                    <p>Trzy kierunki: <strong>% z kwoty</strong> (<code>20% z 150</code>), <strong>jaki % to A z B</strong> (<code>ile % stanowi…</code>), <strong>znasz ułamek → szukasz reszty</strong> (<code>8,5% to 20, ile 100%</code> — domyślnie całość, możesz podać inny %).</p>
                     <p class="help-command" data-command="20% z 150"><span class="help-pair"><code>20% z 150</code><span class="help-sep">·</span><code>20% of 150</code></span> = 30 (też: <code>procent</code>)</p>
                     <p class="help-command" data-command="150 + 10%"><span class="help-pair"><code>150 + 10%</code></span> dodaj 10% = 165</p>
                     <p class="help-command" data-command="3*160 + 12%"><span class="help-pair"><code>3*160 + 12%</code></span> procent od całego działania = 537,6</p>
@@ -967,11 +968,14 @@
                     <p class="help-command" data-command="dodaj 15% do 200"><span class="help-pair"><code>dodaj 15% do 200</code><span class="help-sep">·</span><code>add 15% to 200</code></span> = 230</p>
                     <p class="help-command" data-command="15% napiwek na 42"><span class="help-pair"><code>15% napiwek na 42</code><span class="help-sep">·</span><code>15% tip on 42</code></span> = 48,30</p>
                     <p class="help-command" data-command="ile % stanowi 25 z 200"><span class="help-pair"><code>ile % stanowi 25 z 200</code><span class="help-sep">·</span><code>what percent is 25 of 200</code></span> = 12,5%</p>
-                    <p class="help-command" data-command="25 z 200 to ile %"><span class="help-pair"><code>25 z 200 to ile %</code><span class="help-sep">·</span><code>25 of 200 is what percent</code></span> jaki % stanowi A z B</p>
-                    <p class="help-command" data-command="8,5% to 20, ile 100%"><span class="help-pair"><code>8,5% to 20, ile 100%</code><span class="help-sep">·</span><code>20 is 8.5% of what</code></span> całość (domyślnie 100%) — 8,5%=20 → ≈235,29</p>
-                    <p class="help-command" data-command="8,5% to 20, ile 50%"><span class="help-pair"><code>8,5% to 20, ile 50%</code><span class="help-sep">·</span><code>what is 50% if 8.5% is 20</code></span> dowolny % — np. połowa ≈117,65</p>
-                    <p class="help-command" data-command="8,5%=20;50%"><span class="help-pair"><code>8,5%=20;50%</code><span class="help-sep">·</span><code>8.5%=20;50%</code></span> skrót — bez sufiksu <code>;100%</code> też działa</p>
-                    <p class="help-command" data-command="8,5% to 80pln"><span class="help-pair"><code>8,5% to 80pln</code><span class="help-sep">·</span><code>80 pln is 8.5% of what</code></span> z walutą → zaokrąglenie do 2 miejsc (≈941,18 zł)</p>
+                    <p class="help-command" data-command="25 z 200 to ile %"><span class="help-pair"><code>25 z 200 to ile %</code><span class="help-sep">·</span><code>25 of 200 is what percent</code></span> to samo, inna kolejność słów</p>
+                    <p><strong>Znasz tylko ułamek</strong> (np. 8,5% = 20) — wynik w formacie <code>100% = …</code> albo <code>50% = …</code>:</p>
+                    <p class="help-command" data-command="8,5%=20"><span class="help-pair"><code>8,5%=20</code><span class="help-sep">·</span><code>8.5%=20</code></span> skrót → 100% ≈ 235,29 (bez sufiksu = całość)</p>
+                    <p class="help-command" data-command="8,5% to 20, ile 100%"><span class="help-pair"><code>8,5% to 20, ile 100%</code><span class="help-sep">·</span><code>20 is 8.5% of what</code></span> to samo, słownie</p>
+                    <p class="help-command" data-command="20 to 8,5% z czego"><span class="help-pair"><code>20 to 8,5% z czego</code><span class="help-sep">·</span><code>20 is 8.5% of what</code></span> odwrotna kolejność (PL)</p>
+                    <p class="help-command" data-command="8,5% to 20, ile 50%"><span class="help-pair"><code>8,5% to 20, ile 50%</code><span class="help-sep">·</span><code>what is 50% if 8.5% is 20</code></span> dowolny cel (np. połowa ≈ 117,65)</p>
+                    <p class="help-command" data-command="8,5%=20;50%"><span class="help-pair"><code>8,5%=20;50%</code><span class="help-sep">·</span><code>8.5%=20;50%</code></span> skrót z celem po średniku</p>
+                    <p class="help-command" data-command="8,5% to 80pln"><span class="help-pair"><code>8,5% to 80pln</code><span class="help-sep">·</span><code>80 pln is 8.5% of what</code></span> z walutą (<code>zł</code>/<code>pln</code>/<code>eur</code>…) → zaokrąglenie do 2 miejsc (≈ 941,18 zł)</p>
                 </section>
                 <section>
                     <h4>Finanse — VAT (domyślnie 23%, własna stawka z <code>%</code> na końcu)</h4>
@@ -1059,19 +1063,20 @@
                     <p class="help-command" data-command="17:00 + 3h"><span class="help-pair"><code>17:00 + 3h</code></span> zegar + trwanie = 20:00</p>
                     <p class="help-command" data-command="od 9:30 do 17:15"><span class="help-pair"><code>od 9:30 do 17:15</code><span class="help-sep">·</span><code>from 9:30 to 17:15</code></span> czas między godzinami</p>
                     <p class="help-command" data-command="najbliższy poniedziałek"><span class="help-pair"><code>najbliższy poniedziałek</code><span class="help-sep">·</span><code>next monday</code></span> dzień tygodnia</p>
-                    <p class="help-command" data-command="który dzień tygodnia 25.12.2026"><span class="help-pair"><code>który dzień tygodnia 25.12.2026</code><span class="help-sep">·</span><code>what day is 25.12.2026</code></span></p>
+                    <p class="help-command" data-command="który dzień tygodnia 25.12.2026"><span class="help-pair"><code>który dzień tygodnia 25.12.2026</code><span class="help-sep">·</span><code>what day is 25.12.2026</code></span> = piątek</p>
                     <p class="help-command" data-command="17:00 w Londynie na Tokio"><span class="help-pair"><code>17:00 w Londynie na Tokio</code><span class="help-sep">·</span><code>17:00 in London to Tokyo</code></span> strefy czasowe</p>
                     <p class="help-command" data-command="która godzina w Tokio"><span class="help-pair"><code>która godzina w Tokio</code><span class="help-sep">·</span><code>what time in Tokyo</code></span> aktualny czas w mieście</p>
                     <p>Tokeny względne: <code>jutro</code>/<code>tomorrow</code>, <code>wczoraj</code>/<code>yesterday</code></p>
                 </section>
                 <section>
                     <h4>Koszt trasy / paliwo ⛽</h4>
+                    <p>Potrzebne trzy liczby: <strong>dystans (km)</strong>, <strong>spalanie (l/100)</strong>, <strong>cena (zł/l)</strong> — kolejność i słowa dowolne.</p>
                     <p class="help-command" data-command="koszt trasy 300 km 7 l/100km 6,50 zł/l"><span class="help-pair"><code>koszt trasy 300 km 7 l/100km 6,50 zł/l</code></span> = 136,50 zł</p>
-                    <p class="help-command" data-command="paliwo na 420 km przy 6 l/100 i 6,29 zł/l"><span class="help-pair"><code>paliwo na 420 km …</code><span class="help-sep">·</span><code>fuel for 420 km at 6 l/100 …</code></span> kolejność dowolna</p>
+                    <p class="help-command" data-command="paliwo na 420 km przy 6 l/100 i 6,29 zł/l"><span class="help-pair"><code>paliwo na 420 km przy 6 l/100 i 6,29 zł/l</code><span class="help-sep">·</span><code>fuel for 420 km at 6 l/100 and 6.29 zł/l</code></span> to samo — słowa PL/EN opcjonalne</p>
                 </section>
                 <section>
                     <h4>Waluty (NBP + Frankfurter)</h4>
-                    <p>Wymaga internetu przy pierwszym użyciu; potem offline z cache.</p>
+                    <p>Wymaga internetu przy pierwszym użyciu; potem offline z cache. Walutę możesz też podać w <strong>bazie procentowej</strong> (<code>8,5% to 80 zł</code>).</p>
                     <p class="help-command" data-command="12 zł + 20 eur"><span class="help-pair"><code>12 zł + 20 eur</code></span> suma w walucie domyślnej</p>
                     <p class="help-command" data-command="20 eur na zł"><span class="help-pair"><code>20 eur na zł</code><span class="help-sep">·</span><code>20 eur to PLN</code></span> przelicz</p>
                     <p class="help-command" data-command="50 usd na eur"><span class="help-pair"><code>50 usd na eur</code><span class="help-sep">·</span><code>50 usd to eur</code></span> między walutami</p>
