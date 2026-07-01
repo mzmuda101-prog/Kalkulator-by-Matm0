@@ -43,7 +43,9 @@ const PAIRS = [
   { pl: 'proporcja 3 do 5', en: 'ratio of 3 to 5', sameValue: true },
   { pl: 'pierwiastek z 144', en: 'square root of 144', sameValue: true },
   { pl: '8,5% to 20, ile 100%', en: '20 is 8.5% of what', sameValue: true },
-  { pl: '8,5%=20;100%', en: 'what is 100% if 8.5% is 20', sameValue: true },
+  { pl: '8,5% to 20, ile 50%', en: 'what is 50% if 8.5% is 20', sameValue: true },
+  { pl: '8,5%=20;50%', en: '8.5%=20;50%', sameValue: true },
+  { pl: '8,5% to 80pln', en: '80 pln is 8.5% of what', sameValue: true },
   { pl: 'brutto 1000', en: 'gross 1000', sameValue: true },
   { pl: 'vat od 1000', en: 'tax on 1000', sameValue: true },
 ];

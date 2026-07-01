@@ -1413,26 +1413,39 @@
             return _pctResult(a / b * 100);
         }
 
-        // „Baza procentowa" — znasz ułamek (X% = Y), szukasz całości (100% = ?).
-        // PL: „8,5% to 20, ile 100%", „20 to 8,5% z czego", „ile to 100% gdy 8,5% to 20"
-        // EN: „20 is 8.5% of what", „what is 100% if 8.5% is 20", „8.5%=20;100%"
-        function _pctBaseResult(pctStr, valStr) {
+        // „Baza procentowa" — znasz ułamek (X% = Y), szukasz innej części całości (domyślnie 100%).
+        function _pctBaseCurrencyUnit(tok) {
+            if (!tok) return null;
+            var code = _currencyTokenMap()[String(tok).toLowerCase()];
+            return code ? _currencyDisplay(code) : null;
+        }
+        function _pctBaseResult(pctStr, valStr, targetPctStr, currencyTok) {
             var pct = parseFloat(String(pctStr).replace(',', '.'));
             var val = parseFloat(String(valStr).replace(',', '.'));
-            if (!isFinite(pct) || !isFinite(val) || pct === 0) return null;
-            var base = val * 100 / pct;
-            if (isFinite(base) && base !== 0 && !(Number.isInteger(base) && Math.abs(base) <= Number.MAX_SAFE_INTEGER)) {
-                base = parseFloat(base.toPrecision(15));
+            var target = targetPctStr != null && targetPctStr !== ''
+                ? parseFloat(String(targetPctStr).replace(',', '.')) : 100;
+            if (!isFinite(pct) || !isFinite(val) || !isFinite(target) || pct === 0) return null;
+            var raw = val * target / pct;
+            if (isFinite(raw) && raw !== 0 && !(Number.isInteger(raw) && Math.abs(raw) <= Number.MAX_SAFE_INTEGER)) {
+                raw = parseFloat(raw.toPrecision(15));
             }
+            var unit = _pctBaseCurrencyUnit(currencyTok);
+            var isMoney = !!unit;
+            var result = isMoney ? Math.round(raw * 100) / 100 : parseFloat(raw.toPrecision(12));
             var approx = false, ex = null;
-            if (isFinite(base) && !Number.isInteger(base)) {
-                var d = Number(base.toFixed(10));
-                if (Math.abs(base - d) > Math.abs(base) * 1e-12) { approx = true; ex = formatLocaleNumber(base, 15); }
+            if (isMoney && Math.abs(raw - result) > 0.0045) {
+                approx = true; ex = formatLocaleNumber(raw, 15) + '\u202f' + unit;
+            } else if (!isMoney && isFinite(raw) && !Number.isInteger(raw)) {
+                var d = Number(raw.toFixed(6));
+                if (Math.abs(raw - d) > Math.abs(raw) * 1e-9) { approx = true; ex = formatLocaleNumber(raw, 15); }
             }
-            STATE.calc.lastResult = base; STATE.calc.lastUnit = null;
+            STATE.calc.lastResult = result; STATE.calc.lastUnit = unit;
+            var tgtLabel = formatLocaleNumber(target, Number.isInteger(target) ? undefined : 6);
+            var valLabel = formatLocaleNumber(result, isMoney ? 2 : 6);
+            var suffix = unit ? '\u202f' + unit : '';
             return makeVal({
-                value: base, unit: null, kind: 'number', exact: !approx, exactText: ex,
-                text: '100% = ' + formatLocaleNumber(base, approx ? 6 : undefined)
+                value: result, unit: unit, kind: isMoney ? 'money' : 'number', exact: !approx, exactText: ex,
+                text: tgtLabel + '% = ' + valLabel + suffix
             });
         }
         function evalPercentBaseQuery(raw) {
@@ -1440,22 +1453,26 @@
             if (!s || s.indexOf('%') === -1) return null;
             s = s.replace(/→|->/g, ';').replace(/\s+/g, ' ').trim();
             var P = '([\\d.,]+)', PC = '([\\d.,]+)\\s*(?:%|procent[a-ząćęłńóśźż]*|percent)';
+            var curTok = _currencyTokenRe();
+            var PV = curTok
+                ? P + '(?:\\s*(' + curTok + ')(?![a-ząćęłńóśźż0-9]))?'
+                : P;
             var m;
-            // „8,5% = 20" [; 100%]  ·  „8,5% to 20"
-            if ((m = s.match(new RegExp('^' + PC + '\\s*(?:=|to|jest|is)\\s*' + P + '(?:\\s*;\\s*100\\s*%\\s*(?:=)?\\s*\\??)?\\s*$')))) {
-                return _pctBaseResult(m[1], m[2]);
+            // „8,5% = 80 pln" [; 50%]  ·  „8,5% to 80pln" — bez sufiksu = 100%
+            if ((m = s.match(new RegExp('^' + PC + '\\s*(?:=|to|jest|is)\\s*' + PV + '(?:\\s*;\\s*([\\d.,]+)\\s*%\\s*(?:=)?\\s*\\??)?\\s*$', 'i')))) {
+                return _pctBaseResult(m[1], m[2], m[4], m[3]);
             }
-            // „20 is 8.5% of what" · „20 to 8,5% z czego"
-            if ((m = s.match(new RegExp('^' + P + '\\s+(?:is\\s+)?' + PC + '\\s+(?:of\\s+what|z\\s+czego)\\s*$')))) {
-                return _pctBaseResult(m[2], m[1]);
+            // „80 pln to 8,5% z czego" · „80 pln is 8.5% of what"
+            if ((m = s.match(new RegExp('^' + PV + '\\s+(?:(?:is|to)\\s+)?' + PC + '\\s+(?:of\\s+what|z\\s+czego)\\s*$', 'i')))) {
+                return _pctBaseResult(m[3], m[1], 100, m[2]);
             }
-            // „ile to 100% gdy 8,5% to 20" · „what is 100% if 8.5% is 20"
-            if ((m = s.match(new RegExp('^(?:ile\\s+(?:to|wynosi)\\s+|what\\s+is\\s+)?100\\s*%\\s+(?:gdy|jak|if)\\s+' + PC + '\\s+(?:to|jest|is|=)\\s*' + P + '\\s*$')))) {
-                return _pctBaseResult(m[1], m[2]);
+            // „ile to 50% gdy 8,5% to 80 pln"
+            if ((m = s.match(new RegExp('^(?:ile\\s+(?:to|wynosi)\\s+|what\\s+is\\s+)?([\\d.,]+)\\s*%\\s+(?:gdy|jak|if)\\s+' + PC + '\\s+(?:to|jest|is|=)\\s*' + PV + '\\s*$', 'i')))) {
+                return _pctBaseResult(m[2], m[3], m[1], m[4]);
             }
-            // „8,5% to 20, ile 100%" · „8.5% is 20, what is 100%"
-            if ((m = s.match(new RegExp('^' + PC + '\\s+(?:to|jest|is)\\s*' + P + '\\s*[,;]\\s*(?:ile\\s+)?100\\s*%\\s*$')))) {
-                return _pctBaseResult(m[1], m[2]);
+            // „8,5% to 80 pln, ile 50%"
+            if ((m = s.match(new RegExp('^' + PC + '\\s+(?:to|jest|is)\\s*' + PV + '\\s*[,;]\\s*(?:ile\\s+|what\\s+is\\s+)?([\\d.,]+)\\s*%\\s*$', 'i')))) {
+                return _pctBaseResult(m[1], m[2], m[4], m[3]);
             }
             return null;
         }
@@ -1647,7 +1664,7 @@
             _calcPhInner = _calcPh.firstElementChild;
             if (calcExpr.parentElement) calcExpr.parentElement.classList.add('has-ph');
             // Zmiana szerokości zmienia zawijanie → przelicz też auto-wysokość pola.
-            var onResize = function() { updatePlaceholderMarquee(); autoGrowExpr(); };
+            var onResize = function() { updatePlaceholderMarquee(); autoGrowExpr(); fitCalcResultSize(); };
             window.addEventListener('resize', onResize);
             window.addEventListener('orientationchange', onResize);
             if (document.fonts && document.fonts.ready) document.fonts.ready.then(onResize).catch(function(){});
@@ -1690,8 +1707,9 @@
             if (res.pendingFx) {
                 ensureFxRates();
                 calcResult.textContent = STATE.fx.error && !_fxReady() ? 'Kursy: brak połączenia' : 'Pobieram kursy…';
-                calcResult.classList.remove('small', 'xsmall');
+                calcResult.classList.remove('small', 'xsmall', 'xxsmall');
                 calcResult.classList.add('small');
+                fitCalcResultSize();
                 _setApproxMark(false);
                 return;
             }
@@ -1717,6 +1735,28 @@
                 delete calcApprox.dataset.exact;
             }
         }
+        // [EN] Shrink result font until it fits one line — avoids mid-digit wraps on narrow screens.
+        function fitCalcResultSize() {
+            if (!calcResult) return;
+            calcResult.style.fontSize = '';
+            var row = calcResult.closest('.calc-result-row');
+            if (!row) return;
+            var maxW = row.clientWidth;
+            if (calcApprox && !calcApprox.hidden) maxW -= calcApprox.offsetWidth + 8;
+            if (maxW <= 0) return;
+            var text = calcResult.textContent || '';
+            calcResult.classList.remove('small', 'xsmall', 'xxsmall');
+            if (text.length > 10) calcResult.classList.add('small');
+            if (text.length > 14) calcResult.classList.add('xsmall');
+            if (text.length > 20) calcResult.classList.add('xxsmall');
+            var fs = parseFloat(getComputedStyle(calcResult).fontSize) || 16;
+            var minPx = 11, guard = 0;
+            calcResult.style.fontSize = fs + 'px';
+            while (calcResult.scrollWidth > maxW + 1 && fs > minPx && guard++ < 36) {
+                fs = Math.max(minPx, fs * 0.9);
+                calcResult.style.fontSize = fs + 'px';
+            }
+        }
         // *------------ Logika Animacji pojawiania się liczb/wyrażeń/wyniku* ----------------*
         // [EN] Render wyniku z lekką animacją pojawienia (Samsung-style) TYLKO zmienionej końcówki —
         // animuje się dodany/zmieniony znak, nie cała linijka. Statyczny wspólny prefiks zostaje
@@ -1724,10 +1764,11 @@
         // wstawieniu — bez hacka z reflow). Definicja animacji + reduced-motion żyją w styles.css.
         // textContent czytany gdzie indziej (kopiowanie, „=") nadal zwraca pełny wynik.
         function renderCalcResult(prev, next) {
-            calcResult.classList.remove('small', 'xsmall');
-            if (next.length > 10) calcResult.classList.add('small');
-            if (next.length > 14) calcResult.classList.add('xsmall');
-            if (next === '' || next === prev) { calcResult.textContent = next; return; }
+            if (next === '' || next === prev) {
+                calcResult.textContent = next;
+                fitCalcResultSize();
+                return;
+            }
             // Animujemy DOKŁADNIE te znaki, które się realnie zmieniły. Diff liczymy na RDZENIU
             // (po usunięciu separatorów tysięcy — \s obejmuje też nbsp/wąską spację), bo „1 222"↔„12 222"
             // przesuwa separator i psułby porównanie po pozycjach. Wspólny prefiks rdzeni = część stała;
@@ -1737,7 +1778,7 @@
             var pCore = prev.replace(/\s/g, ''), nCore = next.replace(/\s/g, '');
             var c = 0, lim = Math.min(pCore.length, nCore.length);
             while (c < lim && pCore.charAt(c) === nCore.charAt(c)) c++;
-            if (c >= nCore.length) { calcResult.textContent = next; return; }
+            if (c >= nCore.length) { calcResult.textContent = next; fitCalcResultSize(); return; }
             // przelicz c (liczba niezmienionych znaczących znaków) na pozycję w SFORMATOWANYM next
             var idx = 0, counted = 0;
             while (idx < next.length && counted < c) {
@@ -1750,6 +1791,7 @@
             span.className = 'calc-result-new';
             span.textContent = next.slice(idx);           // świeży <span> sam odpala animację CSS
             calcResult.appendChild(span);
+            fitCalcResultSize();
         }
         // *---------------------------------------------------------------------------------*
         function handleCalcAction(action) {
@@ -8812,11 +8854,19 @@
                 { expr: '25 z 200 to ile %', value: 12.5, tol: 1e-6, unit: '%' },
                 { expr: '25 to ile % z 200', value: 12.5, tol: 1e-6, unit: '%' },
                 { expr: 'ile % stanowi 50 z 50', value: 100, tol: 1e-6, unit: '%' },
-                // baza procentowa — znasz X% = Y, szukasz 100%
+                // baza procentowa — znasz X% = Y, szukasz Z% (domyślnie 100%)
                 { expr: '8,5% to 20, ile 100%', value: 20 * 100 / 8.5, tol: 1e-6 },
                 { expr: '8,5%=20;100%', value: 20 * 100 / 8.5, tol: 1e-6 },
+                { expr: '8,5%=20', value: 20 * 100 / 8.5, tol: 1e-6 },
+                { expr: '8,5% to 20, ile 50%', value: 20 * 50 / 8.5, tol: 1e-6 },
+                { expr: '8,5%=20;50%', value: 20 * 50 / 8.5, tol: 1e-6 },
+                { expr: 'ile to 50% gdy 8,5% to 20', value: 20 * 50 / 8.5, tol: 1e-6 },
                 { expr: '20 is 8.5% of what', value: 20 * 100 / 8.5, tol: 1e-6 },
+                { expr: 'what is 50% if 8.5% is 20', value: 20 * 50 / 8.5, tol: 1e-6 },
                 { expr: 'ile to 100% gdy 8,5% to 20', value: 20 * 100 / 8.5, tol: 1e-6 },
+                { expr: '8,5% to 80pln', value: Math.round(80 * 100 / 8.5 * 100) / 100, unit: 'zł' },
+                { expr: '8,5% to 80 pln, ile 50%', value: Math.round(80 * 50 / 8.5 * 100) / 100, unit: 'zł' },
+                { expr: '80 pln to 8,5% z czego', value: Math.round(80 * 100 / 8.5 * 100) / 100, unit: 'zł' },
                 { expr: '20% z 100', value: 20, tol: 1e-6 },            // FORWARD nadal liczba (nie %)
                 // daty — deterministyczny zakres
                 { expr: 'ile dni od 1.01.2026 do 1.02.2026', value: 31 },

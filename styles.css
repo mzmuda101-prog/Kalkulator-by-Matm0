@@ -630,18 +630,22 @@
             font-family: var(--font-mono);
             letter-spacing: -0.03em;
             line-height: 1.1;
-            /* Rezerwuje wysokość jednej linii nawet przy pustym wyniku (np. po wpisaniu „33+"),
-               żeby wyświetlacz się NIE kurczył i przyciski nie skakały. Rośnie dla długich/zawijanych
-               wyników; 1.1em skaluje się z większym fontem na desktopie. */
+            /* Jedna linia — bez łamania cyfr w środku liczby; JS zmniejsza font, gdy brak miejsca. */
             min-height: 1.1em;
-            word-break: break-all;
+            white-space: nowrap;
+            word-break: normal;
+            overflow: hidden;
             text-align: right;
-            width: 100%;
-            transition: font-size 0.15s;
+            flex: 0 1 auto;
+            min-width: 0;
+            max-width: 100%;
+            width: auto;
+            transition: font-size 0.12s ease-out;
             cursor: pointer;
         }
         .calc-result.small { font-size: 1.9rem; }
         .calc-result.xsmall { font-size: 1.5rem; }
+        .calc-result.xxsmall { font-size: 1.15rem; }
         /* Wiersz wyniku: opcjonalny znacznik „≈" (zaokrąglenie) tuż przed liczbą, do prawej. */
         .calc-result-row {
             display: flex;
@@ -2860,6 +2864,7 @@
             .calc-result { font-size: 3rem; }
             .calc-result.small { font-size: 2rem; }
             .calc-result.xsmall { font-size: 1.5rem; }
+            .calc-result.xxsmall { font-size: 1.2rem; }
             .calc-grid { gap: 10px; }
             .input-row { gap: 12px; }
             .input-triple { gap: 10px; }
