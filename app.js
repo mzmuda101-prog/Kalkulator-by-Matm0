@@ -491,7 +491,7 @@
                 }, 0);
             } else {
                 document.body.classList.remove('calc-panel-active');
-                document.body.classList.remove('calc-expr-focused');
+                document.body.classList.remove('calc-split-active');
             }
         }
 
@@ -1755,7 +1755,6 @@
                 fitCalcLayout();
             };
             var onExprFocusChange = function() {
-                if (!_isCalcMobileLayout()) return;
                 fitCalcDisplay();
             };
             window.addEventListener('resize', onResize);
@@ -1765,7 +1764,6 @@
             }
             calcExpr.addEventListener('focus', onExprFocusChange);
             calcExpr.addEventListener('blur', function() {
-                if (!_isCalcMobileLayout()) return;
                 setTimeout(onExprFocusChange, 120);
             });
             if (document.fonts && document.fonts.ready) document.fonts.ready.then(onResize).catch(function(){});
@@ -1817,7 +1815,7 @@
         function _syncExprFieldToWrap(wrap) {
             if (!calcExpr || !wrap) return 0;
             calcExpr.style.width = '100%';
-            if (!_isCalcMobileLayout()) {
+            if (!_usesCalcFlexSplit()) {
                 calcExpr.style.height = '';
                 calcExpr.style.maxHeight = '';
                 return Math.max(wrap.clientHeight, wrap.scrollHeight, 28);
@@ -1830,7 +1828,7 @@
         function _syncExprWrapBounds(display, resultRow) {
             var wrap = calcExpr && calcExpr.parentElement;
             if (!display || !wrap) return 0;
-            if (!_isCalcMobileLayout()) {
+            if (!_usesCalcFlexSplit()) {
                 wrap.style.minHeight = '';
                 wrap.style.maxHeight = '';
                 return _calcExprMaxH(display, resultRow, wrap);
@@ -1862,7 +1860,7 @@
             var innerH = _calcDisplayInnerH(display);
             var reserve = _calcResultReserve(display, resultRow);
             var budget = Math.max(exprMin, innerH - reserve + boost);
-            if (window.innerWidth < 640 && wrap && wrap.clientHeight >= exprMin) return Math.max(budget, wrap.clientHeight);
+            if (_usesCalcFlexSplit() && wrap && wrap.clientHeight >= exprMin) return Math.max(budget, wrap.clientHeight);
             return budget;
         }
         // [EN] Last resort: wynik wyszedł poza .calc-display — zmniejsz textarea.
@@ -1949,17 +1947,25 @@
         function _isCalcMobileLayout() {
             return window.innerWidth < 640;
         }
+        function _usesCalcFlexSplit() {
+            return document.body.classList.contains('calc-panel-active')
+                || document.body.classList.contains('calc-split-active');
+        }
         function getCalcLayoutTune() {
+            if (typeof window.getCalcLayoutTuneSection === 'function') {
+                return window.getCalcLayoutTuneSection();
+            }
             var root = window.CALC_LAYOUT_TUNE;
-            return (root && root.mobile) ? root.mobile : {};
+            if (!root) return {};
+            return window.innerWidth < 640 ? (root.mobile || {}) : (root.desktop || root.mobile || {});
         }
         function applyCalcLayoutTune(card) {
             if (typeof window.applyCalcLayoutTuneTokens === 'function') {
-                window.applyCalcLayoutTuneTokens(card);
+                window.applyCalcLayoutTuneTokens(card, getCalcLayoutTune());
             }
         }
         function _syncKeypadFontScale(card, panelH) {
-            if (!calcGrid || !card || !_isCalcMobileLayout()) return;
+            if (!calcGrid || !card || !_usesCalcFlexSplit()) return;
             var t = getCalcLayoutTune();
             var base = t.btnRowBase != null ? t.btnRowBase : 56;
             var btn = calcGrid.querySelector('.calc-btn');
@@ -1974,6 +1980,31 @@
             card.style.setProperty('--calc-btn-scale', String(scale));
             applyCalcLayoutTune(card);
         }
+        function _clearCalcLayoutInline(card, display) {
+            document.body.classList.remove('calc-panel-active');
+            document.body.classList.remove('calc-split-active');
+            if (!card || !display) return;
+            card.style.removeProperty('--calc-btn-scale');
+            card.style.removeProperty('--calc-font-base');
+            card.style.removeProperty('--calc-card-min-h');
+            ['fn', 'number', 'operator', 'equals', 'clear'].forEach(function(n) {
+                card.style.removeProperty('--calc-g-' + n + '-font');
+            });
+            display.style.removeProperty('max-height');
+            display.style.removeProperty('min-height');
+            display.style.removeProperty('height');
+            display.style.removeProperty('flex');
+            if (calcGrid) {
+                calcGrid.style.removeProperty('flex');
+                calcGrid.style.removeProperty('min-height');
+            }
+            card.style.removeProperty('--calc-expr-min');
+            card.style.removeProperty('--calc-display-gap');
+            card.style.removeProperty('--calc-grid-gap');
+            card.style.removeProperty('--calc-display-pad-y');
+            card.style.removeProperty('--calc-display-pad-x');
+            _calcBtnScale = 1;
+        }
         function fitCalcLayout() {
             var panel = document.getElementById('panel-calculator');
             if (!panel || !calcGrid) return;
@@ -1982,33 +2013,27 @@
             if (!card || !display) return;
             document.body.classList.remove('calc-expr-focused');
             calcGrid.style.removeProperty('display');
-            if (!_isCalcMobileLayout() || !panel.classList.contains('active')) {
-                document.body.classList.remove('calc-panel-active');
-                card.style.removeProperty('--calc-btn-scale');
-                card.style.removeProperty('--calc-font-base');
-                ['fn', 'number', 'operator', 'equals', 'clear'].forEach(function(n) {
-                    card.style.removeProperty('--calc-g-' + n + '-font');
-                });
-                display.style.removeProperty('max-height');
-                display.style.removeProperty('min-height');
-                display.style.removeProperty('height');
-                display.style.removeProperty('flex');
-                calcGrid.style.removeProperty('flex');
-                calcGrid.style.removeProperty('min-height');
-                card.style.removeProperty('--calc-expr-min');
-                card.style.removeProperty('--calc-display-gap');
-                card.style.removeProperty('--calc-grid-gap');
-                card.style.removeProperty('--calc-display-pad-y');
-                card.style.removeProperty('--calc-display-pad-x');
-                _calcBtnScale = 1;
+            if (!panel.classList.contains('active')) {
+                _clearCalcLayoutInline(card, display);
                 requestAnimationFrame(function() { fitCalcDisplay(); });
                 return;
             }
-            document.body.classList.add('calc-panel-active');
             var t = getCalcLayoutTune();
+            var useSplit = t.flexSplit !== false;
+            if (!useSplit) {
+                _clearCalcLayoutInline(card, display);
+                requestAnimationFrame(function() { fitCalcDisplay(); });
+                return;
+            }
+            var isMobile = _isCalcMobileLayout();
+            document.body.classList.toggle('calc-panel-active', isMobile);
+            document.body.classList.toggle('calc-split-active', !isMobile);
             applyCalcLayoutTune(card);
-            var availH = panel.clientHeight;
+            var availH = typeof window.resolveCalcAvailHeight === 'function'
+                ? window.resolveCalcAvailHeight(panel, card, t)
+                : panel.clientHeight;
             if (availH < 120) return;
+            card.style.setProperty('--calc-card-min-h', availH + 'px');
             var isEmpty = !calcExpr || !calcExpr.value;
             var budget = typeof window.resolveCalcDisplayBudget === 'function'
                 ? window.resolveCalcDisplayBudget(availH, !isEmpty, t)
@@ -2022,7 +2047,8 @@
             calcGrid.style.minHeight = '0';
             if (t.debug) {
                 console.log('[calc-layout]', {
-                    empty: isEmpty, displayH: displayH, rawPx: budget.rawPx, limit: budget.limit, availH: availH,
+                    section: isMobile ? 'mobile' : 'desktop',
+                    empty: isEmpty, displayH: displayH, share: budget.sharePct, limit: budget.limit, availH: availH,
                 });
             }
             requestAnimationFrame(function() {
@@ -9764,8 +9790,11 @@
                 fitCalcLayout: fitCalcLayout,
                 fitCalcDisplay: fitCalcDisplay,
                 calcLayoutTune: function() { return window.CALC_LAYOUT_TUNE; },
+                getCalcLayoutTune: getCalcLayoutTune,
                 reapplyCalcTune: window.reapplyCalcLayoutTune,
                 previewCurrentCalcLayout: window.previewCurrentCalcLayout,
+                resolveAvailHeight: window.resolveCalcAvailHeight,
+                resolveAvailHeightDetail: window.resolveCalcAvailHeightDetail,
                 previewDisplayCurve: window.previewCalcDisplayCurve,
                 plotDisplayCurve: window.plotCalcDisplayCurve,
                 previewKeypadFontCurve: window.previewKeypadFontCurve,

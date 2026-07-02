@@ -1,89 +1,167 @@
 /* =============================================================================
-   STROJENIE MOBILE KALKULATORA (szerokość < 640 px)
+   STROJENIE KALKULATORA — js/calc-layout-tune.js
    ─────────────────────────────────────────────────────────────────────────────
-   Po edycji pliku: odśwież stronę (SW cache!) albo w konsoli:
+   Po edycji: odśwież (SW!) albo  reapplyCalcLayoutTune()
+
+   PODZIAŁ EKRAN vs KLAWISZE — wszystko w displayCurve (mobile + desktop):
+   ─ share / points / minPx·maxPx     — wysokość samego wyświetlacza
+   ─ typingBonusShare / typingBonusPx — gdy coś wpisane
+   ─ scrollOverflow.enabled           — desktop: karta może wystawać (scroll .panels)
+   ─ scrollOverflow.belowPx           — +px pod dół ekranu (np. 100)
+   ─ scrollOverflow.belowShare        — alternatywa: ułamek vh (np. 0.06)
+   ─ scrollOverflow.maxBelowPx        — limit wystawania
+   ─ scrollOverflow.viewportBottomGapPx — margines nad dołem viewportu
+   ─ scrollOverflow.cardMinPx/cardMaxPx — clamp wys. referencyjnej karty
+
+   Sekcje:  mobile (<640 px)  |  desktop (≥640 px, flexSplit: true)
+
+   Po edycji w konsoli:
+     CALC_LAYOUT_TUNE.desktop.displayCurve.scrollOverflow.belowPx = 100
      reapplyCalcLayoutTune()
+     previewCurrentCalcLayout()
 
-   Podgląd bez zgadywania:
-     previewCurrentCalcLayout()   — co jest TERAZ na ekranie
-     previewDisplayCurve()        — wysokość wyświetlacza vs panel
-     previewKeypadFontCurve()     — skala fontu klawiszy
+   Podgląd:
+     previewCurrentCalcLayout()
+     previewDisplayCurve()
+     previewKeypadFontCurve()
 
-   CO DZIAŁA (mobile <640 px):
-   ─ displayCurve.points     [wysokość panelu px, wysokość .calc-display px]
-   ─ displayCurve.minPx/maxPx — clamp końcowy
-   ─ displayCurve.typingBonusPx — dodatkowe px gdy coś wpisane
-   ─ exprMinHeight           min. wiersz pola wyrażenia (CSS --calc-expr-min)
-   ─ exprResultGap           odstęp expr/wynik w .calc-display
-   ─ displayPadY / displayPadX padding wyświetlacza
-   ─ resultReserveEmpty      rezerwa na wynik (pusty ekran, JS bounds)
-   ─ resultReserveMin        min. rezerwa przy aktywnym wyrażeniu
-   ─ resultAnimSlack         zapas pod animację wyniku
-   ─ gridGapPx               szczelina siatki klawiszy
-   ─ btnRowBase              baza do pomiaru rowScale (font)
-   ─ keypadFont.*            font klawiszy (--calc-font-base, --calc-btn-scale, groups)
-
-   NIE DZIAŁA poniżej 640 px szerokości — tam layout desktop (CSS), nie ten plik.
-
+   =============================================================================
+   NOTATKA: edytuję głównie displayCurve + keypadFont. Reszta to detale wewnątrz boxa.
+   Jak zmiana „nic nie robi” → previewCurrentCalcLayout() i patrz budgetLimit.
    ============================================================================= */
 
 window.CALC_LAYOUT_TUNE = {
 
+    /* ── MOBILE: szerokość okna < 640 px ── */
     mobile: {
+        flexSplit: true, // false = stary layout CSS, bez % podziału
+        availHeightMode: 'panel', // wys. panelu = referencja (nie viewport)
 
         displayCurve: {
-            heightMode: 'px',
-            points: [
-                [520, 118],
-                [640, 122],
-                [740, 128],
-                [850, 132],
-                [950, 138],
+            heightMode: 'share', // 'share' = % | 'px' = konkretne px w points
+            share: 0.19, // PROSTY KNOB: 0.19 = 19% wys. karty → ekranik (reszta klawisze)
+            points: [ // krzywa zamiast share → ustaw share: null i edytuj tu
+                [520, 0.21],
+                [640, 0.19],
+                [740, 0.17],
+                [850, 0.15],
+                [950, 0.13],
             ],
-            minPx: 110,
-            maxPx: 160,
-            typingBonusPx: 0,
-            displayPadEstimate: 24,
+            minShare: 0.12, // dolna granica % — poniżej tego nie schodzi
+            maxShare: 0.26, // górna granica % — powyżej nie idzie (zostaw klawisze)
+            minPx: 110, // min. wys. samego .calc-display (placeholder + wynik)
+            maxPx: 160, // max. wys. wyświetlacza — podnieś jak za ciasno na wpisywanie
+            typingBonusShare: 0, // +% wys. karty gdy coś wpisane (np. 0.02)
+            typingBonusPx: 0, // albo +px na sztywno zamiast share
+            displayPadEstimate: 24, // używane w min. strukturalnym (pad+expr+wynik)
+            scrollOverflow: {
+                // mobile: zostaw wyłączone — panel i tak na pełną wysokość
+                enabled: false,
+                belowPx: 0,
+                belowShare: 0,
+                maxBelowPx: 0,
+                viewportBottomGapPx: 16,
+                cardMinPx: 280,
+                cardMaxPx: 720,
+            },
         },
 
-        displayPadY: 12,
+        displayPadY: 12, // padding wewnątrz ekranika (pion)
         displayPadX: 14,
-        exprMinHeight: 44,
-        exprResultGap: 6,
-        resultReserveEmpty: 48,
-        resultAnimSlack: 4,
-        resultReserveMin: 36,
-        gridGapPx: 8,
-
-        btnRowBase: 56,
+        exprMinHeight: 44, // min. miejsce na „Lub wpisz wyrażenie…”
+        exprResultGap: 6, // odstęp między polem a wynikiem
+        resultReserveEmpty: 48, // rezerwa na „0” gdy pusto
+        resultAnimSlack: 4, // zapas pod animację cyferek w wyniku
+        resultReserveMin: 36, // min. rezerwa gdy już coś wpisane
+        gridGapPx: 8, // szczelina między klawiszami
+        cardPadEstimate: 28, // fallback gdy brak viewportBottomGapPx
+        btnRowBase: 56, // odniesienie do skali fontu (nie wys. rzędu!)
 
         keypadFont: {
-            baseRem: 1.35,
-            globalMul: 1.0,
+            baseRem: 1.35, // bazowy rozmiar na klawiszu
+            globalMul: 1.0, // master: 1.1 = +10% wszystkich klawiszy
             scaleMin: 0.88,
-            scaleMax: null,
+            scaleMax: null, // null = bez górnego limitu; 1.08 jak za duże
             rowScaleCap: 1.12,
-            panelCurve: {
-                points: [
-                    [520, 0.98],
-                    [640, 1.0],
-                    [740, 1.02],
-                    [850, 1.03],
-                    [950, 1.04],
-                ],
+            panelCurve: { // lekki tweak fontu wg wysokości panelu
+                points: [[520, 0.98], [640, 1.0], [740, 1.02], [850, 1.03], [950, 1.04]],
             },
-            rowCurve: {
-                points: [
-                    [0.85, 0.98],
-                    [1.0,  1.0],
-                    [1.12, 1.02],
-                ],
+            rowCurve: { // drobna korekta wg wys. rzędu (nie mnożymy 1:1!)
+                points: [[0.85, 0.98], [1.0, 1.0], [1.12, 1.02]],
             },
-            groups: {
+            groups: { // mnożnik per typ przycisku (po baseRem * btnScale)
                 fn:       { fontScale: 1.0 },
                 number:   { fontScale: 1.05 },
                 operator: { fontScale: 1.0 },
                 equals:   { fontScale: 1.08 },
+                clear:    { fontScale: 1.0 }, // AC — klasa .clear
+            },
+        },
+
+        debug: false, // true → logi [calc-layout] w konsoli
+    },
+
+    /* ── DESKTOP / TABLET: szerokość ≥ 640 px ── */
+    desktop: {
+        flexSplit: true,
+        availHeightMode: 'viewport', // liczę od viewportu (nie od panelu)
+
+        displayCurve: {
+            heightMode: 'share',
+            share: 0.22, // trochę więcej ekranu niż mobile — tu edytuję najczęściej
+            points: [ // share: null → wtedy liczy z points
+                [600, 0.24],
+                [800, 0.22],
+                [1000, 0.20],
+                [1200, 0.18],
+            ],
+            minShare: 0.14,
+            maxShare: 0.32,
+            minPx: 100,
+            maxPx: 240,
+            typingBonusShare: 0.012, // odrobinę więcej ekranu jak coś wpisuję
+            typingBonusPx: 0,
+            displayPadEstimate: 40,
+            scrollOverflow: {
+                // .panels ma scroll — karta może wystawać pod dół ekranu
+                enabled: true, // false → wszystko musi się zmieścić bez scrolla
+                belowPx: 100, // +100 px pod viewport (najprostszy knob)
+                belowShare: 0, // alternatywa: 0.06 = 6% wys. okna (bierze max z belowPx)
+                maxBelowPx: 140, // nie wystawaj bardziej niż tyle
+                viewportBottomGapPx: 8, // luz nad dołem ekranu (mniej = więcej miejsca)
+                cardMinPx: 360, // min. wys. referencyjna całej karty
+                cardMaxPx: 960, // max. wys. karty
+            },
+        },
+
+        displayPadY: 20,
+        displayPadX: 22,
+        exprMinHeight: 40,
+        exprResultGap: 6,
+        resultReserveEmpty: 52,
+        resultAnimSlack: 4,
+        resultReserveMin: 40,
+        gridGapPx: 10,
+        cardPadEstimate: 24,
+        btnRowBase: 62, // desktop: większe odniesienie niż mobile
+
+        keypadFont: {
+            baseRem: 1.35,
+            globalMul: 1.0,
+            scaleMin: 0.92,
+            scaleMax: 1.06, // desktop ma twardszy limit — bez skoków przy 640px
+            rowScaleCap: 1.08,
+            panelCurve: {
+                points: [[600, 0.98], [900, 1.0], [1200, 1.02]],
+            },
+            rowCurve: {
+                points: [[0.9, 0.98], [1.0, 1.0], [1.08, 1.02]],
+            },
+            groups: {
+                fn:       { fontScale: 1.0 },
+                number:   { fontScale: 1.0 },
+                operator: { fontScale: 1.0 },
+                equals:   { fontScale: 1.04 },
                 clear:    { fontScale: 1.0 },
             },
         },
@@ -109,8 +187,37 @@ function _calcTuneLerpPoints(points, x) {
     return last[1];
 }
 
-function _calcDisplayStructuralMin(mobileTune, curve) {
-    var t = mobileTune || {};
+window.getCalcLayoutTuneSection = function getCalcLayoutTuneSection() {
+    var r = window.CALC_LAYOUT_TUNE;
+    if (!r) return {};
+    return window.innerWidth < 640 ? (r.mobile || {}) : (r.desktop || r.mobile || {});
+};
+
+// czytam scrollOverflow z displayCurve (stare klucze na rootzie też działają — legacy)
+function _calcScrollOverflowOpts(tune) {
+    var t = tune || {};
+    var c = t.displayCurve || {};
+    var s = c.scrollOverflow || {};
+    function pick(key, legacy, fb) {
+        if (s[key] != null) return s[key];
+        if (c[legacy] != null) return c[legacy];
+        if (t[legacy] != null) return t[legacy];
+        return fb;
+    }
+    return {
+        enabled: pick('enabled', 'allowScrollOverflow', false),
+        belowPx: pick('belowPx', 'scrollOverflowPx', 0),
+        belowShare: pick('belowShare', 'scrollOverflowShare', 0),
+        maxBelowPx: pick('maxBelowPx', 'scrollOverflowMaxPx', 0),
+        viewportBottomGapPx: pick('viewportBottomGapPx', 'viewportBottomGapPx', null),
+        cardMinPx: pick('cardMinPx', 'availMinPx', 300),
+        cardMaxPx: pick('cardMaxPx', 'availMaxPx', 2000),
+    };
+}
+
+function _calcDisplayStructuralMin(tune, curve) {
+    // minimalna sensowna wys. wyświetlacza — jak share da mniej, wygrywa to
+    var t = tune || {};
     var c = curve || {};
     var pad = t.displayPadY != null ? t.displayPadY * 2 : (c.displayPadEstimate != null ? c.displayPadEstimate : 24);
     var expr = t.exprMinHeight != null ? t.exprMinHeight : 32;
@@ -120,26 +227,40 @@ function _calcDisplayStructuralMin(mobileTune, curve) {
 }
 
 function _calcHeightFromCurve(c, panelH) {
-    if (!c || !c.points || !c.points.length) return panelH * 0.19;
-    var y = _calcTuneLerpPoints(c.points, panelH);
-    if (c.heightMode === 'px') return y;
-    if (c.heightMode === 'share') return panelH * y;
-    if (c.points[0][1] <= 1) return panelH * y;
+    if (!c || panelH <= 0) return panelH * 0.2;
+    var shareVal = null;
+    if (c.heightMode === 'share') {
+        if (c.share != null) shareVal = c.share;
+        else if (c.points && c.points.length) shareVal = _calcTuneLerpPoints(c.points, panelH);
+        else shareVal = 0.2;
+        if (c.minShare != null) shareVal = Math.max(c.minShare, shareVal);
+        if (c.maxShare != null) shareVal = Math.min(c.maxShare, shareVal);
+        return panelH * shareVal;
+    }
+    if (c.heightMode === 'px') {
+        if (c.points && c.points.length) return _calcTuneLerpPoints(c.points, panelH);
+        return c.share != null ? c.share : 120;
+    }
+    var y = c.points && c.points.length ? _calcTuneLerpPoints(c.points, panelH) : 0.2;
+    if (y <= 1) return panelH * y;
     return y;
 }
 
-window.resolveCalcDisplayBudget = function resolveCalcDisplayBudget(panelH, isTyping, mobileTune) {
-    var t = mobileTune || (window.CALC_LAYOUT_TUNE && window.CALC_LAYOUT_TUNE.mobile) || {};
-    var c = t.displayCurve || {};
+window.resolveCalcDisplayBudget = function resolveCalcDisplayBudget(panelH, isTyping, tune) {
+    tune = tune || window.getCalcLayoutTuneSection();
+    var c = tune.displayCurve || {};
     var raw = _calcHeightFromCurve(c, panelH);
-    if (isTyping && c.typingBonusPx) raw += c.typingBonusPx;
+    if (isTyping) {
+        if (c.typingBonusShare) raw += panelH * c.typingBonusShare;
+        if (c.typingBonusPx) raw += c.typingBonusPx;
+    }
 
-    var structural = _calcDisplayStructuralMin(t, c);
+    var structural = _calcDisplayStructuralMin(tune, c);
     var minPx = Math.max(c.minPx != null ? c.minPx : 108, structural);
-    var maxPx = c.maxPx != null ? c.maxPx : 150;
+    var maxPx = c.maxPx != null ? c.maxPx : 200;
     var height = Math.max(minPx, Math.min(maxPx, Math.round(raw)));
 
-    var limit = 'curve';
+    var limit = 'curve'; // previewCurrentCalcLayout() pokaże co limituje: minPx | maxPx | curve
     if (height <= minPx + 0.5) limit = 'minPx';
     else if (height >= maxPx - 0.5) limit = 'maxPx';
 
@@ -148,17 +269,19 @@ window.resolveCalcDisplayBudget = function resolveCalcDisplayBudget(panelH, isTy
         panelH: panelH,
         rawPx: Math.round(raw),
         share: share,
+        sharePct: Math.round(share * 1000) / 10 + '%',
         height: height,
         minPx: minPx,
         maxPx: maxPx,
         structuralMin: structural,
         limit: limit,
+        heightMode: c.heightMode || 'share',
     };
 };
 
-window.resolveKeypadFontScale = function resolveKeypadFontScale(panelH, rowScale, mobileTune) {
-    var t = mobileTune || (window.CALC_LAYOUT_TUNE && window.CALC_LAYOUT_TUNE.mobile) || {};
-    var kf = t.keypadFont || {};
+window.resolveKeypadFontScale = function resolveKeypadFontScale(panelH, rowScale, tune) {
+    tune = tune || window.getCalcLayoutTuneSection();
+    var kf = tune.keypadFont || {};
     var cap = kf.rowScaleCap != null ? kf.rowScaleCap : 1.12;
     var rowDamped = Math.min(Math.max(rowScale, 0.85), cap);
     var panelM = kf.panelCurve ? _calcTuneLerpPoints(kf.panelCurve.points, panelH) : 1;
@@ -171,18 +294,76 @@ window.resolveKeypadFontScale = function resolveKeypadFontScale(panelH, rowScale
     return Math.round(scale * 1000) / 1000;
 };
 
-/** [EN] Push tune tokens to .card CSS vars + optional inline display height hint. */
-window.applyCalcLayoutTuneTokens = function applyCalcLayoutTuneTokens(card) {
+/** wys. referencyjna karty = widoczne + ewentualne wystawanie (desktop scroll) */
+function _resolveCalcAvailHeightDetail(panel, card, tune) {
+    tune = tune || window.getCalcLayoutTuneSection();
+    var isDesktop = window.innerWidth >= 640;
+    var mode = tune.availHeightMode || (isDesktop ? 'viewport' : 'panel');
+    if (mode === 'panel' && panel && panel.clientHeight >= 120) {
+        return {
+            height: panel.clientHeight,
+            visibleH: panel.clientHeight,
+            overflowPx: 0,
+            mode: 'panel',
+            allowScrollOverflow: false,
+        };
+    }
+    if (!card) {
+        return { height: 480, visibleH: 480, overflowPx: 0, mode: mode, allowScrollOverflow: false };
+    }
+    var scroll = _calcScrollOverflowOpts(tune);
+    var vh = window.visualViewport ? window.visualViewport.height : window.innerHeight;
+    var top = card.getBoundingClientRect().top;
+    var tools = card.querySelector('.calc-tools');
+    var toolsH = tools ? tools.getBoundingClientRect().height + 8 : 48;
+    var bottomGap = scroll.viewportBottomGapPx != null ? scroll.viewportBottomGapPx
+        : (tune.cardPadEstimate != null ? tune.cardPadEstimate : 16);
+    var visibleH = Math.round(vh - top - toolsH - bottomGap);
+    var height = visibleH;
+    var overflowPx = 0;
+    var allowOverflow = !!scroll.enabled && isDesktop;
+    if (allowOverflow) {
+        overflowPx = scroll.belowPx != null ? scroll.belowPx : 0;
+        if (scroll.belowShare != null && scroll.belowShare > 0) {
+            overflowPx = Math.max(overflowPx, Math.round(vh * scroll.belowShare));
+        }
+        if (scroll.maxBelowPx != null && scroll.maxBelowPx > 0) {
+            overflowPx = Math.min(overflowPx, scroll.maxBelowPx);
+        }
+        height += overflowPx;
+    }
+    var lo = scroll.cardMinPx != null ? scroll.cardMinPx : 300;
+    var hi = scroll.cardMaxPx != null ? scroll.cardMaxPx : 2000;
+    height = Math.max(lo, Math.min(hi, height));
+    return {
+        height: height,
+        visibleH: Math.max(lo, visibleH),
+        overflowPx: allowOverflow ? Math.max(0, height - Math.max(lo, visibleH)) : 0,
+        mode: mode,
+        allowScrollOverflow: allowOverflow,
+        viewportH: Math.round(vh),
+    };
+}
+
+/** [EN] Available height for display/keypad split (panel, viewport, or viewport+overflow). */
+window.resolveCalcAvailHeight = function resolveCalcAvailHeight(panel, card, tune) {
+    return _resolveCalcAvailHeightDetail(panel, card, tune).height;
+};
+
+window.resolveCalcAvailHeightDetail = function resolveCalcAvailHeightDetail(panel, card, tune) {
+    return _resolveCalcAvailHeightDetail(panel, card, tune);
+};
+
+window.applyCalcLayoutTuneTokens = function applyCalcLayoutTuneTokens(card, tune) {
     if (!card) return;
-    var t = window.CALC_LAYOUT_TUNE && window.CALC_LAYOUT_TUNE.mobile;
-    if (!t) return;
-    var kf = t.keypadFont || {};
-    var exprMin = t.exprMinHeight != null ? t.exprMinHeight : 44;
-    var padY = t.displayPadY != null ? t.displayPadY : 12;
-    var padX = t.displayPadX != null ? t.displayPadX : 14;
+    tune = tune || window.getCalcLayoutTuneSection();
+    var kf = tune.keypadFont || {};
+    var exprMin = tune.exprMinHeight != null ? tune.exprMinHeight : 44;
+    var padY = tune.displayPadY != null ? tune.displayPadY : 12;
+    var padX = tune.displayPadX != null ? tune.displayPadX : 14;
     card.style.setProperty('--calc-expr-min', exprMin + 'px');
-    card.style.setProperty('--calc-display-gap', (t.exprResultGap != null ? t.exprResultGap : 6) + 'px');
-    card.style.setProperty('--calc-grid-gap', (t.gridGapPx != null ? t.gridGapPx : 8) + 'px');
+    card.style.setProperty('--calc-display-gap', (tune.exprResultGap != null ? tune.exprResultGap : 6) + 'px');
+    card.style.setProperty('--calc-grid-gap', (tune.gridGapPx != null ? tune.gridGapPx : 8) + 'px');
     card.style.setProperty('--calc-display-pad-y', padY + 'px');
     card.style.setProperty('--calc-display-pad-x', padX + 'px');
     card.style.setProperty('--calc-font-base', (kf.baseRem != null ? kf.baseRem : 1.35) + 'rem');
@@ -194,16 +375,17 @@ window.applyCalcLayoutTuneTokens = function applyCalcLayoutTuneTokens(card) {
 };
 
 window.reapplyCalcLayoutTune = function reapplyCalcLayoutTune() {
-    if (window.__matm0 && typeof window.__matm0.fitCalcLayout === 'function') {
-        window.__matm0.fitCalcLayout();
-    }
-    if (window.__matm0 && typeof window.__matm0.fitCalcDisplay === 'function') {
-        window.__matm0.fitCalcDisplay();
-    }
+    // wołam po każdej edycji w konsoli — bez pełnego reloadu
+    if (window.__matm0 && typeof window.__matm0.fitCalcLayout === 'function') window.__matm0.fitCalcLayout();
+    if (window.__matm0 && typeof window.__matm0.fitCalcDisplay === 'function') window.__matm0.fitCalcDisplay();
 };
 
-window.previewCalcDisplayCurve = function previewCalcDisplayCurve(from, to, step) {
-    var t = window.CALC_LAYOUT_TUNE && window.CALC_LAYOUT_TUNE.mobile;
+window.previewCalcDisplayCurve = function previewCalcDisplayCurve(from, to, step, section) {
+    var t = section === 'desktop'
+        ? (window.CALC_LAYOUT_TUNE && window.CALC_LAYOUT_TUNE.desktop)
+        : section === 'mobile'
+            ? (window.CALC_LAYOUT_TUNE && window.CALC_LAYOUT_TUNE.mobile)
+            : window.getCalcLayoutTuneSection();
     from = from != null ? from : 500;
     to = to != null ? to : 960;
     step = step != null ? step : 40;
@@ -212,36 +394,46 @@ window.previewCalcDisplayCurve = function previewCalcDisplayCurve(from, to, step
         var b = resolveCalcDisplayBudget(h, false, t);
         rows.push({
             panelPx: h,
+            mode: b.heightMode,
             curvePx: b.rawPx,
             displayPx: b.height,
+            share: b.sharePct,
             limit: b.limit,
-            structuralMin: b.structuralMin,
         });
     }
     console.table(rows);
     return rows;
 };
 
-window.plotCalcDisplayCurve = function plotCalcDisplayCurve(from, to, width) {
-    var t = window.CALC_LAYOUT_TUNE && window.CALC_LAYOUT_TUNE.mobile;
+window.plotCalcDisplayCurve = function plotCalcDisplayCurve(from, to, width, section) {
+    var t = section === 'desktop'
+        ? (window.CALC_LAYOUT_TUNE && window.CALC_LAYOUT_TUNE.desktop)
+        : section === 'mobile'
+            ? (window.CALC_LAYOUT_TUNE && window.CALC_LAYOUT_TUNE.mobile)
+            : window.getCalcLayoutTuneSection();
     from = from != null ? from : 500;
     to = to != null ? to : 960;
     width = width != null ? width : 32;
     var c = (t && t.displayCurve) || {};
     var yMin = c.minPx != null ? c.minPx : 100;
-    var yMax = c.maxPx != null ? c.maxPx : 160;
-    var lines = ['displayCurve (px)', ''];
+    var yMax = c.maxPx != null ? c.maxPx : 200;
+    var lines = ['displayCurve (' + (c.heightMode || 'share') + ')', ''];
     for (var h = from; h <= to; h += Math.round((to - from) / 10) || 40) {
         var b = resolveCalcDisplayBudget(h, false, t);
         var n = Math.round((b.height - yMin) / (yMax - yMin) * width);
-        lines.push(String(h).padStart(4) + ' |' + '#'.repeat(Math.max(0, Math.min(width, n))).padEnd(width) + '| ' + b.height + 'px (' + b.limit + ')');
+        lines.push(String(h).padStart(4) + ' |' + '#'.repeat(Math.max(0, Math.min(width, n))).padEnd(width)
+            + '| ' + b.height + 'px ' + b.sharePct + ' (' + b.limit + ')');
     }
     console.log(lines.join('\n'));
     return lines.join('\n');
 };
 
-window.previewKeypadFontCurve = function previewKeypadFontCurve(from, to, step) {
-    var t = window.CALC_LAYOUT_TUNE && window.CALC_LAYOUT_TUNE.mobile;
+window.previewKeypadFontCurve = function previewKeypadFontCurve(from, to, step, section) {
+    var t = section === 'desktop'
+        ? (window.CALC_LAYOUT_TUNE && window.CALC_LAYOUT_TUNE.desktop)
+        : section === 'mobile'
+            ? (window.CALC_LAYOUT_TUNE && window.CALC_LAYOUT_TUNE.mobile)
+            : window.getCalcLayoutTuneSection();
     var baseRem = t.keypadFont && t.keypadFont.baseRem != null ? t.keypadFont.baseRem : 1.35;
     var rowBase = t.btnRowBase != null ? t.btnRowBase : 56;
     from = from != null ? from : 500;
@@ -250,13 +442,12 @@ window.previewKeypadFontCurve = function previewKeypadFontCurve(from, to, step) 
     var rows = [];
     for (var h = from; h <= to; h += step) {
         var rowH = Math.round((h * 0.65) / 5);
-        var rowScale = rowH / rowBase;
-        var scale = resolveKeypadFontScale(h, rowScale, t);
+        var scale = resolveKeypadFontScale(h, rowH / rowBase, t);
         rows.push({
             panelPx: h,
             estRowPx: rowH,
             btnScale: scale,
-            numberRem: (baseRem * scale * (t.keypadFont.groups.number.fontScale || 1)).toFixed(2),
+            numberRem: (baseRem * scale * ((t.keypadFont.groups && t.keypadFont.groups.number.fontScale) || 1)).toFixed(2),
         });
     }
     console.table(rows);
@@ -264,29 +455,40 @@ window.previewKeypadFontCurve = function previewKeypadFontCurve(from, to, step) 
 };
 
 window.previewCurrentCalcLayout = function previewCurrentCalcLayout() {
+    // to moja „tablica stanu” — najpierw tu patrzę jak coś wygląda źle
     var panel = document.getElementById('panel-calculator');
     var card = panel && panel.querySelector('.card');
     var display = card && card.querySelector('.calc-display');
     var btn = document.querySelector('#calcGrid .calc-btn');
-    var t = window.CALC_LAYOUT_TUNE && window.CALC_LAYOUT_TUNE.mobile;
-    var panelH = panel ? panel.clientHeight : 0;
-    var panelW = window.innerWidth;
+    var t = window.getCalcLayoutTuneSection();
+    var section = window.innerWidth < 640 ? 'mobile' : 'desktop';
+    var availDetail = window.resolveCalcAvailHeightDetail
+        ? window.resolveCalcAvailHeightDetail(panel, card, t)
+        : { height: window.resolveCalcAvailHeight(panel, card, t), visibleH: 0, overflowPx: 0 };
+    var availH = availDetail.height;
     var isTyping = !!(document.getElementById('calcExpr') && document.getElementById('calcExpr').value);
-    var budget = resolveCalcDisplayBudget(panelH, isTyping, t);
+    var budget = resolveCalcDisplayBudget(availH, isTyping, t);
     var rowH = btn ? Math.round(btn.getBoundingClientRect().height) : 0;
-    var rowScale = rowH / (t.btnRowBase || 56);
-    var btnScale = resolveKeypadFontScale(panelH, rowScale, t);
-    var baseRem = t.keypadFont.baseRem != null ? t.keypadFont.baseRem : 1.35;
+    var btnScale = resolveKeypadFontScale(availH, rowH / (t.btnRowBase || 56), t);
+    var baseRem = t.keypadFont && t.keypadFont.baseRem != null ? t.keypadFont.baseRem : 1.35;
+    var cardH = card ? card.clientHeight : 0;
     var row = {
-        viewportW: panelW,
-        mobileLayout: panelW < 640,
-        panelH: panelH,
+        section: section,
+        viewportW: window.innerWidth,
+        availH: availH,
+        visibleInViewportH: availDetail.visibleH,
+        scrollOverflowPx: availDetail.overflowPx,
+        scrollOverflowOn: availDetail.allowScrollOverflow,
+        cardActualPx: cardH,
+        cardBelowFoldPx: Math.max(0, cardH - availDetail.visibleH),
+        displayShare: budget.sharePct,
         displayBudgetPx: budget.height,
         displayActualPx: display ? display.clientHeight : 0,
+        keypadShare: budget.panelH > 0 ? Math.round((1 - budget.share) * 1000) / 10 + '%' : '—',
         budgetLimit: budget.limit,
         rowH: rowH,
         btnScale: btnScale,
-        numberFontRem: (baseRem * btnScale * (t.keypadFont.groups.number.fontScale || 1)).toFixed(2),
+        numberFontRem: (baseRem * btnScale * ((t.keypadFont.groups && t.keypadFont.groups.number.fontScale) || 1)).toFixed(2),
     };
     console.table([row]);
     return row;
@@ -297,5 +499,9 @@ window.CALC_LAYOUT_TUNE.plotDisplayCurve = window.plotCalcDisplayCurve;
 window.CALC_LAYOUT_TUNE.previewKeypadFont = window.previewKeypadFontCurve;
 window.CALC_LAYOUT_TUNE.previewCurrent = window.previewCurrentCalcLayout;
 window.CALC_LAYOUT_TUNE.reapply = window.reapplyCalcLayoutTune;
+window.CALC_LAYOUT_TUNE.getSection = window.getCalcLayoutTuneSection;
 window.CALC_LAYOUT_TUNE.resolveDisplayBudget = window.resolveCalcDisplayBudget;
 window.CALC_LAYOUT_TUNE.resolveKeypadFont = window.resolveKeypadFontScale;
+window.CALC_LAYOUT_TUNE.resolveAvailHeight = window.resolveCalcAvailHeight;
+window.CALC_LAYOUT_TUNE.resolveAvailHeightDetail = window.resolveCalcAvailHeightDetail;
+window.CALC_LAYOUT_TUNE.scrollOverflowOpts = _calcScrollOverflowOpts;

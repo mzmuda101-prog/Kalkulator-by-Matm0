@@ -2920,6 +2920,53 @@
            ============================================================ */
         @media (min-width: 640px) {
             .panels { padding: 16px 20px; }
+            /* [EN] Desktop/tablet flex split — tune: CALC_LAYOUT_TUNE.desktop (calc-split-active). */
+            body.calc-split-active #panel-calculator .card {
+                display: flex;
+                flex-direction: column;
+                min-height: var(--calc-card-min-h, 420px);
+                overflow: visible; /* [EN] panel .panels scroll — karta może wystawać pod viewport */
+            }
+            body.calc-split-active #panel-calculator .calc-display {
+                flex: 0 0 auto;
+                min-height: 0;
+                padding: var(--calc-display-pad-y, 20px) var(--calc-display-pad-x, 22px);
+                gap: var(--calc-display-gap, 6px);
+                grid-template-rows: minmax(var(--calc-expr-min, 40px), 1fr) auto;
+                overflow: hidden;
+            }
+            body.calc-split-active #panel-calculator .calc-expr-wrap {
+                height: 100%;
+                min-height: 0;
+            }
+            body.calc-split-active #panel-calculator .calc-expr-wrap .calc-expression {
+                position: absolute;
+                inset: 0;
+                height: 100%;
+                min-height: 0;
+            }
+            body.calc-split-active #panel-calculator .calc-grid {
+                flex: 1 1 auto;
+                min-height: 0;
+                grid-template-rows: repeat(5, minmax(0, 1fr));
+                gap: var(--calc-grid-gap, 10px);
+            }
+            body.calc-split-active #panel-calculator .calc-btn {
+                aspect-ratio: auto;
+                width: 100%;
+                height: 100%;
+                min-height: 0;
+                max-height: none;
+                font-size: calc(var(--calc-font-base, 1.35rem) * var(--calc-btn-scale, 1));
+            }
+            body.calc-split-active #panel-calculator .calc-btn--fn { font-size: calc(var(--calc-font-base, 1.35rem) * var(--calc-btn-scale, 1) * var(--calc-g-fn-font, 1)); }
+            body.calc-split-active #panel-calculator .calc-btn--number { font-size: calc(var(--calc-font-base, 1.35rem) * var(--calc-btn-scale, 1) * var(--calc-g-number-font, 1)); }
+            body.calc-split-active #panel-calculator .calc-btn--operator { font-size: calc(var(--calc-font-base, 1.35rem) * var(--calc-btn-scale, 1) * var(--calc-g-operator-font, 1)); }
+            body.calc-split-active #panel-calculator .calc-btn--equals { font-size: calc(var(--calc-font-base, 1.35rem) * var(--calc-btn-scale, 1) * var(--calc-g-equals-font, 1)); }
+            body.calc-split-active #panel-calculator .calc-btn.clear { font-size: calc(var(--calc-font-base, 1.35rem) * var(--calc-btn-scale, 1) * var(--calc-g-clear-font, 1)); }
+            body.calc-split-active #panel-calculator .calc-tools {
+                flex: 0 0 auto;
+            }
             .calc-btn { font-size: 1.35rem; min-height: 62px; }
             .calc-result { font-size: 3rem; }
             .calc-result.small { font-size: 2.4rem; }
