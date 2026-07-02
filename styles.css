@@ -2829,9 +2829,26 @@
            js/calc-layout-tune.js → CALC_LAYOUT_TUNE.mobile
            ============================================================ */
         @media (max-width: 639px) {
-            body.calc-panel-active .panels {
+            body.calc-panel-active:not(.calc-panel-scroll) .panels {
                 overflow: hidden;
                 overscroll-behavior: none;
+            }
+            /* [EN] Extreme short viewport — scroll card instead of crushing keypad/display */
+            body.calc-panel-active.calc-panel-scroll .panels {
+                overflow-y: auto;
+                overscroll-behavior-y: contain;
+                -webkit-overflow-scrolling: touch;
+                touch-action: pan-y;
+            }
+            body.calc-panel-active.calc-panel-scroll #panel-calculator.active {
+                height: auto;
+                min-height: 100%;
+                overflow: visible;
+            }
+            body.calc-panel-active.calc-panel-scroll #panel-calculator .card {
+                height: auto;
+                min-height: var(--calc-card-min-h, 100%);
+                overflow: visible;
             }
             #panel-calculator.active {
                 display: flex;

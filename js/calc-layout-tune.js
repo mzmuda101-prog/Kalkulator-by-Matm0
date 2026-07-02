@@ -55,14 +55,17 @@ window.CALC_LAYOUT_TUNE = {
             ],
             minShare: 0.12, // dolna granica % — poniżej tego nie schodzi
             maxShare: 0.26, // górna granica % — powyżej nie idzie (zostaw klawisze)
-            minPx: 110, // min. wys. samego .calc-display (placeholder + wynik)
-            maxPx: 160, // max. wys. wyświetlacza — podnieś jak za ciasno na wpisywanie
+            minPx: 110, // min. wys. .calc-display — sensowne minimum (nie optymalizujemy pod <500px viewport)
+            maxPx: 160, // max bez scrolla; powyżej → calc-panel-scroll + przewijanie karty
             typingBonusShare: 0, // +% wys. karty gdy coś wpisane (np. 0.02)
             typingBonusPx: 0, // albo +px na sztywno zamiast share
             displayPadEstimate: 24, // używane w min. strukturalnym (pad+expr+wynik)
             scrollOverflow: {
-                // mobile: zostaw wyłączone — panel i tak na pełną wysokość
-                enabled: false,
+                // Poniżej compactViewportPx — scroll palcem zamiast ściskania klawiatury do zera.
+                // Realne telefony (SE 568+, standard 667+) zwykle bez scrolla.
+                enabled: false, // wymuszone gdy visibleH < compactViewportPx lub wynik > maxPx
+                compactViewportPx: 500, // widoczna wys. panelu — próg „ekstremalnie mały"
+                keypadMinPx: 280, // min. wys. klawiatury gdy scroll aktywny
                 belowPx: 0,
                 belowShare: 0,
                 maxBelowPx: 0,

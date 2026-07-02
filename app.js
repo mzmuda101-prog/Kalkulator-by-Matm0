@@ -1855,16 +1855,21 @@
             if (resultH < 8) resultH = _calcResultWrapLinePx() * (_calcResultWrapLines || 2);
             return padTop + padBottom + Math.max(wrap.offsetHeight || 0, exprMin) + gap + resultH;
         }
-        function _bumpDisplayForWrappedResult(display) {
-            if (!display || !calcResult || (_calcResultWrapLines || 1) <= 1) return false;
-            var wrapMin = _calcWrappedDisplayMinH(display);
-            var cur = display.clientHeight;
-            if (wrapMin <= cur + 1) return false;
-            var h = Math.ceil(wrapMin);
-            display.style.height = h + 'px';
-            display.style.minHeight = h + 'px';
-            display.style.maxHeight = h + 'px';
-            return true;
+        function _setCalcPanelScroll(on) {
+            document.body.classList.toggle('calc-panel-scroll', !!on);
+        }
+        function _calcPanelScrollNeeded(t, availDetail, budget, wrapMin) {
+            if (!_isCalcMobileLayout()) return false;
+            var c = (t.displayCurve || {}).scrollOverflow || {};
+            if (c.enabled) return true;
+            var visible = availDetail && availDetail.visibleH > 0 ? availDetail.visibleH : 0;
+            var compact = c.compactViewportPx != null ? c.compactViewportPx : 500;
+            if (visible > 0 && visible < compact) return true;
+            if (wrapMin > 0 && budget) {
+                var cap = (budget.maxPx || 160) + (budget.wrapExtraPx || 0);
+                if (wrapMin > cap + 4) return true;
+            }
+            return false;
         }
         function _syncExprFieldToWrap(wrap) {
             if (!calcExpr || !wrap) return 0;
@@ -2151,10 +2156,6 @@
             var display = calcExpr && calcExpr.closest('.calc-display');
             fitCalcExpr();
             if (display) _syncResultWrapLayout(display);
-            if (display && _bumpDisplayForWrappedResult(display)) {
-                fitCalcExpr();
-                _syncResultWrapLayout(display);
-            }
             updatePlaceholderMarquee();
             _clampResultInDisplay();
         }
@@ -2200,6 +2201,7 @@
         function _clearCalcLayoutInline(card, display) {
             document.body.classList.remove('calc-panel-active');
             document.body.classList.remove('calc-split-active');
+            _setCalcPanelScroll(false);
             if (!card || !display) return;
             card.style.removeProperty('--calc-btn-scale');
             card.style.removeProperty('--calc-font-base');
@@ -2251,33 +2253,45 @@
             document.body.classList.toggle('calc-panel-active', isMobile);
             document.body.classList.toggle('calc-split-active', !isMobile);
             applyCalcLayoutTune(card);
-            var availH = typeof window.resolveCalcAvailHeight === 'function'
-                ? window.resolveCalcAvailHeight(panel, card, t)
-                : panel.clientHeight;
+            var availDetail = typeof window.resolveCalcAvailHeightDetail === 'function'
+                ? window.resolveCalcAvailHeightDetail(panel, card, t)
+                : { height: panel.clientHeight, visibleH: panel.clientHeight };
+            var availH = availDetail.height;
             if (availH < 120) return;
-            card.style.setProperty('--calc-card-min-h', availH + 'px');
             var isEmpty = !calcExpr || !calcExpr.value;
             var budget = typeof window.resolveCalcDisplayBudget === 'function'
                 ? window.resolveCalcDisplayBudget(availH, !isEmpty, t, {
                     resultExtraLines: Math.max(0, (_calcResultWrapLines || 1) - 1),
                     resultLinePx: _calcResultWrapLinePx(),
                 })
-                : { height: 120 };
+                : { height: 120, maxPx: 160, wrapExtraPx: 0 };
+            var wrapMin = (_calcResultWrapLines || 1) > 1 ? _calcWrappedDisplayMinH(display) : 0;
+            var needScroll = _calcPanelScrollNeeded(t, availDetail, budget, wrapMin);
+            _setCalcPanelScroll(needScroll);
+            if (needScroll) {
+                card.style.setProperty('--calc-card-min-h', (availDetail.visibleH || availH) + 'px');
+                card.style.height = 'auto';
+            } else {
+                card.style.height = '';
+                card.style.setProperty('--calc-card-min-h', availH + 'px');
+            }
             var displayH = budget.height;
-            if ((_calcResultWrapLines || 1) > 1) {
-                var wrapMin = _calcWrappedDisplayMinH(display);
-                if (wrapMin > displayH) displayH = Math.ceil(wrapMin);
+            if (wrapMin > displayH) {
+                var cap = (budget.maxPx || 160) + (budget.wrapExtraPx || 0);
+                displayH = needScroll ? Math.ceil(wrapMin) : Math.ceil(Math.min(wrapMin, cap));
             }
             display.style.flex = '0 0 auto';
             display.style.height = displayH + 'px';
             display.style.minHeight = displayH + 'px';
             display.style.maxHeight = displayH + 'px';
-            calcGrid.style.flex = '1 1 auto';
-            calcGrid.style.minHeight = '0';
+            calcGrid.style.flex = needScroll ? '0 0 auto' : '1 1 auto';
+            var scrollC = (t.displayCurve || {}).scrollOverflow || {};
+            calcGrid.style.minHeight = needScroll ? ((scrollC.keypadMinPx != null ? scrollC.keypadMinPx : 280) + 'px') : '0';
             if (t.debug) {
                 console.log('[calc-layout]', {
                     section: isMobile ? 'mobile' : 'desktop',
-                    empty: isEmpty, displayH: displayH, share: budget.sharePct, limit: budget.limit, availH: availH,
+                    empty: isEmpty, displayH: displayH, share: budget.sharePct, limit: budget.limit,
+                    availH: availH, scroll: needScroll, wrapMin: wrapMin,
                 });
             }
             requestAnimationFrame(function() {
