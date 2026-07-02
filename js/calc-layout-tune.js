@@ -25,8 +25,14 @@
      previewDisplayCurve()
      previewKeypadFontCurve()
 
+   FONTY (3 osobne ścieżki — NIE mieszają się):
+   ─ displayFont.exprRem          — wpisywany tekst + placeholder (pole u góry)
+   ─ displayFont.resultRem        — wynik (duża liczba na dole)
+   ─ displayFont.resultShrinkMinRem / resultWrapMaxLines — zawijanie + shrink wyniku
+   ─ keypadFont.baseRem + groups  — TYLKO etykiety na przyciskach klawiatury
+
    =============================================================================
-   NOTATKA: edytuję głównie displayCurve + keypadFont. Reszta to detale wewnątrz boxa.
+   NOTATKA: edytuję głównie displayCurve + displayFont + keypadFont.
    Jak zmiana „nic nie robi” → previewCurrentCalcLayout() i patrz budgetLimit.
    ============================================================================= */
 
@@ -53,9 +59,6 @@ window.CALC_LAYOUT_TUNE = {
             maxPx: 160, // max. wys. wyświetlacza — podnieś jak za ciasno na wpisywanie
             typingBonusShare: 0, // +% wys. karty gdy coś wpisane (np. 0.02)
             typingBonusPx: 0, // albo +px na sztywno zamiast share
-            resultWrapMaxLines: 2, // max 2 rzędy wyniku — potem dopiero shrink fontu
-            resultWrapMaxExtraLines: 1, // +1 wiersz wys. ekraniku (2. linia wyniku)
-            resultShrinkMinRem: 1.2, // dolna granica fontu wyniku gdy 2 linie nie wystarczą
             displayPadEstimate: 24, // używane w min. strukturalnym (pad+expr+wynik)
             scrollOverflow: {
                 // mobile: zostaw wyłączone — panel i tak na pełną wysokość
@@ -79,6 +82,18 @@ window.CALC_LAYOUT_TUNE = {
         gridGapPx: 8, // szczelina między klawiszami
         cardPadEstimate: 28, // fallback gdy brak viewportBottomGapPx
         btnRowBase: 56, // odniesienie do skali fontu (nie wys. rzędu!)
+
+        /* Fonty EKRANIKA — osobno od keypadFont (przyciski klawiatury). */
+        displayFont: {
+            exprRem: 1.25, // wpisywany tekst + placeholder „Lub wpisz…”
+            exprMinRem: 1, // dolna granica shrinku expr (mobile: nie poniżej exprMinPx)
+            exprMinPx: 16, // próg iOS — focus bez zoomu WebKit
+            resultRem: 2.5, // bazowy rozmiar wyniku (przed zawijaniem/shrinkiem)
+            resultShrinkMinRem: 1.2, // min. font wyniku gdy 2 linie nie wystarczą
+            resultWrapMaxLines: 2, // max rzędów wyniku
+            resultWrapMaxExtraLines: 1, // +1 wiersz wys. ekraniku przy 2. linii
+            approxRem: 1.6, // znacznik „≈"
+        },
 
         keypadFont: {
             baseRem: 1.35, // bazowy rozmiar na klawiszu
@@ -124,9 +139,6 @@ window.CALC_LAYOUT_TUNE = {
             maxPx: 240,
             typingBonusShare: 0.012, // odrobinę więcej ekranu jak coś wpisuję
             typingBonusPx: 0,
-            resultWrapMaxLines: 2,
-            resultWrapMaxExtraLines: 1,
-            resultShrinkMinRem: 1.25,
             displayPadEstimate: 40,
             scrollOverflow: {
                 // .panels ma scroll — karta może wystawać pod dół ekranu
@@ -150,6 +162,17 @@ window.CALC_LAYOUT_TUNE = {
         gridGapPx: 10,
         cardPadEstimate: 24,
         btnRowBase: 62, // desktop: większe odniesienie niż mobile
+
+        displayFont: {
+            exprRem: 1.25,
+            exprMinRem: 0.9, // desktop może lekko zmniejszyć expr przy overflow
+            exprMinPx: 16,
+            resultRem: 3, // desktop: większy wynik niż mobile (2.5)
+            resultShrinkMinRem: 1.25,
+            resultWrapMaxLines: 2,
+            resultWrapMaxExtraLines: 1,
+            approxRem: 1.6,
+        },
 
         keypadFont: {
             baseRem: 1.35,
@@ -268,7 +291,9 @@ window.resolveCalcDisplayBudget = function resolveCalcDisplayBudget(panelH, isTy
     var height = Math.max(minPx, Math.min(maxPx, Math.round(raw)));
 
     var extraLines = Math.max(0, wrapOpts.resultExtraLines || 0);
-    var maxExtra = tune.resultWrapMaxExtraLines != null ? tune.resultWrapMaxExtraLines : 1;
+    var df = tune.displayFont || {};
+    var maxExtra = df.resultWrapMaxExtraLines != null ? df.resultWrapMaxExtraLines
+        : (tune.resultWrapMaxExtraLines != null ? tune.resultWrapMaxExtraLines : 1);
     extraLines = Math.min(extraLines, maxExtra);
     var linePx = wrapOpts.resultLinePx || 0;
     var wrapExtraPx = extraLines * linePx;
@@ -378,6 +403,7 @@ window.applyCalcLayoutTuneTokens = function applyCalcLayoutTuneTokens(card, tune
     if (!card) return;
     tune = tune || window.getCalcLayoutTuneSection();
     var kf = tune.keypadFont || {};
+    var df = tune.displayFont || {};
     var exprMin = tune.exprMinHeight != null ? tune.exprMinHeight : 44;
     var padY = tune.displayPadY != null ? tune.displayPadY : 12;
     var padX = tune.displayPadX != null ? tune.displayPadX : 14;
@@ -386,6 +412,11 @@ window.applyCalcLayoutTuneTokens = function applyCalcLayoutTuneTokens(card, tune
     card.style.setProperty('--calc-grid-gap', (tune.gridGapPx != null ? tune.gridGapPx : 8) + 'px');
     card.style.setProperty('--calc-display-pad-y', padY + 'px');
     card.style.setProperty('--calc-display-pad-x', padX + 'px');
+    card.style.setProperty('--calc-expr-font', (df.exprRem != null ? df.exprRem : 1.25) + 'rem');
+    card.style.setProperty('--calc-expr-min-rem', (df.exprMinRem != null ? df.exprMinRem : 1) + 'rem');
+    card.style.setProperty('--calc-expr-min-px', (df.exprMinPx != null ? df.exprMinPx : 16) + 'px');
+    card.style.setProperty('--calc-result-font', (df.resultRem != null ? df.resultRem : 2.5) + 'rem');
+    card.style.setProperty('--calc-approx-font', (df.approxRem != null ? df.approxRem : 1.6) + 'rem');
     card.style.setProperty('--calc-font-base', (kf.baseRem != null ? kf.baseRem : 1.35) + 'rem');
     var groups = kf.groups || {};
     ['fn', 'number', 'operator', 'equals', 'clear'].forEach(function(name) {
@@ -509,11 +540,21 @@ window.previewCurrentCalcLayout = function previewCurrentCalcLayout() {
         rowH: rowH,
         btnScale: btnScale,
         numberFontRem: (baseRem * btnScale * ((t.keypadFont.groups && t.keypadFont.groups.number.fontScale) || 1)).toFixed(2),
+        exprFontRem: (t.displayFont && t.displayFont.exprRem != null ? t.displayFont.exprRem : 1.25),
+        resultFontRem: (t.displayFont && t.displayFont.resultRem != null ? t.displayFont.resultRem : 2.5),
     };
     console.table([row]);
     return row;
 };
 
+window.CALC_LAYOUT_TUNE.getDisplayFont = function getDisplayFontTune(section) {
+    var t = section === 'desktop'
+        ? (window.CALC_LAYOUT_TUNE && window.CALC_LAYOUT_TUNE.desktop)
+        : section === 'mobile'
+            ? (window.CALC_LAYOUT_TUNE && window.CALC_LAYOUT_TUNE.mobile)
+            : window.getCalcLayoutTuneSection();
+    return (t && t.displayFont) || {};
+};
 window.CALC_LAYOUT_TUNE.previewDisplayCurve = window.previewCalcDisplayCurve;
 window.CALC_LAYOUT_TUNE.plotDisplayCurve = window.plotCalcDisplayCurve;
 window.CALC_LAYOUT_TUNE.previewKeypadFont = window.previewKeypadFontCurve;

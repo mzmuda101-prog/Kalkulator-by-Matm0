@@ -1905,8 +1905,9 @@
                 return;
             }
             if (!calcExpr.value) return;
-            var fs = 1.25;
-            var minFs = _isCalcMobileLayout() ? 1 : 0.9; // [EN] Mobile ≥16px — bez zoomu WebKit przy shrink
+            var df = _displayFontTune();
+            var fs = df.exprRem != null ? df.exprRem : 1.25;
+            var minFs = df.exprMinRem != null ? df.exprMinRem : (_isCalcMobileLayout() ? 1 : 0.9);
             var sh = calcExpr.scrollHeight;
             while (sh > maxExprH && fs > minFs) {
                 fs = Math.round((fs - 0.05) * 100) / 100;
@@ -1956,10 +1957,14 @@
             if (!isFinite(lh) || lh < 2) lh = fs * 1.1;
             return Math.ceil(lh);
         }
+        function _displayFontTune() {
+            var t = getCalcLayoutTune();
+            return t.displayFont || {};
+        }
         // [EN] Max 2 lines at thousand groups; never a 3rd row — shrink font only if both rows overflow.
         function _resultMaxLines() {
-            var t = getCalcLayoutTune();
-            return t.resultWrapMaxLines != null ? t.resultWrapMaxLines : 2;
+            var df = _displayFontTune();
+            return df.resultWrapMaxLines != null ? df.resultWrapMaxLines : 2;
         }
         function _resultLinesFit(lines, maxW, row, fontSizePx) {
             for (var i = 0; i < lines.length; i++) {
@@ -1992,12 +1997,12 @@
             return [tokens.slice(0, splitAt).join('\u00a0'), tokens.slice(splitAt).join('\u00a0')];
         }
         function _layoutCalcResultText(flat, maxW, row) {
-            var t = getCalcLayoutTune();
+            var df = _displayFontTune();
             var maxLines = _resultMaxLines();
             calcResult.style.fontSize = '';
             var rootFs = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
             var basePx = parseFloat(getComputedStyle(calcResult).fontSize) || rootFs * 2.5;
-            var minRem = t.resultShrinkMinRem != null ? t.resultShrinkMinRem : 1.2;
+            var minRem = df.resultShrinkMinRem != null ? df.resultShrinkMinRem : 1.2;
             var minPx = Math.max(18, rootFs * minRem);
             var fs = basePx;
             var lines = _wrapCalcResultLines(flat, maxW, row, maxLines, fs);
@@ -2079,6 +2084,11 @@
             card.style.removeProperty('--calc-grid-gap');
             card.style.removeProperty('--calc-display-pad-y');
             card.style.removeProperty('--calc-display-pad-x');
+            card.style.removeProperty('--calc-expr-font');
+            card.style.removeProperty('--calc-expr-min-rem');
+            card.style.removeProperty('--calc-expr-min-px');
+            card.style.removeProperty('--calc-result-font');
+            card.style.removeProperty('--calc-approx-font');
             _calcBtnScale = 1;
         }
         function fitCalcLayout() {

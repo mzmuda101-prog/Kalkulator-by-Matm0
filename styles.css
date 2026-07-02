@@ -561,7 +561,7 @@
             overflow: hidden;
         }
         .calc-expression {
-            font-size: 1.25rem;
+            font-size: var(--calc-expr-font, 1.25rem);
             color: var(--text-secondary);
             font-family: var(--font-mono);
             line-height: 1.3;
@@ -627,7 +627,7 @@
             justify-content: flex-end;
             overflow: hidden;
             pointer-events: none;
-            font-size: 1.25rem;
+            font-size: var(--calc-expr-font, 1.25rem);
             font-family: var(--font-mono);
             color: var(--text-muted);
             opacity: 0.75;
@@ -662,7 +662,7 @@
             .calc-ph.is-scrolling > span { animation: none; transform: translateX(var(--ph-shift, 0)); }
         }
         .calc-result {
-            font-size: 2.5rem;
+            font-size: var(--calc-result-font, 2.5rem);
             font-weight: 700;
             color: var(--text);
             font-family: var(--font-mono);
@@ -700,7 +700,7 @@
         .calc-result-row .calc-result { width: 100%; max-width: 100%; }
         .calc-approx {
             flex: 0 0 auto;
-            font-size: 1.6rem;
+            font-size: var(--calc-approx-font, 1.6rem);
             font-weight: 700;
             color: var(--primary);                                              /* fallback */
             color: color-mix(in srgb, var(--primary) 30%, #94a3b8 70%);         /* lekko wyszarzony niebieski */
@@ -2897,7 +2897,7 @@
             #panel-calculator .calc-btn--equals { font-size: calc(var(--calc-font-base, 1.3rem) * var(--calc-btn-scale, 1) * var(--calc-g-equals-font, 1)); }
             #panel-calculator .calc-btn.clear { font-size: calc(var(--calc-font-base, 1.3rem) * var(--calc-btn-scale, 1) * var(--calc-g-clear-font, 1)); }
             #panel-calculator .calc-result {
-                font-size: 2.5rem; /* domyślny wynik — bez zaniżania na mobile */
+                font-size: var(--calc-result-font, 2.5rem);
             }
             #panel-calculator .calc-tools {
                 flex: 0 0 auto;
@@ -2911,7 +2911,7 @@
             /* [EN] ≥16px — iOS Safari nie zoomuje przy focus na polu (WebKit próg). */
             #panel-calculator .calc-expr-wrap .calc-expression,
             #panel-calculator .calc-ph {
-                font-size: max(16px, 1.25rem);
+                font-size: max(var(--calc-expr-min-px, 16px), var(--calc-expr-font, 1.25rem));
             }
         }
 
@@ -2968,7 +2968,7 @@
                 flex: 0 0 auto;
             }
             .calc-btn { font-size: 1.35rem; min-height: 62px; }
-            .calc-result { font-size: 3rem; }
+            .calc-result { font-size: var(--calc-result-font, 3rem); }
             .calc-result.small { font-size: 2.4rem; }
             .calc-result.xsmall { font-size: 2rem; }
             .calc-result.xxsmall { font-size: 1.65rem; }
