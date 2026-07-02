@@ -2930,10 +2930,8 @@
             body.calc-split-active #panel-calculator .calc-display {
                 flex: 0 0 auto;
                 min-height: 0;
-                padding: var(--calc-display-pad-y, 20px) var(--calc-display-pad-x, 22px);
                 gap: var(--calc-display-gap, 6px);
-                grid-template-rows: minmax(var(--calc-expr-min, 40px), 1fr) auto;
-                overflow: hidden;
+                grid-template-rows: minmax(var(--calc-expr-min, 44px), 1fr) auto;
             }
             body.calc-split-active #panel-calculator .calc-expr-wrap {
                 height: 100%;
