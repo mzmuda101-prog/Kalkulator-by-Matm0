@@ -688,7 +688,7 @@
         /* Wiersz wyniku: opcjonalny znacznik „≈" (zaokrąglenie) tuż przed liczbą, do prawej. */
         .calc-result-row {
             display: flex;
-            align-items: flex-end;
+            align-items: center;
             justify-content: flex-end;
             gap: 8px;
             width: 100%;
@@ -2104,7 +2104,7 @@
             white-space: nowrap;
             box-shadow: var(--shadow-lg);
         }
-        /* ── Notatnik (pełnoekranowa nakładka) ────────────────────���─ */
+        /* ── Notatnik (pełnoekranowa nakładka) ───────────────────�����─ */
         .np-backdrop {
             position: fixed;
             inset: 0;
