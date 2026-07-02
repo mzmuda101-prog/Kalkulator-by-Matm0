@@ -79,6 +79,8 @@ window.CALC_LAYOUT_TUNE = {
         resultReserveEmpty: 48, // rezerwa na „0” gdy pusto
         resultAnimSlack: 4, // zapas pod animację cyferek w wyniku
         resultReserveMin: 36, // min. rezerwa gdy już coś wpisane
+        resultWrapPadBottom: 6, // mniejszy dół ekraniku przy 2 liniach wyniku
+        resultWrapExprMinPx: 28, // niższy min wiersza wyrażenia gdy wynik ma 2 linie
         gridGapPx: 8, // szczelina między klawiszami
         cardPadEstimate: 28, // fallback gdy brak viewportBottomGapPx
         btnRowBase: 56, // odniesienie do skali fontu (nie wys. rzędu!)
@@ -159,6 +161,8 @@ window.CALC_LAYOUT_TUNE = {
         resultReserveEmpty: 52,
         resultAnimSlack: 4,
         resultReserveMin: 40,
+        resultWrapPadBottom: 8,
+        resultWrapExprMinPx: 32,
         gridGapPx: 10,
         cardPadEstimate: 24,
         btnRowBase: 62, // desktop: większe odniesienie niż mobile
