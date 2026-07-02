@@ -2857,7 +2857,7 @@
                 flex: 0 0 auto;
                 min-height: 0;
                 margin-bottom: 8px;
-                padding: var(--calc-display-pad-y, 12px) var(--calc-display-pad-x, 14px);
+                padding: 8px var(--calc-display-pad-x, 14px) 5px var(--calc-display-pad-x, 14px);
                 overflow: hidden;
                 gap: var(--calc-display-gap, 6px);
                 grid-template-rows: minmax(var(--calc-expr-min, 44px), 1fr) auto;
