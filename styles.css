@@ -667,7 +667,7 @@
             color: var(--text);
             font-family: var(--font-mono);
             letter-spacing: -0.03em;
-            line-height: 1.1;
+            line-height: 0.8em;
             /* Zawijanie max 2 linie; ewentualny shrink dopiero po zapełnieniu obu. */
             min-height: 1.1em;
             white-space: pre-line;
@@ -2104,7 +2104,7 @@
             white-space: nowrap;
             box-shadow: var(--shadow-lg);
         }
-        /* ── Notatnik (pełnoekranowa nakładka) ────────────────────── */
+        /* ── Notatnik (pełnoekranowa nakładka) ────────────────────���─ */
         .np-backdrop {
             position: fixed;
             inset: 0;
