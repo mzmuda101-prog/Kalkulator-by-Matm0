@@ -3,37 +3,49 @@
    ─────────────────────────────────────────────────────────────────────────────
    Po edycji: odśwież (SW!) albo  reapplyCalcLayoutTune()
 
-   PODZIAŁ EKRAN vs KLAWISZE — wszystko w displayCurve (mobile + desktop):
-   ─ share / points / minPx·maxPx     — wysokość samego wyświetlacza
+   PODZIAŁ EKRAN vs KLAWISZE — displayCurve (mobile + desktop):
+   ─ share / points / minPx·maxPx     — wysokość .calc-display (budżet z krzywej)
    ─ typingBonusShare / typingBonusPx — gdy coś wpisane
-   ─ scrollOverflow.enabled           — desktop: karta może wystawać (scroll .panels)
-   ─ scrollOverflow.belowPx           — +px pod dół ekranu (np. 100)
-   ─ scrollOverflow.belowShare        — alternatywa: ułamek vh (np. 0.06)
-   ─ scrollOverflow.maxBelowPx        — limit wystawania
-   ─ scrollOverflow.viewportBottomGapPx — margines nad dołem viewportu
-   ─ scrollOverflow.cardMinPx/cardMaxPx — clamp wys. referencyjnej karty
+   ─ scrollOverflow (desktop)         — karta może wystawać pod viewport (.panels scroll)
+   ─ scrollOverflow (mobile)          — auto calc-panel-scroll gdy za ciasno:
+       compactViewportPx              — visibleH < próg → scroll zamiast ściskania UI
+       keypadMinPx                    — min. wys. klawiatury w trybie scroll
+       enabled                        — wymusza scroll zawsze (debug)
+   ─ scrollOverflow.belowPx / belowShare / maxBelowPx — tylko desktop
+   ─ scrollOverflow.viewportBottomGapPx / cardMinPx / cardMaxPx
+
+   WYNIK — displayFont + root (resultWrap*):
+   ─ resultRem + resultShrinkMinRem   — bazowy font i JEDYNY próg min (binary search
+                                        na probe; bez drugiego „hard min")
+   ─ resultWrapMaxLines               — max 2 linie (grupy tysięcy), potem shrink
+   ─ resultWrapMaxExtraLines          — +px wys. ekraniku w budżecie przy 2. linii
+   ─ resultWrapPadBottom (root)       — mniejszy padding-bottom ekranika przy 2 liniach
+   ─ resultWrapExprMinPx (root)       — niższy --calc-expr-min przy 2 liniach (więcej
+                                        miejsca na wynik; ekranik rośnie w dół)
 
    Sekcje:  mobile (<640 px)  |  desktop (≥640 px, flexSplit: true)
 
    Po edycji w konsoli:
-     CALC_LAYOUT_TUNE.desktop.displayCurve.scrollOverflow.belowPx = 100
+     CALC_LAYOUT_TUNE.mobile.displayCurve.maxPx = 170
+     CALC_LAYOUT_TUNE.mobile.resultWrapPadBottom = 8
      reapplyCalcLayoutTune()
      previewCurrentCalcLayout()
 
    Podgląd:
-     previewCurrentCalcLayout()
+     previewCurrentCalcLayout()   — budgetLimit, panelScroll, displayActualPx
      previewDisplayCurve()
      previewKeypadFontCurve()
 
    FONTY (3 osobne ścieżki — NIE mieszają się):
-   ─ displayFont.exprRem          — wpisywany tekst + placeholder (pole u góry)
-   ─ displayFont.resultRem        — wynik (duża liczba na dole)
-   ─ displayFont.resultShrinkMinRem / resultWrapMaxLines — zawijanie + shrink wyniku
+   ─ displayFont.exprRem          — wpisywany tekst + placeholder
+   ─ displayFont.resultRem        — wynik (przed dopasowaniem)
+   ─ displayFont.resultShrinkMinRem / resultWrapMaxLines — patrz WYNIK wyżej
    ─ keypadFont.baseRem + groups  — TYLKO etykiety na przyciskach klawiatury
 
    =============================================================================
-   NOTATKA: edytuję głównie displayCurve + displayFont + keypadFont.
+   NOTATKA: edytuję głównie displayCurve + displayFont + keypadFont + resultWrap*.
    Jak zmiana „nic nie robi” → previewCurrentCalcLayout() i patrz budgetLimit.
+   Realne telefony (≥568px wys.) zwykle bez calc-panel-scroll.
    ============================================================================= */
 
 window.CALC_LAYOUT_TUNE = {
@@ -56,7 +68,7 @@ window.CALC_LAYOUT_TUNE = {
             minShare: 0.12, // dolna granica % — poniżej tego nie schodzi
             maxShare: 0.26, // górna granica % — powyżej nie idzie (zostaw klawisze)
             minPx: 110, // min. wys. .calc-display — sensowne minimum (nie optymalizujemy pod <500px viewport)
-            maxPx: 160, // max bez scrolla; powyżej → calc-panel-scroll + przewijanie karty
+            maxPx: 160, // górna granica ekraniku bez scrolla; powyżej → body.calc-panel-scroll
             typingBonusShare: 0, // +% wys. karty gdy coś wpisane (np. 0.02)
             typingBonusPx: 0, // albo +px na sztywno zamiast share
             displayPadEstimate: 24, // używane w min. strukturalnym (pad+expr+wynik)
@@ -75,15 +87,15 @@ window.CALC_LAYOUT_TUNE = {
             },
         },
 
-        displayPadY: 12, // padding wewnątrz ekranika (pion)
+        displayPadY: 12, // padding góra/dół ekranika; dół przy 2 liniach → resultWrapPadBottom
         displayPadX: 14,
         exprMinHeight: 44, // min. miejsce na „Lub wpisz wyrażenie…”
         exprResultGap: 6, // odstęp między polem a wynikiem
         resultReserveEmpty: 48, // rezerwa na „0” gdy pusto
-        resultAnimSlack: 4, // zapas pod animację cyferek w wyniku
-        resultReserveMin: 36, // min. rezerwa gdy już coś wpisane
-        resultWrapPadBottom: 6, // mniejszy dół ekraniku przy 2 liniach wyniku
-        resultWrapExprMinPx: 28, // niższy min wiersza wyrażenia gdy wynik ma 2 linie
+        resultAnimSlack: 4, // zapas w _calcResultReserve (expr max-height)
+        resultReserveMin: 36, // min. rezerwa wyniku gdy coś wpisane (budżet expr)
+        resultWrapPadBottom: 6, // padding-bottom .calc-display gdy wynik ma 2 linie
+        resultWrapExprMinPx: 28, // --calc-expr-min na display gdy 2 linie (domyślnie 44)
         gridGapPx: 8, // szczelina między klawiszami
         cardPadEstimate: 28, // fallback gdy brak viewportBottomGapPx
         btnRowBase: 56, // odniesienie do skali fontu (nie wys. rzędu!)
@@ -93,10 +105,10 @@ window.CALC_LAYOUT_TUNE = {
             exprRem: 1.25, // wpisywany tekst + placeholder „Lub wpisz…”
             exprMinRem: 1, // dolna granica shrinku expr (mobile: nie poniżej exprMinPx)
             exprMinPx: 16, // próg iOS — focus bez zoomu WebKit
-            resultRem: 2.5, // bazowy rozmiar wyniku (przed zawijaniem/shrinkiem)
-            resultShrinkMinRem: 1.2, // min. font wyniku gdy 2 linie nie wystarczą
-            resultWrapMaxLines: 2, // max rzędów wyniku
-            resultWrapMaxExtraLines: 1, // +1 wiersz wys. ekraniku przy 2. linii
+            resultRem: 2.5, // bazowy rozmiar wyniku (CSS --calc-result-font)
+            resultShrinkMinRem: 1.2, // dolna granica fontu wyniku (probe binary search)
+            resultWrapMaxLines: 2, // max linii; najpierw shrink 1 linia, potem wrap
+            resultWrapMaxExtraLines: 1, // +1× linePx do budżetu wys. ekraniku (resolveCalcDisplayBudget)
             approxRem: 1.6, // znacznik „≈"
         },
 
@@ -141,7 +153,7 @@ window.CALC_LAYOUT_TUNE = {
             minShare: 0.14,
             maxShare: 0.32,
             minPx: 100,
-            maxPx: 240,
+            maxPx: 240, // budżet ekraniku; przy 2 liniach fitCalcLayout może podbić do wrapMin
             typingBonusShare: 0.012, // odrobinę więcej ekranu jak coś wpisuję
             typingBonusPx: 0,
             displayPadEstimate: 40,
@@ -157,15 +169,15 @@ window.CALC_LAYOUT_TUNE = {
             },
         },
 
-        displayPadY: 20,
+        displayPadY: 20, // padding góra/dół; przy 2 liniach dół → resultWrapPadBottom
         displayPadX: 22,
         exprMinHeight: 40,
         exprResultGap: 6,
         resultReserveEmpty: 52,
         resultAnimSlack: 4,
         resultReserveMin: 40,
-        resultWrapPadBottom: 8,
-        resultWrapExprMinPx: 32,
+        resultWrapPadBottom: 8, // padding-bottom ekranika przy 2 liniach wyniku
+        resultWrapExprMinPx: 32, // --calc-expr-min na display przy 2 liniach
         gridGapPx: 10,
         cardPadEstimate: 24,
         btnRowBase: 62, // desktop: większe odniesienie niż mobile
@@ -175,9 +187,9 @@ window.CALC_LAYOUT_TUNE = {
             exprMinRem: 0.9, // desktop może lekko zmniejszyć expr przy overflow
             exprMinPx: 16,
             resultRem: 3, // desktop: większy wynik niż mobile (2.5)
-            resultShrinkMinRem: 1.25,
+            resultShrinkMinRem: 1.25, // dolna granica fontu wyniku (probe binary search)
             resultWrapMaxLines: 2,
-            resultWrapMaxExtraLines: 1,
+            resultWrapMaxExtraLines: 1, // +linePx w budżecie przy drugiej linii
             approxRem: 1.6,
         },
 
@@ -242,6 +254,8 @@ function _calcScrollOverflowOpts(tune) {
     }
     return {
         enabled: pick('enabled', 'allowScrollOverflow', false),
+        compactViewportPx: s.compactViewportPx != null ? s.compactViewportPx : 500,
+        keypadMinPx: s.keypadMinPx != null ? s.keypadMinPx : 280,
         belowPx: pick('belowPx', 'scrollOverflowPx', 0),
         belowShare: pick('belowShare', 'scrollOverflowShare', 0),
         maxBelowPx: pick('maxBelowPx', 'scrollOverflowMaxPx', 0),
@@ -524,8 +538,16 @@ window.previewCurrentCalcLayout = function previewCurrentCalcLayout() {
         ? window.resolveCalcAvailHeightDetail(panel, card, t)
         : { height: window.resolveCalcAvailHeight(panel, card, t), visibleH: 0, overflowPx: 0 };
     var availH = availDetail.height;
+    var calcResultEl = document.getElementById('calcResult');
     var isTyping = !!(document.getElementById('calcExpr') && document.getElementById('calcExpr').value);
-    var budget = resolveCalcDisplayBudget(availH, isTyping, t);
+    var wrapLines = calcResultEl && calcResultEl.textContent
+        ? (calcResultEl.textContent.match(/\n/g) || []).length + 1
+        : 1;
+    var budget = resolveCalcDisplayBudget(availH, isTyping, t, {
+        resultExtraLines: Math.max(0, wrapLines - 1),
+        resultLinePx: display && display.clientHeight > 0 && wrapLines > 1
+            ? Math.ceil(display.clientHeight / wrapLines) : 0,
+    });
     var rowH = btn ? Math.round(btn.getBoundingClientRect().height) : 0;
     var btnScale = resolveKeypadFontScale(availH, rowH / (t.btnRowBase || 56), t);
     var baseRem = t.keypadFont && t.keypadFont.baseRem != null ? t.keypadFont.baseRem : 1.35;
@@ -537,6 +559,8 @@ window.previewCurrentCalcLayout = function previewCurrentCalcLayout() {
         visibleInViewportH: availDetail.visibleH,
         scrollOverflowPx: availDetail.overflowPx,
         scrollOverflowOn: availDetail.allowScrollOverflow,
+        panelScroll: document.body.classList.contains('calc-panel-scroll'),
+        resultLines: wrapLines,
         cardActualPx: cardH,
         cardBelowFoldPx: Math.max(0, cardH - availDetail.visibleH),
         displayShare: budget.sharePct,
