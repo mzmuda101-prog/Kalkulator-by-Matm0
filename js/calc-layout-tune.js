@@ -53,6 +53,9 @@ window.CALC_LAYOUT_TUNE = {
             maxPx: 160, // max. wys. wyświetlacza — podnieś jak za ciasno na wpisywanie
             typingBonusShare: 0, // +% wys. karty gdy coś wpisane (np. 0.02)
             typingBonusPx: 0, // albo +px na sztywno zamiast share
+            resultWrapMaxLines: 2, // max 2 rzędy wyniku — potem dopiero shrink fontu
+            resultWrapMaxExtraLines: 1, // +1 wiersz wys. ekraniku (2. linia wyniku)
+            resultShrinkMinRem: 1.2, // dolna granica fontu wyniku gdy 2 linie nie wystarczą
             displayPadEstimate: 24, // używane w min. strukturalnym (pad+expr+wynik)
             scrollOverflow: {
                 // mobile: zostaw wyłączone — panel i tak na pełną wysokość
@@ -121,6 +124,9 @@ window.CALC_LAYOUT_TUNE = {
             maxPx: 240,
             typingBonusShare: 0.012, // odrobinę więcej ekranu jak coś wpisuję
             typingBonusPx: 0,
+            resultWrapMaxLines: 2,
+            resultWrapMaxExtraLines: 1,
+            resultShrinkMinRem: 1.25,
             displayPadEstimate: 40,
             scrollOverflow: {
                 // .panels ma scroll — karta może wystawać pod dół ekranu
@@ -246,8 +252,9 @@ function _calcHeightFromCurve(c, panelH) {
     return y;
 }
 
-window.resolveCalcDisplayBudget = function resolveCalcDisplayBudget(panelH, isTyping, tune) {
+window.resolveCalcDisplayBudget = function resolveCalcDisplayBudget(panelH, isTyping, tune, wrapOpts) {
     tune = tune || window.getCalcLayoutTuneSection();
+    wrapOpts = wrapOpts || {};
     var c = tune.displayCurve || {};
     var raw = _calcHeightFromCurve(c, panelH);
     if (isTyping) {
@@ -260,9 +267,20 @@ window.resolveCalcDisplayBudget = function resolveCalcDisplayBudget(panelH, isTy
     var maxPx = c.maxPx != null ? c.maxPx : 200;
     var height = Math.max(minPx, Math.min(maxPx, Math.round(raw)));
 
-    var limit = 'curve'; // previewCurrentCalcLayout() pokaże co limituje: minPx | maxPx | curve
-    if (height <= minPx + 0.5) limit = 'minPx';
-    else if (height >= maxPx - 0.5) limit = 'maxPx';
+    var extraLines = Math.max(0, wrapOpts.resultExtraLines || 0);
+    var maxExtra = tune.resultWrapMaxExtraLines != null ? tune.resultWrapMaxExtraLines : 1;
+    extraLines = Math.min(extraLines, maxExtra);
+    var linePx = wrapOpts.resultLinePx || 0;
+    var wrapExtraPx = extraLines * linePx;
+    if (wrapExtraPx > 0) {
+        height += wrapExtraPx;
+        if (c.maxShare != null && panelH > 0) height = Math.min(Math.round(panelH * c.maxShare), height);
+    }
+
+    var limit = 'curve'; // previewCurrentCalcLayout() pokaże co limituje: minPx | maxPx | curve | wrap
+    if (wrapExtraPx > 0 && c.maxShare != null && panelH > 0 && height >= Math.round(panelH * c.maxShare) - 0.5) limit = 'wrap';
+    else if (height <= minPx + 0.5) limit = 'minPx';
+    else if (height >= maxPx - 0.5 && wrapExtraPx <= 0) limit = 'maxPx';
 
     var share = panelH > 0 ? Math.round((height / panelH) * 1000) / 1000 : 0;
     return {
@@ -274,6 +292,8 @@ window.resolveCalcDisplayBudget = function resolveCalcDisplayBudget(panelH, isTy
         minPx: minPx,
         maxPx: maxPx,
         structuralMin: structural,
+        wrapExtraPx: wrapExtraPx,
+        resultLines: extraLines + 1,
         limit: limit,
         heightMode: c.heightMode || 'share',
     };

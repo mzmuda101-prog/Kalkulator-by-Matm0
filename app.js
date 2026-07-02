@@ -1922,10 +1922,17 @@
             calcExpr.scrollTop = (clipped || atEnd) ? calcExpr.scrollHeight - maxExprH : 0;
         }
         var _calcFitProbe = null;
+        var _calcResultWrapLines = 1;
         function _calcResultFullText() {
             return calcResult ? (calcResult.textContent || '') : '';
         }
-        // [EN] Measure full result width (ignores DOM split into static text + animated span).
+        function _calcResultMaxWidth(row) {
+            if (!row) return 0;
+            var maxW = row.clientWidth;
+            if (calcApprox && !calcApprox.hidden) maxW -= calcApprox.offsetWidth + 8;
+            return maxW;
+        }
+        // [EN] Measure one result line width (probe — bez skracania fontu).
         function _measureCalcResultWidth(text, fontSizePx, row) {
             if (!calcResult || !row) return 0;
             if (!_calcFitProbe) {
@@ -1936,10 +1943,79 @@
             }
             var cs = getComputedStyle(calcResult);
             _calcFitProbe.style.font = cs.font;
-            _calcFitProbe.style.fontSize = fontSizePx + 'px';
+            _calcFitProbe.style.fontSize = fontSizePx != null ? (fontSizePx + 'px') : cs.fontSize;
             _calcFitProbe.style.letterSpacing = cs.letterSpacing;
             _calcFitProbe.textContent = text;
             return _calcFitProbe.offsetWidth;
+        }
+        function _calcResultLineHeightPx() {
+            if (!calcResult) return 44;
+            var cs = getComputedStyle(calcResult);
+            var fs = parseFloat(cs.fontSize) || 40;
+            var lh = parseFloat(cs.lineHeight);
+            if (!isFinite(lh) || lh < 2) lh = fs * 1.1;
+            return Math.ceil(lh);
+        }
+        // [EN] Max 2 lines at thousand groups; never a 3rd row — shrink font only if both rows overflow.
+        function _resultMaxLines() {
+            var t = getCalcLayoutTune();
+            return t.resultWrapMaxLines != null ? t.resultWrapMaxLines : 2;
+        }
+        function _resultLinesFit(lines, maxW, row, fontSizePx) {
+            for (var i = 0; i < lines.length; i++) {
+                if (_measureCalcResultWidth(lines[i], fontSizePx, row) > maxW + 1) return false;
+            }
+            return true;
+        }
+        function _wrapCalcResultLines(text, maxW, row, maxLines, fontSizePx) {
+            maxLines = maxLines != null ? maxLines : _resultMaxLines();
+            if (!text || maxW <= 0) return [''];
+            var tokens = String(text).trim().split(/\s+/).filter(Boolean);
+            if (!tokens.length) return [''];
+            var full = tokens.join('\u00a0');
+            if (_measureCalcResultWidth(full, fontSizePx, row) <= maxW + 1) return [full];
+            if (maxLines <= 1) return [full];
+            if (tokens.length === 1) return [full];
+            for (var i = tokens.length - 1; i >= 1; i--) {
+                var l1 = tokens.slice(0, i).join('\u00a0');
+                var l2 = tokens.slice(i).join('\u00a0');
+                if (_measureCalcResultWidth(l1, fontSizePx, row) <= maxW + 1
+                    && _measureCalcResultWidth(l2, fontSizePx, row) <= maxW + 1) return [l1, l2];
+            }
+            var splitAt = 1;
+            for (var j = 1; j < tokens.length; j++) {
+                var head = tokens.slice(0, j).join('\u00a0');
+                if (_measureCalcResultWidth(head, fontSizePx, row) <= maxW + 1) splitAt = j;
+                else break;
+            }
+            if (splitAt >= tokens.length) splitAt = tokens.length - 1;
+            return [tokens.slice(0, splitAt).join('\u00a0'), tokens.slice(splitAt).join('\u00a0')];
+        }
+        function _layoutCalcResultText(flat, maxW, row) {
+            var t = getCalcLayoutTune();
+            var maxLines = _resultMaxLines();
+            calcResult.style.fontSize = '';
+            var rootFs = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
+            var basePx = parseFloat(getComputedStyle(calcResult).fontSize) || rootFs * 2.5;
+            var minRem = t.resultShrinkMinRem != null ? t.resultShrinkMinRem : 1.2;
+            var minPx = Math.max(18, rootFs * minRem);
+            var fs = basePx;
+            var lines = _wrapCalcResultLines(flat, maxW, row, maxLines, fs);
+            if (!_resultLinesFit(lines, maxW, row, fs)) {
+                var guard = 0;
+                while (!_resultLinesFit(lines, maxW, row, fs) && fs > minPx && guard++ < 48) {
+                    fs = Math.max(minPx, fs - 1.5);
+                    lines = _wrapCalcResultLines(flat, maxW, row, maxLines, fs);
+                }
+            }
+            if (Math.abs(fs - basePx) < 0.5) calcResult.style.fontSize = '';
+            else calcResult.style.fontSize = fs + 'px';
+            return lines;
+        }
+        function _paintCalcResultText(flat, lines) {
+            var wrapped = lines.join('\n');
+            if (lines.length > 1) calcResult.textContent = wrapped;
+            else if (!calcResult.querySelector('.calc-result-new')) calcResult.textContent = flat;
         }
         // [EN] Mobile layout — values in js/calc-layout-tune.js (CALC_LAYOUT_TUNE.mobile).
         var _calcBtnScale = 1;
@@ -2036,7 +2112,10 @@
             card.style.setProperty('--calc-card-min-h', availH + 'px');
             var isEmpty = !calcExpr || !calcExpr.value;
             var budget = typeof window.resolveCalcDisplayBudget === 'function'
-                ? window.resolveCalcDisplayBudget(availH, !isEmpty, t)
+                ? window.resolveCalcDisplayBudget(availH, !isEmpty, t, {
+                    resultExtraLines: Math.max(0, (_calcResultWrapLines || 1) - 1),
+                    resultLinePx: _calcResultLineHeightPx(),
+                })
                 : { height: 120 };
             var displayH = budget.height;
             display.style.flex = '0 0 auto';
@@ -2060,6 +2139,7 @@
         function liveEval() {
             var empty = !calcExpr.value;
             _calcWasEmpty = empty;
+            if (empty) _calcResultWrapLines = 1;
             updatePlaceholderMarquee();
             // fitCalcLayout poza zmianą pusty/aktywny tylko przy resize/zakładce (unika skakania UI).
             // Wyrażenia z samych liczb całkowitych i +,−,×,() liczymy BigInt-em (dokładnie,
@@ -2109,48 +2189,37 @@
                 delete calcApprox.dataset.exact;
             }
         }
-        // [EN] Fit result: grow with free display height first; only mild width shrink (readable floor).
+        // [EN] Wynik: max 2 linie + większy ekranik; shrink fontu dopiero gdy 2 linie nie wystarczą.
         function fitCalcResultSize() {
             if (!calcResult) return;
-            calcResult.style.fontSize = '';
             calcResult.classList.remove('small', 'xsmall', 'xxsmall');
             var row = calcResult.closest('.calc-result-row');
-            var display = calcResult.closest('.calc-display');
-            if (!row || !display) return;
-            var maxW = row.clientWidth;
-            if (calcApprox && !calcApprox.hidden) maxW -= calcApprox.offsetWidth + 8;
+            if (!row) return;
+            var maxW = _calcResultMaxWidth(row);
             if (maxW <= 0) return;
-            var fullText = _calcResultFullText();
-            var rootFs = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
-            var basePx = parseFloat(getComputedStyle(calcResult).fontSize) || rootFs * 2.5;
-            var minPx = Math.max(20, rootFs * 1.3);
-            var mobileCalc = _isCalcMobileLayout();
-            var fs = basePx;
-            // Na mobile: zostaw domyślne 2.5rem — tylko szerokość może wymusić lekkie zmniejszenie.
-            if (!mobileCalc) {
-                var exprWrap = display.querySelector('.calc-expr-wrap');
-                var freeH = display.clientHeight - (exprWrap ? exprWrap.offsetHeight : 0) - 12;
-                var maxPx = Math.max(basePx, rootFs * 3.5);
-                if (freeH > basePx * 1.2) fs = Math.min(maxPx, Math.max(basePx, freeH * 0.42));
+            var flat = _calcResultFullText().replace(/\n/g, ' ').trim();
+            if (!flat) flat = '0';
+            var lines = _layoutCalcResultText(flat, maxW, row);
+            var prevLines = _calcResultWrapLines;
+            _calcResultWrapLines = lines.length;
+            _paintCalcResultText(flat, lines);
+            if (_calcResultWrapLines !== prevLines && _usesCalcFlexSplit()) {
+                fitCalcLayout();
+                return;
             }
-            var guard = 0;
-            while (_measureCalcResultWidth(fullText, fs, row) > maxW + 1 && fs > minPx && guard++ < 24) {
-                fs = Math.max(minPx, fs - 1.5);
-            }
-            if (mobileCalc && fs >= basePx - 0.5) calcResult.style.fontSize = '';
-            else calcResult.style.fontSize = fs + 'px';
-            // drugi przebieg po animacji znaku / pojawieniu się „≈"
             requestAnimationFrame(function() {
-                if (!calcResult) return;
-                var maxW2 = row.clientWidth;
-                if (calcApprox && !calcApprox.hidden) maxW2 -= calcApprox.offsetWidth + 8;
-                var fs2 = parseFloat(calcResult.style.fontSize) || basePx;
-                var g2 = 0;
-                while (_measureCalcResultWidth(_calcResultFullText(), fs2, row) > maxW2 + 1 && fs2 > minPx && g2++ < 8) {
-                    fs2 = Math.max(minPx, fs2 - 1.5);
+                if (!calcResult || !row) return;
+                var maxW2 = _calcResultMaxWidth(row);
+                if (maxW2 <= 0) return;
+                var flat2 = _calcResultFullText().replace(/\n/g, ' ').trim() || '0';
+                var lines2 = _layoutCalcResultText(flat2, maxW2, row);
+                var prev2 = _calcResultWrapLines;
+                _calcResultWrapLines = lines2.length;
+                _paintCalcResultText(flat2, lines2);
+                if (_calcResultWrapLines !== prev2 && _usesCalcFlexSplit()) {
+                    fitCalcLayout();
+                    return;
                 }
-                if (mobileCalc && fs2 >= basePx - 0.5) calcResult.style.fontSize = '';
-                else calcResult.style.fontSize = fs2 + 'px';
                 fitCalcExpr();
                 _clampResultInDisplay();
             });

@@ -668,16 +668,16 @@
             font-family: var(--font-mono);
             letter-spacing: -0.03em;
             line-height: 1.1;
-            /* Jedna linia; JS dopasowuje rozmiar (najpierw rośnie z wyświetlaczem, potem lekko maleje). */
+            /* Zawijanie max 2 linie; ewentualny shrink dopiero po zapełnieniu obu. */
             min-height: 1.1em;
-            white-space: nowrap;
+            white-space: pre-line;
             word-break: normal;
-            overflow: hidden;
+            overflow: visible;
             text-align: right;
             flex: 0 1 auto;
             min-width: 0;
             max-width: 100%;
-            width: auto;
+            width: 100%;
             transition: font-size 0.12s ease-out;
             cursor: pointer;
         }
@@ -688,16 +688,16 @@
         /* Wiersz wyniku: opcjonalny znacznik „≈" (zaokrąglenie) tuż przed liczbą, do prawej. */
         .calc-result-row {
             display: flex;
-            align-items: center;
+            align-items: flex-end;
             justify-content: flex-end;
             gap: 8px;
             width: 100%;
             grid-row: 2;
             min-width: 0;
             flex: 0 0 auto;
-            overflow: hidden;
+            overflow: visible;
         }
-        .calc-result-row .calc-result { width: auto; max-width: 100%; }
+        .calc-result-row .calc-result { width: 100%; max-width: 100%; }
         .calc-approx {
             flex: 0 0 auto;
             font-size: 1.6rem;
